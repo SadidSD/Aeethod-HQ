@@ -265,14 +265,9 @@ export class GameEngine {
     if (this.keys.has('a')||this.keys.has('arrowleft')) dx-=1;
     if (this.keys.has('d')||this.keys.has('arrowright')) dx+=1;
     if (dx!==0&&dy!==0) { dx*=0.7071; dy*=0.7071; }
-    const isCEO =
-      this.localPlayerInfo?.role === 'Founder' ||
-      this.localPlayerInfo?.role?.toLowerCase().includes('ceo') ||
-      this.localPlayerInfo?.role?.toLowerCase().includes('founder');
     const baseSpeed = 3.6;
     const isSprinting = this.keys.has('shift');
-    const speedMultiplier = (isCEO ? 2.0 : 1.0) * (isSprinting ? 1.25 : 1.0);
-    const spd = baseSpeed * speedMultiplier;
+    const spd = isSprinting ? baseSpeed * 1.85 : baseSpeed;
     this.state.player.speed = spd;
 
     const r = 6;
