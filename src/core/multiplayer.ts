@@ -1,9 +1,5 @@
-import { createClient, RealtimeChannel } from '@supabase/supabase-js';
-
-// Supabase configuration
-const SUPABASE_URL = 'https://sxnhywghloehbeiansht.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bmh5d2dobG9laGJlaWFuc2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NDU5NDcsImV4cCI6MjA4NTMyMTk0N30.C4t2Qk7Z5eU5_56pI9WzY5b3K6u9K4y3M7n8P9q1R2s';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabaseClient';
 
 export type PlayerRole = 'Founder' | 'Developer' | 'Designer' | 'Marketer' | 'Guest';
 
@@ -40,7 +36,7 @@ export interface ChatMessage {
 }
 
 export class MultiplayerManager {
-  private supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  private supabase = supabase;
   private channel: RealtimeChannel | null = null;
   public localPlayer: LocalPlayerInfo;
   public remotePlayers = new Map<string, RemotePlayer>();

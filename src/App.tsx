@@ -39,6 +39,10 @@ export default function App() {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
 
+  useEffect(() => {
+    agencyManager.onCloudUpdate = handleRefresh;
+  }, [agencyManager, handleRefresh]);
+
   // Check URL query params for ?room=ROOM_CODE on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

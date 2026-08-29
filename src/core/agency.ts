@@ -12,9 +12,13 @@ import {
   AchievementCategory,
   DepartmentAlert
 } from './agencyTypes';
+import { supabase } from '../lib/supabaseClient';
 
 export class AgencyManager {
   state: AgencyState;
+  private cloudSyncTimer: any = null;
+  public onCloudUpdate: (() => void) | null = null;
+  public isCloudSynced = false;
 
   constructor() {
     this.state = this.createSeedState();
@@ -29,11 +33,103 @@ export class AgencyManager {
         this.save();
       }
     }
+    // Attempt background cloud hydration & realtime subscription
+    this.initCloudSync();
+  }
+
+  private async initCloudSync() {
+    try {
+      await this.loadFromCloud();
+      this.subscribeToRealtimeSync();
+    } catch (e) {
+      console.warn('Supabase offline or initial load skipped:', e);
+    }
   }
 
   save() {
     this.state.savedAt = new Date().toISOString();
     localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+
+    // Debounced Cloud Sync
+    if (this.cloudSyncTimer) clearTimeout(this.cloudSyncTimer);
+    this.cloudSyncTimer = setTimeout(() => {
+      this.saveToCloud();
+    }, 1200);
+  }
+
+  async saveToCloud() {
+    try {
+      const payload = {
+        user_id: '00000000-0000-0000-0000-000000000001', // Default studio workspace slot
+        username: 'AEETHOD_HQ',
+        save_data: this.state,
+        buildings_count: this.state.tasks.length,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('world_saves')
+        .upsert(payload, { onConflict: 'username' });
+
+      if (!error) {
+        this.isCloudSynced = true;
+      }
+    } catch (err) {
+      console.warn('Cloud sync error:', err);
+    }
+  }
+
+  async loadFromCloud(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('world_saves')
+        .select('save_data')
+        .eq('username', 'AEETHOD_HQ')
+        .single();
+
+      if (!error && data && data.save_data) {
+        const cloudState = data.save_data as AgencyState;
+        if (cloudState.projects && cloudState.tasks) {
+          this.state = cloudState;
+          localStorage.setItem('aeethod_agency', JSON.stringify(cloudState));
+          this.isCloudSynced = true;
+          this.onCloudUpdate?.();
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('Cloud load error:', err);
+    }
+    return false;
+  }
+
+  subscribeToRealtimeSync() {
+    try {
+      const channel = supabase.channel('aeethod-agency-sync');
+      channel
+        .on('broadcast', { event: 'agency_state_sync' }, (payload) => {
+          if (payload.payload && payload.payload.savedAt !== this.state.savedAt) {
+            this.state = payload.payload;
+            localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+            this.onCloudUpdate?.();
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Realtime subscription error:', e);
+    }
+  }
+
+  broadcastLiveState() {
+    try {
+      supabase.channel('aeethod-agency-sync').send({
+        type: 'broadcast',
+        event: 'agency_state_sync',
+        payload: this.state,
+      });
+    } catch (e) {
+      console.warn('Realtime broadcast error:', e);
+    }
   }
 
   load(): boolean {
