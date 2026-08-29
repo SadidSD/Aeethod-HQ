@@ -182,10 +182,11 @@ export class GameEngine {
     if (wx >= T(32) && wx <= T(34) && wy >= T(26) && wy <= T(36)) return true;
     if (Math.hypot(wx - T(36), wy - T(38)) <= S * 1.1) return true;
 
-    // 8. Reception Desk
-    const rDeskCX = T(22), rDeskCY = T(36);
+    // 8. Reception Desk (Centered at T(22), T(33.5))
+    const rDeskCX = T(22), rDeskCY = T(33.5);
     const rDist = Math.hypot(wx - rDeskCX, wy - rDeskCY);
-    if (rDist >= S * 2.0 && rDist <= S * 3.4 && wy >= rDeskCY - 4) return true;
+    const angle = Math.atan2(wy - rDeskCY, wx - rDeskCX);
+    if (rDist >= S * 2.6 && rDist <= S * 3.8 && angle >= Math.PI * 0.16 && angle <= Math.PI * 0.84) return true;
 
     return false;
   }
