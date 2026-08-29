@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0c1015;
+  --panel: #131922;
+  --border: rgba(56, 189, 248, 0.2);
+  --accent: #38bdf8;
+  --amber: #f59e0b;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: #e2e8f0;
+  font-family: 'Exo 2', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.btn-office {
+  background: linear-gradient(180deg, #182230 0%, #101620 100%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-office:hover {
+  background: linear-gradient(180deg, #202d40 0%, #151e2c 100%);
+  border-color: rgba(56, 189, 248, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-office:active {
+  transform: translateY(0);
+}
