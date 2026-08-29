@@ -35,6 +35,7 @@ export interface RemotePlayer {
   currentRoom: string;
   activeWorkstation?: string | null;
   lastMessage?: { text: string; timestamp: number };
+  lastSeen?: number;
 }
 
 export interface ChatMessage {
@@ -54,6 +55,7 @@ export class MultiplayerManager {
   public remotePlayers = new Map<string, RemotePlayer>();
   public currentRoomId: string | null = null;
   public isConnected = false;
+  private pruneInterval: any = null;
 
   // Throttling for position updates
   private lastPositionSent = 0;
@@ -69,7 +71,13 @@ export class MultiplayerManager {
     const savedName = localStorage.getItem('coop_player_name') || 'Sadid';
     const savedRole = (localStorage.getItem('coop_player_role') as PlayerRole) || 'Founder';
     const savedColor = localStorage.getItem('coop_player_color') || '#f59e0b';
-    const savedId = localStorage.getItem('coop_player_id') || `p_${Math.random().toString(36).slice(2, 9)}`;
+    
+    // Unique ID per browser tab to avoid ghost conflicts between multiple open tabs/refreshes
+    let tabId = sessionStorage.getItem('coop_tab_session_id');
+    if (!tabId) {
+      tabId = `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+      sessionStorage.setItem('coop_tab_session_id', tabId);
+    }
 
     let savedChar: CharacterSetup = {
       skinTone: '#ffdbac',
@@ -86,15 +94,38 @@ export class MultiplayerManager {
       if (stored) savedChar = JSON.parse(stored);
     } catch (e) {}
 
-    localStorage.setItem('coop_player_id', savedId);
-
     this.localPlayer = {
-      id: savedId,
+      id: tabId,
       name: savedName,
       role: savedRole,
       color: savedColor,
       character: savedChar,
     };
+
+    // Clean disconnect on page reload or tab close
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        this.leaveRoom();
+      });
+      window.addEventListener('pagehide', () => {
+        this.leaveRoom();
+      });
+    }
+
+    // Auto-prune stale/ghost remote players
+    this.pruneInterval = setInterval(() => {
+      const now = Date.now();
+      let changed = false;
+      for (const [id, rp] of Array.from(this.remotePlayers.entries())) {
+        if (rp.lastSeen && now - rp.lastSeen > 8000) {
+          this.remotePlayers.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        this.onPlayersUpdate?.(new Map(this.remotePlayers));
+      }
+    }, 2500);
   }
 
   public updateLocalProfile(name: string, role: PlayerRole, color: string, character?: CharacterSetup) {
@@ -116,6 +147,7 @@ export class MultiplayerManager {
         role: this.localPlayer.role,
         color: this.localPlayer.color,
         character: this.localPlayer.character,
+        lastActive: Date.now(),
       });
     }
   }
@@ -140,6 +172,7 @@ export class MultiplayerManager {
       this.channel.on('presence', { event: 'sync' }, () => {
         const presenceState = this.channel!.presenceState();
         const activeIds = new Set<string>();
+        const now = Date.now();
 
         Object.keys(presenceState).forEach((key) => {
           const presences = presenceState[key] as any[];
@@ -160,6 +193,7 @@ export class MultiplayerManager {
                   targetY: data.y || 1280,
                   facing: 'down',
                   currentRoom: 'Reception',
+                  lastSeen: now,
                 });
               } else {
                 const existing = this.remotePlayers.get(data.id)!;
@@ -167,6 +201,7 @@ export class MultiplayerManager {
                 existing.role = data.role || existing.role;
                 existing.color = data.color || existing.color;
                 if (data.character) existing.character = data.character;
+                existing.lastSeen = now;
               }
             }
           }
@@ -192,15 +227,17 @@ export class MultiplayerManager {
 
       // Handle Broadcast: Player Movement
       this.channel.on('broadcast', { event: 'player_move' }, ({ payload }) => {
-        const { id, x, y, facing, currentRoom, activeWorkstation } = payload;
+        const { id, x, y, facing, currentRoom, activeWorkstation, character, name, role, color } = payload;
         if (!id || id === this.localPlayer.id) return;
+        const now = Date.now();
 
         if (!this.remotePlayers.has(id)) {
           this.remotePlayers.set(id, {
             id,
-            name: payload.name || 'Teammate',
-            role: payload.role || 'Guest',
-            color: payload.color || '#38bdf8',
+            name: name || payload.name || 'Teammate',
+            role: role || payload.role || 'Guest',
+            color: color || payload.color || '#38bdf8',
+            character,
             x,
             y,
             targetX: x,
@@ -208,6 +245,7 @@ export class MultiplayerManager {
             facing: facing || 'down',
             currentRoom: currentRoom || 'Reception',
             activeWorkstation,
+            lastSeen: now,
           });
         } else {
           const player = this.remotePlayers.get(id)!;
@@ -216,6 +254,11 @@ export class MultiplayerManager {
           player.facing = facing || player.facing;
           player.currentRoom = currentRoom || player.currentRoom;
           player.activeWorkstation = activeWorkstation;
+          if (character) player.character = character;
+          if (name) player.name = name;
+          if (role) player.role = role;
+          if (color) player.color = color;
+          player.lastSeen = now;
         }
 
         this.onPlayersUpdate?.(new Map(this.remotePlayers));
@@ -248,6 +291,8 @@ export class MultiplayerManager {
             name: this.localPlayer.name,
             role: this.localPlayer.role,
             color: this.localPlayer.color,
+            character: this.localPlayer.character,
+            lastActive: Date.now(),
           });
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           this.isConnected = false;
@@ -257,7 +302,7 @@ export class MultiplayerManager {
 
       return true;
     } catch (err) {
-      console.error('Failed to join co-op room', err);
+      console.error('Failed to join room', err);
       this.isConnected = false;
       this.onConnectionChange?.(false, null);
       return false;
