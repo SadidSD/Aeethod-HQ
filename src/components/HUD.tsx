@@ -1,32 +1,44 @@
 import { GameState } from '../core/types';
-import { Globe } from 'lucide-react';
 
 interface Props {
   state: GameState;
-  onOpenMultiplayer?: () => void;
-  coopConnected?: boolean;
-  coopRoomId?: string | null;
-  coopPlayerCount?: number;
+  onOpenProfile?: () => void;
+  playerName?: string;
+  playerRole?: string;
+  playerAura?: string;
+  onlineCount?: number;
+  roomId?: string | null;
 }
 
 export default function HUD({
   state,
-  onOpenMultiplayer,
-  coopConnected = false,
-  coopRoomId = null,
-  coopPlayerCount = 1,
+  onOpenProfile,
+  playerName = 'Sadid',
+  playerRole = 'Founder',
+  playerAura = '#f59e0b',
+  onlineCount = 1,
+  roomId = 'AEETHOD-HQ',
 }: Props) {
   const inv = state.player.inventory;
+
+  const roleIcons: Record<string, string> = {
+    Founder: '👑',
+    Developer: '🧑‍💻',
+    Designer: '🎨',
+    Marketer: '🤝',
+    Guest: '👤',
+  };
+  const roleIcon = roleIcons[playerRole] || '🧑‍💻';
 
   return (
     <div className="fixed top-3 left-4 right-4 z-20 flex justify-between items-start pointer-events-none">
       {/* Top Left Title & Position */}
-      <div className="bg-[#111822]/90 border border-sky-500/20 px-4 py-2 rounded-lg backdrop-blur-md shadow-lg pointer-events-auto">
+      <div className="bg-[#111822]/90 border border-sky-500/20 px-4 py-2 rounded-xl backdrop-blur-md shadow-lg pointer-events-auto">
         <div className="flex items-center gap-2.5">
           <span className="text-xl">🏢</span>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xs font-orbitron font-bold tracking-widest text-sky-400">OFFICE AUTOMATION</h1>
+              <h1 className="text-xs font-orbitron font-bold tracking-widest text-sky-400">AEETHOD HQ</h1>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono font-semibold border border-sky-500/30">
                 📍 {state.activeRoom || 'Reception & Lobby'}
               </span>
@@ -38,21 +50,29 @@ export default function HUD({
         </div>
       </div>
 
-      {/* Top Right Resources & Co-Op Button */}
+      {/* Top Right: Player Character Badge & Resources */}
       <div className="flex items-center gap-3 pointer-events-auto">
+        {/* Character Profile & Live Status Badge */}
         <button
-          onClick={onOpenMultiplayer}
-          className={`px-3 py-2 rounded-lg border font-mono text-xs font-bold flex items-center gap-1.5 transition backdrop-blur-md shadow-lg ${
-            coopConnected
-              ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900'
-              : 'bg-[#111822]/90 border-sky-500/30 text-sky-300 hover:bg-[#1a2332]'
-          }`}
+          onClick={onOpenProfile}
+          className="px-3.5 py-2 rounded-xl border border-slate-700/80 bg-[#0d141f]/95 hover:border-emerald-500/70 text-slate-200 font-mono text-xs font-bold flex items-center gap-2 transition backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.4)] group"
+          title="Click to customize character name, role, and gear"
         >
-          <Globe className="h-3.5 w-3.5" />
-          <span>
-            {coopConnected
-              ? `🌐 Co-Op: ${coopPlayerCount} Online (${coopRoomId})`
-              : '🌐 Go Co-Op'}
+          <span
+            className="w-2.5 h-2.5 rounded-full animate-pulse"
+            style={{ backgroundColor: playerAura }}
+          />
+          <span className="text-sm">{roleIcon}</span>
+          <span className="text-slate-100 font-bold group-hover:text-emerald-300 transition">
+            {playerName}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+            {playerRole}
+          </span>
+          <span className="text-slate-500">|</span>
+          <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+            <span>🟢</span>
+            <span>{onlineCount} Online</span>
           </span>
         </button>
 

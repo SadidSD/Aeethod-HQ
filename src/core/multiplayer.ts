@@ -3,11 +3,22 @@ import { supabase } from '../lib/supabaseClient';
 
 export type PlayerRole = 'Founder' | 'Developer' | 'Designer' | 'Marketer' | 'Guest';
 
+export interface CharacterSetup {
+  skinTone: string;
+  hairStyle: 'classic' | 'spiky' | 'fade' | 'bun' | 'cyber_visor' | 'executive_cap';
+  hairColor: string;
+  outfit: 'executive_suit' | 'kitty_hoodie' | 'spider_jacket' | 'studio_turtleneck' | 'emerald_trench';
+  auraColor: string;
+  accessory: 'none' | 'coffee' | 'laptop' | 'hologram' | 'contract' | 'vip_badge';
+  title: string;
+}
+
 export interface LocalPlayerInfo {
   id: string;
   name: string;
   role: PlayerRole;
   color: string;
+  character: CharacterSetup;
 }
 
 export interface RemotePlayer {
@@ -15,6 +26,7 @@ export interface RemotePlayer {
   name: string;
   role: PlayerRole;
   color: string;
+  character?: CharacterSetup;
   x: number;
   y: number;
   targetX: number;
@@ -54,10 +66,25 @@ export class MultiplayerManager {
   public onConnectionChange: ((connected: boolean, roomId: string | null) => void) | null = null;
 
   constructor() {
-    const savedName = localStorage.getItem('coop_player_name') || 'Founder';
+    const savedName = localStorage.getItem('coop_player_name') || 'Sadid';
     const savedRole = (localStorage.getItem('coop_player_role') as PlayerRole) || 'Founder';
-    const savedColor = localStorage.getItem('coop_player_color') || '#38bdf8';
+    const savedColor = localStorage.getItem('coop_player_color') || '#f59e0b';
     const savedId = localStorage.getItem('coop_player_id') || `p_${Math.random().toString(36).slice(2, 9)}`;
+
+    let savedChar: CharacterSetup = {
+      skinTone: '#ffdbac',
+      hairStyle: 'classic',
+      hairColor: '#0f172a',
+      outfit: 'executive_suit',
+      auraColor: '#f59e0b',
+      accessory: 'coffee',
+      title: 'Founder & CEO',
+    };
+
+    try {
+      const stored = localStorage.getItem('aeethod_character_setup');
+      if (stored) savedChar = JSON.parse(stored);
+    } catch (e) {}
 
     localStorage.setItem('coop_player_id', savedId);
 
@@ -66,13 +93,18 @@ export class MultiplayerManager {
       name: savedName,
       role: savedRole,
       color: savedColor,
+      character: savedChar,
     };
   }
 
-  public updateLocalProfile(name: string, role: PlayerRole, color: string) {
+  public updateLocalProfile(name: string, role: PlayerRole, color: string, character?: CharacterSetup) {
     this.localPlayer.name = name;
     this.localPlayer.role = role;
     this.localPlayer.color = color;
+    if (character) {
+      this.localPlayer.character = character;
+      localStorage.setItem('aeethod_character_setup', JSON.stringify(character));
+    }
     localStorage.setItem('coop_player_name', name);
     localStorage.setItem('coop_player_role', role);
     localStorage.setItem('coop_player_color', color);
@@ -83,6 +115,7 @@ export class MultiplayerManager {
         name: this.localPlayer.name,
         role: this.localPlayer.role,
         color: this.localPlayer.color,
+        character: this.localPlayer.character,
       });
     }
   }
@@ -120,6 +153,7 @@ export class MultiplayerManager {
                   name: data.name || 'Teammate',
                   role: data.role || 'Guest',
                   color: data.color || '#38bdf8',
+                  character: data.character,
                   x: data.x || 672,
                   y: data.y || 1280,
                   targetX: data.x || 672,
@@ -132,6 +166,7 @@ export class MultiplayerManager {
                 existing.name = data.name || existing.name;
                 existing.role = data.role || existing.role;
                 existing.color = data.color || existing.color;
+                if (data.character) existing.character = data.character;
               }
             }
           }

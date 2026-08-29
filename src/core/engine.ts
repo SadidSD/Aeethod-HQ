@@ -3,7 +3,7 @@ import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, BUILDING_SIZES } from './constants';
 import { createFixedMap, DOORS, getRoomAt, DIAMOND_CX, DIAMOND_CY, DIAMOND_R } from './world';
 import { getTerrainSprite, getBuildingSprite } from '../render/SpriteManager';
 import { AgencyManager } from './agency';
-import { RemotePlayer } from './multiplayer';
+import { RemotePlayer, CharacterSetup } from './multiplayer';
 
 // Helper: Convert tile coords to pixel center
 const T = (v: number) => v * TILE_SIZE;
@@ -1814,15 +1814,170 @@ export class GameEngine {
     ctx.strokeStyle = 'rgba(100,100,100,0.5)'; ctx.lineWidth = 4; ctx.strokeRect(0, 0, MW, MH);
   }
 
+  // --- PLAYER & CHARACTER RENDERING ---
+  public localPlayerInfo?: { name: string; role: string; color: string; character?: CharacterSetup };
+
+  private drawCustomCharacter(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    char?: CharacterSetup,
+    name?: string,
+    role?: string,
+    color?: string
+  ) {
+    const skin = char?.skinTone || '#ffdbac';
+    const hair = char?.hairColor || '#0f172a';
+    const style = char?.hairStyle || 'classic';
+    const outfit = char?.outfit || 'executive_suit';
+    const aura = char?.auraColor || color || '#f59e0b';
+    const acc = char?.accessory || 'none';
+
+    // 1. Ambient Floor Aura
+    const auraGrad = ctx.createRadialGradient(x, y + 8, 3, x, y + 8, 20);
+    auraGrad.addColorStop(0, aura + '66');
+    auraGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 8, 20, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 8, 8, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Body / Outfit
+    const outfitColors: Record<string, { p: string; s: string; t: string }> = {
+      executive_suit: { p: '#0f172a', s: '#ffffff', t: '#f59e0b' },
+      kitty_hoodie: { p: '#f472b6', s: '#fce7f3', t: '#db2777' },
+      spider_jacket: { p: '#1e3a8a', s: '#dc2626', t: '#38bdf8' },
+      studio_turtleneck: { p: '#18181b', s: '#10b981', t: '#71717a' },
+      emerald_trench: { p: '#064e3b', s: '#047857', t: '#fbbf24' },
+    };
+    const o = outfitColors[outfit] || outfitColors.executive_suit;
+
+    ctx.fillStyle = o.p;
+    ctx.fillRect(x - 6, y - 6, 12, 14);
+
+    // Shirt & Tie/Trim
+    ctx.fillStyle = o.s;
+    ctx.fillRect(x - 2, y - 6, 4, 6);
+    ctx.fillStyle = o.t;
+    ctx.fillRect(x - 1, y - 4, 2, 5);
+
+    // Hands
+    ctx.fillStyle = skin;
+    ctx.fillRect(x - 8, y + 2, 2, 3);
+    ctx.fillRect(x + 6, y + 2, 2, 3);
+
+    // 4. Head (Skin Tone)
+    ctx.fillStyle = skin;
+    ctx.beginPath();
+    ctx.arc(x, y - 11, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x - 2.5, y - 11.5, 1, 1.5);
+    ctx.fillRect(x + 1.5, y - 11.5, 1, 1.5);
+
+    // 5. Hair & Style
+    ctx.fillStyle = hair;
+    if (style === 'classic') {
+      ctx.beginPath();
+      ctx.arc(x, y - 13, 5, Math.PI, Math.PI * 2);
+      ctx.fill();
+    } else if (style === 'spiky') {
+      ctx.beginPath();
+      ctx.moveTo(x - 5, y - 12);
+      ctx.lineTo(x - 3, y - 18);
+      ctx.lineTo(x, y - 14);
+      ctx.lineTo(x + 3, y - 18);
+      ctx.lineTo(x + 5, y - 12);
+      ctx.closePath();
+      ctx.fill();
+    } else if (style === 'fade') {
+      ctx.beginPath();
+      ctx.arc(x, y - 13.5, 4.5, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x - 4.5, y - 13.5, 9, 2);
+    } else if (style === 'bun') {
+      ctx.beginPath();
+      ctx.arc(x, y - 13, 5, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, y - 18, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (style === 'cyber_visor') {
+      ctx.beginPath();
+      ctx.arc(x, y - 13, 5, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillRect(x - 4, y - 12, 8, 2.5);
+    } else if (style === 'executive_cap') {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(x - 6, y - 16, 12, 4);
+      ctx.fillRect(x - 7, y - 13, 14, 1.5);
+    }
+
+    // 6. Held Accessory
+    if (acc === 'coffee') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(x + 8, y, 3, 5);
+    } else if (acc === 'laptop') {
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(x - 9, y - 1, 4, 5);
+    } else if (acc === 'hologram') {
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(x + 8, y + 2, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (acc === 'contract') {
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(x + 7, y - 1, 4, 6);
+    } else if (acc === 'vip_badge') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(x + 2, y - 2, 2, 3);
+    }
+
+    // 7. Floating Name & Role Badge
+    if (name) {
+      ctx.save();
+      const roleLabel = role ? `[${role}] ` : '';
+      const nameTag = `${roleLabel}${name}`;
+      ctx.font = 'bold 8px sans-serif';
+      const tw = ctx.measureText(nameTag).width;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.beginPath();
+      ctx.roundRect(x - (tw + 10) / 2, y - 27, tw + 10, 12, 3);
+      ctx.fill();
+      ctx.strokeStyle = aura || '#38bdf8';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.textAlign = 'center';
+      ctx.fillText(nameTag, x, y - 18);
+      ctx.restore();
+    }
+  }
+
   // --- PLAYER ---
   private drawPlayer(ctx: CanvasRenderingContext2D) {
-    const px=this.state.player.x, py=this.state.player.y;
-    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px,py+8,8,4,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1e293b'; ctx.fillRect(px-6,py-6,12,14);
-    ctx.fillStyle='#fff'; ctx.fillRect(px-2,py-6,4,6);
-    ctx.fillStyle='#38bdf8'; ctx.fillRect(px-1,py-4,2,5);
-    ctx.fillStyle='#fbcfe8'; ctx.beginPath(); ctx.arc(px,py-11,5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#334155'; ctx.beginPath(); ctx.arc(px,py-13,5,Math.PI,Math.PI*2); ctx.fill();
+    const px = this.state.player.x;
+    const py = this.state.player.y;
+    const pInfo = this.localPlayerInfo;
+    this.drawCustomCharacter(
+      ctx,
+      px,
+      py,
+      pInfo?.character,
+      pInfo?.name || 'You',
+      pInfo?.role || 'Founder',
+      pInfo?.color || '#f59e0b'
+    );
   }
 
   // --- MULTIPLAYER REMOTE PLAYERS ---
@@ -1831,51 +1986,17 @@ export class GameEngine {
       const rx = rp.x;
       const ry = rp.y;
 
-      // 1. Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(rx, ry + 8, 8, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
+      this.drawCustomCharacter(
+        ctx,
+        rx,
+        ry,
+        rp.character,
+        rp.name,
+        rp.role,
+        rp.color
+      );
 
-      // 2. Body / Suit (colored by player's chosen theme)
-      ctx.fillStyle = rp.color || '#0284c7';
-      ctx.fillRect(rx - 6, ry - 6, 12, 14);
-
-      // 3. Shirt collar & tie
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(rx - 2, ry - 6, 4, 6);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(rx - 1, ry - 4, 2, 5);
-
-      // 4. Head & hair
-      ctx.fillStyle = '#fbcfe8';
-      ctx.beginPath();
-      ctx.arc(rx, ry - 11, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.arc(rx, ry - 13, 5, Math.PI, Math.PI * 2);
-      ctx.fill();
-
-      // 5. Floating Name Tag & Role Badge
-      ctx.save();
-      const nameTag = `[${rp.role}] ${rp.name}`;
-      ctx.font = 'bold 8px sans-serif';
-      const tw = ctx.measureText(nameTag).width;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.beginPath();
-      ctx.roundRect(rx - (tw + 10) / 2, ry - 27, tw + 10, 12, 3);
-      ctx.fill();
-      ctx.strokeStyle = rp.color || '#38bdf8';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.textAlign = 'center';
-      ctx.fillText(nameTag, rx, ry - 18);
-      ctx.restore();
-
-      // 6. Speech Bubble if recent chat
+      // Speech Bubble if recent chat
       if (rp.lastMessage && Date.now() - rp.lastMessage.timestamp < 6000) {
         ctx.save();
         const msg = rp.lastMessage.text;
@@ -1885,7 +2006,7 @@ export class GameEngine {
         ctx.beginPath();
         ctx.roundRect(rx - mw / 2, ry - 50, mw, 18, 4);
         ctx.fill();
-        ctx.strokeStyle = '#38bdf8';
+        ctx.strokeStyle = rp.color || '#38bdf8';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
@@ -1895,7 +2016,7 @@ export class GameEngine {
         ctx.lineTo(rx, ry - 28);
         ctx.lineTo(rx + 3, ry - 32);
         ctx.closePath();
-        ctx.fillStyle = '#38bdf8';
+        ctx.fillStyle = rp.color || '#38bdf8';
         ctx.fill();
 
         ctx.fillStyle = '#ffffff';

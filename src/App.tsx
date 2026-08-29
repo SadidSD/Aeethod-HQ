@@ -15,7 +15,7 @@ import DesignerModal from './components/DesignerModal';
 import FrontendDevModal from './components/FrontendDevModal';
 import BackendDevModal from './components/BackendDevModal';
 import ClientModal from './components/ClientModal';
-import MultiplayerModal from './components/MultiplayerModal';
+import LoginModal from './components/LoginModal';
 import OfficeChat from './components/OfficeChat';
 
 export default function App() {
@@ -26,7 +26,9 @@ export default function App() {
   const [showComputer, setShowComputer] = useState(false);
   const [showDesignerPC, setShowDesignerPC] = useState(false);
   const [showClientPC, setShowClientPC] = useState(false);
-  const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(() => {
+    return !localStorage.getItem('aeethod_logged_in');
+  });
   const [activeMemberModal, setActiveMemberModal] = useState<string | null>(null);
   const [activeBoardModal, setActiveBoardModal] = useState<'leads' | 'architecture' | 'content' | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -43,21 +45,25 @@ export default function App() {
     agencyManager.onCloudUpdate = handleRefresh;
   }, [agencyManager, handleRefresh]);
 
-  // Check URL query params for ?room=ROOM_CODE on load
+  // Auto-connect to shared studio lobby room on start
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const roomParam = params.get('room');
-    if (roomParam) {
-      multiplayer.joinRoom(roomParam).then(() => {
-        handleRefresh();
-      });
-    }
+    const roomParam = params.get('room') || 'AEETHOD-HQ';
+    multiplayer.joinRoom(roomParam).then(() => {
+      handleRefresh();
+    });
   }, [multiplayer, handleRefresh]);
 
   const handleEngineReady = useCallback(
     (engine: GameEngine) => {
       engineRef.current = engine;
       engine.agencyManager = agencyManager;
+      engine.localPlayerInfo = {
+        name: multiplayer.localPlayer.name,
+        role: multiplayer.localPlayer.role,
+        color: multiplayer.localPlayer.color,
+        character: multiplayer.localPlayer.character,
+      };
       setGameState({ ...engine.state });
 
       // Link multiplayer to engine
@@ -72,7 +78,11 @@ export default function App() {
         handleRefresh();
       };
 
-      multiplayer.onConnectionChange = () => {
+      multiplayer.onChatMessage = (msg) => {
+        if (engineRef.current && engineRef.current.remotePlayers.has(msg.senderId)) {
+          const rp = engineRef.current.remotePlayers.get(msg.senderId)!;
+          rp.lastMessage = { text: msg.text, timestamp: msg.timestamp };
+        }
         handleRefresh();
       };
 
@@ -103,11 +113,23 @@ export default function App() {
     [agencyManager, multiplayer, handleRefresh]
   );
 
+  // Sync engine localPlayerInfo whenever multiplayer localPlayer updates
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.localPlayerInfo = {
+        name: multiplayer.localPlayer.name,
+        role: multiplayer.localPlayer.role,
+        color: multiplayer.localPlayer.color,
+        character: multiplayer.localPlayer.character,
+      };
+    }
+  }, [multiplayer.localPlayer, refreshTrigger]);
+
   const isAnyModalOpen =
     showComputer ||
     showDesignerPC ||
     showClientPC ||
-    showMultiplayerModal ||
+    showLoginModal ||
     activeMemberModal !== null ||
     activeBoardModal !== null;
 
@@ -117,7 +139,7 @@ export default function App() {
         setShowComputer(false);
         setShowDesignerPC(false);
         setShowClientPC(false);
-        setShowMultiplayerModal(false);
+        setShowLoginModal(false);
         setActiveMemberModal(null);
         setActiveBoardModal(null);
         setShowBuild(false);
@@ -143,10 +165,12 @@ export default function App() {
       {gameState && (
         <HUD
           state={gameState}
-          onOpenMultiplayer={() => setShowMultiplayerModal(true)}
-          coopConnected={multiplayer.isConnected}
-          coopRoomId={multiplayer.currentRoomId}
-          coopPlayerCount={multiplayer.remotePlayers.size + 1}
+          onOpenProfile={() => setShowLoginModal(true)}
+          playerName={multiplayer.localPlayer.name}
+          playerRole={multiplayer.localPlayer.role}
+          playerAura={multiplayer.localPlayer.character?.auraColor || multiplayer.localPlayer.color}
+          onlineCount={multiplayer.remotePlayers.size + 1}
+          roomId={multiplayer.currentRoomId}
         />
       )}
 
@@ -160,12 +184,15 @@ export default function App() {
       {/* Office Chat */}
       <OfficeChat multiplayer={multiplayer} onRefresh={handleRefresh} />
 
-      {/* Co-Op Multiplayer Modal */}
-      <MultiplayerModal
+      {/* Character Setup & Login Modal */}
+      <LoginModal
         multiplayer={multiplayer}
-        isOpen={showMultiplayerModal}
-        onClose={() => setShowMultiplayerModal(false)}
-        onRefresh={handleRefresh}
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLoginComplete={() => {
+          localStorage.setItem('aeethod_logged_in', 'true');
+          handleRefresh();
+        }}
       />
 
       {showBuild && engineRef.current && gameState && (
