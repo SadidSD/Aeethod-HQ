@@ -936,7 +936,7 @@ export class GameEngine {
     }
   }
 
-  // --- MEETING ROOM (Big Luxurious Round Conference Table & Executive Boardroom) ---
+  // --- MEETING ROOM (Big Luxurious Round Conference Table - Whitish Calacatta & Gold Theme) ---
   private drawMeetingRoom(ctx: CanvasRenderingContext2D, S: number) {
     const cx = T(21.5);
     const cy = T(5.5);
@@ -951,61 +951,68 @@ export class GameEngine {
     for (let sy = T(2); sy <= T(8.5); sy += 6) {
       ctx.fillStyle = '#1e1610';
       ctx.fillRect(T(13.8), sy, 3, 3.5);
-      ctx.fillStyle = '#3a271d';
-      ctx.fillRect(T(13.8) + 0.5, sy, 2, 3.5);
+      ctx.fillStyle = '#d4af37'; // gold accent highlight
+      ctx.fillRect(T(13.8) + 0.5, sy, 1.5, 3.5);
     }
     // Right wall slats
     for (let sy = T(2); sy <= T(8.5); sy += 6) {
       ctx.fillStyle = '#1e1610';
       ctx.fillRect(T(29.8), sy, 3, 3.5);
-      ctx.fillStyle = '#3a271d';
-      ctx.fillRect(T(29.8) + 0.5, sy, 2, 3.5);
+      ctx.fillStyle = '#d4af37';
+      ctx.fillRect(T(29.8) + 0.5, sy, 1.5, 3.5);
     }
 
     // =========================================================================
-    // 2. GRAND LUXURY BOARDROOM DESIGNER RUG (Circular Obsidian & Gold)
+    // 2. GRAND LUXURY BOARDROOM DESIGNER RUG (Contrasting Royal Navy, Pearl & Gold)
     // =========================================================================
     const rugR = S * 3.75; // ~60px radius (~120px diameter)
 
     // Rug Ambient Drop Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
     ctx.beginPath();
     ctx.arc(cx, cy + 2, rugR + 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Rug Base - Midnight Slate / Obsidian Wool Weave
-    ctx.fillStyle = '#0a0f18';
+    // Rug Base - Deep Royal Midnight Navy Wool Weave (gives breathtaking contrast to the white table)
+    ctx.fillStyle = '#0a101d';
     ctx.beginPath();
     ctx.arc(cx, cy, rugR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Rug Outer Gold Greek-Key / Fillet Border Ring
-    ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = 2;
+    // Rug Wide Pearl White Border Band
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = 3.5;
     ctx.beginPath();
-    ctx.arc(cx, cy, rugR - 2, 0, Math.PI * 2);
+    ctx.arc(cx, cy, rugR - 3.5, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Secondary Delicate Inlay Fillet Ring
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
+    // Outer Champagne Gold Accent Trim
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rugR - 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Secondary Delicate Gold Inlay Fillet Ring
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.65)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(cx, cy, rugR - 7, 0, Math.PI * 2);
+    ctx.arc(cx, cy, rugR - 8, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Subtle Radial Weave Accents on Rug (12 quadrant markers)
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
+    // Subtle Radial Weave Accents on Rug (12 quadrant gold markers)
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.25)';
     ctx.lineWidth = 1;
     for (let i = 0; i < 12; i++) {
       const a = (i * Math.PI * 2) / 12;
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * (rugR - 7), cy + Math.sin(a) * (rugR - 7));
+      ctx.moveTo(cx + Math.cos(a) * (rugR - 8), cy + Math.sin(a) * (rugR - 8));
       ctx.lineTo(cx + Math.cos(a) * (tableR + 17), cy + Math.sin(a) * (tableR + 17));
       ctx.stroke();
     }
 
     // =========================================================================
-    // 3. EXECUTIVE BOARDROOM LEATHER SWIVEL CHAIRS (8 radially arranged)
+    // 3. EXECUTIVE BOARDROOM LEATHER SWIVEL CHAIRS (Pristine Ivory Leather & Gold)
     // =========================================================================
     const numChairs = 8;
     const chairDist = tableR + 13; // 53px from center (just outside table)
@@ -1022,13 +1029,13 @@ export class GameEngine {
       ctx.rotate(chAngle);
 
       // Chair Shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
       ctx.beginPath();
       ctx.ellipse(0, 2, 8, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // 5-Star Chrome Base Spokes
-      ctx.strokeStyle = '#64748b';
+      ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 1.2;
       for (let s = 0; s < 5; s++) {
         const sa = (s * Math.PI * 2) / 5;
@@ -1044,106 +1051,133 @@ export class GameEngine {
       }
 
       // Chrome Center Hub
-      ctx.fillStyle = '#cbd5e1';
+      ctx.fillStyle = '#f1f5f9';
       ctx.beginPath();
       ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Ergonomic Contoured Bucket Base (Cognac Brown / Midnight Executive Leather)
-      ctx.fillStyle = '#1e293b';
+      // Ergonomic Contoured Bucket Base (Italian Pearl White Leather)
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.roundRect(-6.5, -5.5, 13, 11, 3);
       ctx.fill();
 
-      // Brass / Gold Stitching Piping Edge
+      // Champagne Gold Stitching Piping Edge
       ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Padded Executive Seat Cushion
-      ctx.fillStyle = '#0f172a';
+      // Padded Executive Seat Cushion (Soft Ivory / Cream)
+      ctx.fillStyle = '#f8fafc';
       ctx.beginPath();
       ctx.roundRect(-5, -4.5, 10, 9, 2);
       ctx.fill();
 
-      // Chrome & Leather Armrests
+      // Chrome & White Leather Armrests
       ctx.fillStyle = '#cbd5e1';
       ctx.fillRect(-7.5, -3, 1.8, 6.5);
       ctx.fillRect(5.7, -3, 1.8, 6.5);
-      ctx.fillStyle = '#334155'; // Padded arm pads
+      ctx.fillStyle = '#ffffff'; // White leather arm pads
       ctx.fillRect(-7.5, -2, 1.8, 5);
       ctx.fillRect(5.7, -2, 1.8, 5);
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(-7.5, -2, 1.8, 5);
+      ctx.strokeRect(5.7, -2, 1.8, 5);
 
-      // High Ergonomic Curved Backrest (at y = -4 to -7)
-      ctx.fillStyle = '#1e293b';
+      // High Ergonomic Curved Backrest (White Leather with Gold Trim)
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.roundRect(-6.5, -8, 13, 3.5, 1.5);
       ctx.fill();
       ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 0.9;
       ctx.stroke();
 
       ctx.restore();
     }
 
     // =========================================================================
-    // 4. BIG LUXURIOUS ROUND TABLE (Multi-tiered Walnut, Marble & Gold)
+    // 4. BIG LUXURIOUS ROUND TABLE (Whitish Italian Calacatta Gold Marble & Brass)
     // =========================================================================
 
     // Ambient Occlusion / Table Drop Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
     ctx.arc(cx, cy + 4, tableR + 3, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tier 1: Outer Heavy Beveled Edge (Smoked Burl Walnut)
-    ctx.fillStyle = '#1e140d';
+    // Tier 1: Outer Heavy Beveled Edge (Bleached Italian Ash / Platinum Rim)
+    ctx.fillStyle = '#e2e8f0';
     ctx.beginPath();
     ctx.arc(cx, cy, tableR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tier 2: Rich Walnut Woodgrain Layer
-    ctx.fillStyle = '#2b1b11';
+    // Tier 2: Pristine Pearl Alabaster Enamel Ring
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(cx, cy, tableR - 1.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Tier 3: Polished Brushed Gold / Brass Metallic Bezel Ring
+    // Tier 3: Polished Champagne Gold / Brass Metallic Bezel Ring
     ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.arc(cx, cy, tableR - 2.5, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Tier 4: Main Polished Nero Marquina Marble Surface
-    ctx.fillStyle = '#0b0f19';
+    // Tier 4: Main Polished Calacatta Gold White Marble Surface
+    ctx.fillStyle = '#fbfcfd';
     ctx.beginPath();
     ctx.arc(cx, cy, tableR - 3.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Delicate Marble Veining (Fine Gold & Crisp Platinum Streaks)
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.28)';
+    // Luminous Marble Secondary Layer (Soft Warm Ivory Sheen)
+    const marbleGlow = ctx.createRadialGradient(cx, cy, 5, cx, cy, tableR - 4);
+    marbleGlow.addColorStop(0, '#ffffff');
+    marbleGlow.addColorStop(0.7, '#f8fafc');
+    marbleGlow.addColorStop(1, '#f1f5f9');
+    ctx.fillStyle = marbleGlow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, tableR - 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Delicate Calacatta Gold & Platinum Marble Veining
+    // Vein 1: Warm Amber-Gold organic quartz streak
+    ctx.strokeStyle = 'rgba(217, 119, 6, 0.38)';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(cx - 25, cy - 17);
+    ctx.bezierCurveTo(cx - 10, cy - 26, cx + 6, cy - 7, cx + 24, cy - 15);
+    ctx.stroke();
+
+    // Vein 2: Fine Champagne Gold secondary branch
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.42)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(cx - 22, cy + 13);
+    ctx.bezierCurveTo(cx - 7, cy + 4, cx + 9, cy + 23, cx + 26, cy + 13);
+    ctx.stroke();
+
+    // Vein 3: Soft Smoky Quartz / Silver-Gray feathering
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
     ctx.lineWidth = 0.8;
     ctx.beginPath();
-    ctx.moveTo(cx - 24, cy - 18);
-    ctx.bezierCurveTo(cx - 10, cy - 25, cx + 5, cy - 8, cx + 22, cy - 16);
+    ctx.moveTo(cx - 13, cy - 29);
+    ctx.bezierCurveTo(cx - 19, cy - 4, cx - 29, cy + 9, cx - 14, cy + 27);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    // Vein 4: Delicate gold hairline cross-vein
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.32)';
+    ctx.lineWidth = 0.6;
     ctx.beginPath();
-    ctx.moveTo(cx - 20, cy + 12);
-    ctx.bezierCurveTo(cx - 6, cy + 5, cx + 8, cy + 22, cx + 25, cy + 14);
+    ctx.moveTo(cx + 8, cy - 22);
+    ctx.bezierCurveTo(cx + 17, cy - 12, cx + 19, cy + 16, cx + 7, cy + 24);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.2)';
-    ctx.beginPath();
-    ctx.moveTo(cx - 12, cy - 28);
-    ctx.bezierCurveTo(cx - 18, cy - 5, cx - 28, cy + 8, cx - 15, cy + 26);
-    ctx.stroke();
-
-    // 8 Radial Inlay Brass Spoke Dividing Lines
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.35)';
-    ctx.lineWidth = 0.9;
+    // 8 Radial Inlay Brass Spoke Dividing Lines (Polished Gold against White Marble)
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)';
+    ctx.lineWidth = 1.0;
     for (let i = 0; i < 8; i++) {
       const a = (i * Math.PI * 2) / 8;
       ctx.beginPath();
@@ -1152,66 +1186,69 @@ export class GameEngine {
       ctx.stroke();
     }
 
-    // Tier 5: Inner Gold Accent Ring
+    // Tier 5: Inner Polished Champagne Gold Accent Ring
     ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(cx, cy, 16, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Tier 6: Central Revolving Turntable (Lazy Susan / Smoked Glass Media Hub)
-    ctx.fillStyle = '#151d2a';
+    // Tier 6: Central Revolving Turntable (Lazy Susan / Frosted White Glass & Gold Hub)
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(cx, cy, 15, 0, Math.PI * 2);
     ctx.fill();
 
-    // Inner Polished Ring
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)';
-    ctx.lineWidth = 1;
+    // Turntable Inner Gold Fillet
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.arc(cx, cy, 10, 0, Math.PI * 2);
     ctx.stroke();
 
-    // High-Tech Conference Microphone Array (4 Brass Flush Pods with status LEDs)
+    // High-Tech Conference Microphone Array (4 Polished Brass Pods with active status LEDs)
     for (let m = 0; m < 4; m++) {
       const ma = (m * Math.PI * 2) / 4 + Math.PI / 4;
       const mx = cx + Math.cos(ma) * 12.5;
       const my = cy + Math.sin(ma) * 12.5;
       ctx.fillStyle = '#d4af37';
       ctx.beginPath();
-      ctx.arc(mx, my, 1.4, 0, Math.PI * 2);
+      ctx.arc(mx, my, 1.5, 0, Math.PI * 2);
       ctx.fill();
-      // Green Active Mic Indicator LED
-      ctx.fillStyle = '#34d399';
+      // Luminous Green Active Indicator LED
+      ctx.fillStyle = '#22c55e';
       ctx.beginPath();
-      ctx.arc(mx, my, 0.6, 0, Math.PI * 2);
+      ctx.arc(mx, my, 0.7, 0, Math.PI * 2);
       ctx.fill();
     }
 
     // Centerpiece: Low Brass Architectural Planter with Miniature Japanese Zen Bonsai
-    // Brass Planter Bowl
+    // Polished Brass Planter Bowl
     ctx.fillStyle = '#b45309';
     ctx.beginPath();
     ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#fef08a';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // Dark Soil / River Pebbles
+    // Rich Dark Soil / Polished White River Pebbles
     ctx.fillStyle = '#1c1917';
     ctx.beginPath();
     ctx.arc(cx, cy, 5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = '#f8fafc'; // White accent pebbles
+    ctx.fillRect(cx - 2, cy + 1, 1.2, 1.2);
+    ctx.fillRect(cx + 1.5, cy + 0.5, 1.2, 1.2);
 
-    // Lush Emerald Foliage Cluster (Bonsai Canopy)
+    // Lush Emerald Foliage Canopy (Vibrant Green against pure White Marble)
     ctx.fillStyle = '#15803d';
     ctx.beginPath();
     ctx.arc(cx - 1.5, cy - 1, 3.2, 0, Math.PI * 2);
     ctx.arc(cx + 1.5, cy - 0.5, 3.0, 0, Math.PI * 2);
     ctx.arc(cx, cy + 1.5, 2.8, 0, Math.PI * 2);
     ctx.fill();
-    // Vibrant Jade Highlights
+    // Radiant Jade Highlights
     ctx.fillStyle = '#4ade80';
     ctx.beginPath();
     ctx.arc(cx - 1, cy - 1.5, 1.8, 0, Math.PI * 2);
@@ -1232,31 +1269,34 @@ export class GameEngine {
       ctx.translate(posX, posY);
       ctx.rotate(setAngle);
 
-      // Black Leather Desk Blotter / Conference Pad with Gold Corners
-      ctx.fillStyle = '#090d15';
+      // Ivory / Cream Leather Desk Blotter with Champagne Gold Trim
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.roundRect(-4.5, -3.2, 9, 6.4, 1);
       ctx.fill();
       ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 0.6;
+      ctx.lineWidth = 0.8;
       ctx.stroke();
 
-      // Ultra-Thin Space Grey Aluminum Executive Laptop
-      ctx.fillStyle = '#475569';
+      // Sleek Ultra-Thin Silver / White Aluminum Executive Laptop (MacBook Silver)
+      ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(-3, -2, 6, 4);
       // Keyboard base / trackpad
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#f8fafc';
       ctx.fillRect(-2.4, -0.6, 4.8, 2.2);
-      // Screen Bezel & Display Glow facing outwards to seat
-      ctx.fillStyle = '#38bdf8'; // Soft cyan screen light
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 0.4;
+      ctx.strokeRect(-2.4, -0.6, 4.8, 2.2);
+      // Screen Bezel & Soft Blue Display Glow facing outwards to seat
+      ctx.fillStyle = '#38bdf8';
       ctx.fillRect(-2.4, -1.8, 4.8, 1);
 
-      // Sleek Crystal Water Tumbler on Brass Coaster (to the right of blotter)
+      // Sleek Crystal Water Tumbler on Gold Coaster (to the right of blotter)
       ctx.fillStyle = '#d4af37';
       ctx.beginPath();
       ctx.arc(5.5, -0.5, 1.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(147, 197, 253, 0.7)'; // Clear water
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.85)'; // Sparkling water
       ctx.beginPath();
       ctx.arc(5.5, -0.5, 1.1, 0, Math.PI * 2);
       ctx.fill();
@@ -1265,29 +1305,29 @@ export class GameEngine {
     }
 
     // =========================================================================
-    // 6. GLOSS SPECULAR SHEEN (Polished Piano Lacquer / Marble Reflection)
+    // 6. GLOSS SPECULAR SHEEN (High-Gloss White Marble Piano Finish)
     // =========================================================================
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, tableR - 3.5, 0, Math.PI * 2);
     ctx.clip();
 
-    // Diagonal Glass Specular Band
+    // Diagonal Radiant Glass Specular Band
     const specGrad = ctx.createLinearGradient(cx - tableR, cy - tableR, cx + tableR, cy + tableR);
-    specGrad.addColorStop(0.15, 'rgba(255, 255, 255, 0.15)');
-    specGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.03)');
-    specGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0.0)');
+    specGrad.addColorStop(0.12, 'rgba(255, 255, 255, 0.55)');
+    specGrad.addColorStop(0.28, 'rgba(255, 255, 255, 0.15)');
+    specGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
     ctx.fillStyle = specGrad;
     ctx.fillRect(cx - tableR, cy - tableR, tableR * 2, tableR * 2);
     ctx.restore();
 
-    // Elegant Gold Embossed Monogram Badge on Tabletop (South quadrant)
-    ctx.fillStyle = '#d4af37';
+    // Elegant Metallic Gold Embossed Monogram Badge on White Marble
+    ctx.fillStyle = '#b45309';
     ctx.font = 'bold 7px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('AEETHOD', cx, cy + tableR - 19);
-    ctx.fillStyle = 'rgba(212, 175, 55, 0.7)';
-    ctx.font = '600 5px sans-serif';
+    ctx.fillStyle = 'rgba(180, 83, 9, 0.85)';
+    ctx.font = 'bold 5px sans-serif';
     ctx.fillText('BOARDROOM', cx, cy + tableR - 13);
     ctx.textAlign = 'left';
 
@@ -1300,16 +1340,16 @@ export class GameEngine {
     const screenH = 16;
 
     // Bezel Drop Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.fillRect(screenX + 2, screenY + 3, screenW, screenH);
 
-    // Outer Titanium Bezel
+    // Outer Titanium / White-Gold Bezel
     ctx.fillStyle = '#0f172a';
     ctx.beginPath();
     ctx.roundRect(screenX, screenY, screenW, screenH, 2);
     ctx.fill();
     ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
 
     // Display Surface
@@ -1324,7 +1364,7 @@ export class GameEngine {
     ctx.beginPath();
     ctx.arc(screenX + 8, screenY + 8, 3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#e2e8f0';
+    ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 6px sans-serif';
     ctx.fillText('AEETHOD HQ', screenX + 14, screenY + 7);
     ctx.fillStyle = '#22c55e';
@@ -1362,40 +1402,37 @@ export class GameEngine {
     ctx.beginPath();
     ctx.roundRect(screenX + 24, screenY + screenH + 0.5, screenW - 48, 3, 1);
     ctx.fill();
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#cbd5e1';
     ctx.fillRect(screenX + 30, screenY + screenH + 1, screenW - 60, 1);
 
     // =========================================================================
-    // 8. SIDE AMENITIES: LUXURY BEVERAGE BAR & DISPLAY CREDENZAS
+    // 8. SIDE AMENITIES: LUXURY WHITE & GOLD BEVERAGE BAR & DISPLAY CREDENZAS
     // =========================================================================
-    // West Credenza: Executive Italian Espresso & Beverage Bar
+    // West Credenza: Executive Italian Espresso & Beverage Bar (White & Gold)
     const barX = T(14.1);
     const barY = T(3.2);
     const barW = 13;
     const barH = S * 4; // 64px
 
     // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.fillRect(barX + 2, barY + 3, barW, barH);
-    // Dark Smoked Walnut Cabinet Base
-    ctx.fillStyle = '#1c140d';
+    // Pearl White Cabinet Base
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(barX, barY, barW, barH);
-    // Calacatta Marble Countertop
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(barX, barY, barW, barH);
-    ctx.fillStyle = '#e2e8f0';
+    ctx.fillStyle = '#f8fafc';
     ctx.fillRect(barX + 1, barY + 1, barW - 2, barH - 2);
-    // Brass Rim
+    // Gold Rim
     ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.2;
     ctx.strokeRect(barX, barY, barW, barH);
 
     // Espresso Machine on Credenza (Chrome body, steam wand, portafilter)
-    ctx.fillStyle = '#64748b';
+    ctx.fillStyle = '#94a3b8';
     ctx.fillRect(barX + 2, barY + 8, 9, 14);
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(barX + 3, barY + 9, 7, 5); // Pressure gauge / display
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(barX + 3, barY + 9, 7, 5); // Pressure gauge
+    ctx.fillStyle = '#cbd5e1';
     ctx.fillRect(barX + 4, barY + 15, 5, 4); // Grouphead
     // Mini ceramic espresso cups on top warmer rack
     ctx.fillStyle = '#ffffff';
@@ -1405,34 +1442,34 @@ export class GameEngine {
     // Crystal Decanter & Whiskey Glasses on lower section
     ctx.fillStyle = '#d97706'; // Amber spirit
     ctx.fillRect(barX + 4, barY + 32, 5, 7);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 0.8;
     ctx.strokeRect(barX + 3.5, barY + 30, 6, 10);
     // Glass Tumbler
-    ctx.fillStyle = 'rgba(219, 234, 254, 0.8)';
+    ctx.fillStyle = 'rgba(219, 234, 254, 0.85)';
     ctx.fillRect(barX + 4, barY + 44, 4.5, 4.5);
 
-    // East Credenza: Architectural Models & Awards Showcase
+    // East Credenza: White & Gold Architectural Models & Awards Showcase
     const caseX = T(28.7);
     const caseY = T(3.2);
     const caseW = 13;
     const caseH = S * 4;
 
     // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     ctx.fillRect(caseX + 2, caseY + 3, caseW, caseH);
-    // Dark Walnut Body
-    ctx.fillStyle = '#1c140d';
+    // White Lacquer Body
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(caseX, caseY, caseW, caseH);
     // Backlit Warm Display Cavity
-    ctx.fillStyle = '#282019';
+    ctx.fillStyle = '#f8fafc';
     ctx.fillRect(caseX + 1.5, caseY + 1.5, caseW - 3, caseH - 3);
     ctx.strokeStyle = '#d4af37';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.2;
     ctx.strokeRect(caseX, caseY, caseW, caseH);
 
     // Glass Shelves with Interior Warm Glow
-    ctx.strokeStyle = 'rgba(254, 240, 138, 0.5)';
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)';
     ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.moveTo(caseX + 2, caseY + 18); ctx.lineTo(caseX + caseW - 2, caseY + 18);
