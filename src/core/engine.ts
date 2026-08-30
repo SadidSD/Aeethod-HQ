@@ -2581,38 +2581,206 @@ export class GameEngine {
     }
 
     if (isSitting) {
-      // Seated Torso & Folded Lap
+      // =======================================================================
+      // TOP-VIEW SEATED CHARACTER (True Overhead Boardroom Perspective)
+      // =======================================================================
+
+      // 1. Seated Shoulders & Upper Body (Seen from above)
       ctx.fillStyle = o.p;
       ctx.beginPath();
-      ctx.roundRect(x - 6, bodyY - 5, 12, 10, 2);
+      ctx.roundRect(x - 7.5, bodyY - 4, 15, 8.5, 3.5);
       ctx.fill();
 
-      // Folded legs / thighs forward on seat
+      // Thighs / Lap extending forward toward table (+y)
       ctx.fillStyle = o.p;
       ctx.beginPath();
-      ctx.roundRect(x - 5, bodyY + 3, 10, 5.5, 2);
+      ctx.roundRect(x - 5, bodyY + 3, 10, 5, 2);
       ctx.fill();
 
-      // Shoes / pants cuff
+      // Shoes / pants cuff slightly visible under lap
       ctx.fillStyle = '#090d16';
-      ctx.fillRect(x - 5, bodyY + 7.5, 3.5, 2);
-      ctx.fillRect(x + 1.5, bodyY + 7.5, 3.5, 2);
+      ctx.fillRect(x - 4.5, bodyY + 7, 3, 1.5);
+      ctx.fillRect(x + 1.5, bodyY + 7, 3, 1.5);
 
-      // Shirt & Tie
+      // Shirt collar & tie extending forward
       ctx.fillStyle = o.s;
-      ctx.fillRect(x - 2, bodyY - 5, 4, 5);
+      ctx.beginPath();
+      ctx.moveTo(x - 2.5, bodyY + 1.5);
+      ctx.lineTo(x, bodyY + 4.5);
+      ctx.lineTo(x + 2.5, bodyY + 1.5);
+      ctx.fill();
       ctx.fillStyle = o.t;
-      ctx.fillRect(x - 1, bodyY - 3, 2, 4);
+      ctx.fillRect(x - 0.8, bodyY + 2.5, 1.6, 3);
 
-      // Relaxed Arms resting on armrests / lap
+      // Arms along sides reaching forward to armrests / desk
       ctx.fillStyle = o.p;
-      ctx.fillRect(x - 7.5, bodyY - 2, 2.5, 5.5);
-      ctx.fillRect(x + 5, bodyY - 2, 2.5, 5.5);
-      // Hands
+      ctx.fillRect(x - 8, bodyY - 1, 2.5, 6);
+      ctx.fillRect(x + 5.5, bodyY - 1, 2.5, 6);
+      // Hands (skin tone) resting forward
       ctx.fillStyle = skin;
-      ctx.fillRect(x - 7.5, bodyY + 3, 2.5, 2.5);
-      ctx.fillRect(x + 5, bodyY + 3, 2.5, 2.5);
+      ctx.fillRect(x - 8, bodyY + 4, 2.5, 2.5);
+      ctx.fillRect(x + 5.5, bodyY + 4, 2.5, 2.5);
+
+      // 2. Head from TOP VIEW
+      // Ears on left and right sides
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.ellipse(x - 5, bodyY, 1.2, 1.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + 5, bodyY, 1.2, 1.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Skull base (skin)
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(x, bodyY, 4.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subtle nose tip protruding slightly forward (+y)
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.moveTo(x - 1, bodyY + 3.8);
+      ctx.lineTo(x, bodyY + 5.4);
+      ctx.lineTo(x + 1, bodyY + 3.8);
+      ctx.closePath();
+      ctx.fill();
+
+      // 3. Hair Styles from TOP VIEW
+      ctx.fillStyle = hair;
+      if (style === 'classic') {
+        // Full head of hair viewed from above with natural side parting
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 0.3, 4.7, 0, Math.PI * 2);
+        ctx.fill();
+        // Hair parting line
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x - 1.2, bodyY - 2.5);
+        ctx.lineTo(x - 1.5, bodyY + 3.2);
+        ctx.stroke();
+        // Crown shine
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(x + 1.5, bodyY - 1, 2, 1.2, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (style === 'spiky') {
+        // Spikes fanning outward radially around crown
+        ctx.beginPath();
+        ctx.arc(x, bodyY, 4.4, 0, Math.PI * 2);
+        ctx.fill();
+        // 8 outer spike tips
+        for (let sp = 0; sp < 8; sp++) {
+          const sa = (sp * Math.PI * 2) / 8;
+          ctx.beginPath();
+          ctx.moveTo(x + Math.cos(sa - 0.2) * 3.5, bodyY + Math.sin(sa - 0.2) * 3.5);
+          ctx.lineTo(x + Math.cos(sa) * 6.5, bodyY + Math.sin(sa) * 6.5);
+          ctx.lineTo(x + Math.cos(sa + 0.2) * 3.5, bodyY + Math.sin(sa + 0.2) * 3.5);
+          ctx.fill();
+        }
+      } else if (style === 'fade') {
+        // Modern fade: closely cropped sides, fuller textured crop on top
+        ctx.fillStyle = hair;
+        ctx.beginPath();
+        ctx.arc(x, bodyY, 4.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Faded edge ring
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Textured crown block
+        ctx.fillStyle = hair;
+        ctx.beginPath();
+        ctx.roundRect(x - 3.2, bodyY - 3, 6.4, 6, 1.5);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.fillRect(x - 2, bodyY - 1.5, 4, 1.5);
+      } else if (style === 'bun') {
+        // Hair swept tightly back into a distinct circular top bun
+        ctx.beginPath();
+        ctx.arc(x, bodyY, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Gold/accent hair tie
+        ctx.fillStyle = '#d4af37';
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 2.6, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+        // Top Bun bulb
+        ctx.fillStyle = hair;
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 2.6, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (style === 'cyber_visor') {
+        // Hair base
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 0.5, 4.6, 0, Math.PI * 2);
+        ctx.fill();
+        // Glowing curved cyan visor rim projecting over brow (+y)
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(x, bodyY + 0.5, 5, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
+      } else if (style === 'executive_cap') {
+        // Cap crown viewed from above
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 0.5, 4.6, 0, Math.PI * 2);
+        ctx.fill();
+        // Seam panel lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(x - 4, bodyY - 0.5); ctx.lineTo(x + 4, bodyY - 0.5);
+        ctx.moveTo(x, bodyY - 4.5); ctx.lineTo(x, bodyY + 3.5);
+        ctx.stroke();
+        // Center squatchee button
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 0.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Visor bill extending forward (+y)
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.moveTo(x - 3.8, bodyY + 3);
+        ctx.quadraticCurveTo(x, bodyY + 6.8, x + 3.8, bodyY + 3);
+        ctx.fill();
+      }
+
+      // 4. Seated Accessories (Top View)
+      if (acc === 'coffee') {
+        // Coffee mug viewed from above in right hand
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(x + 8, bodyY + 3, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#78350f'; // rich dark coffee inside
+        ctx.beginPath();
+        ctx.arc(x + 8, bodyY + 3, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (acc === 'laptop') {
+        // Laptop open on desk in front (+y)
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(x - 4, bodyY + 6, 8, 4.5);
+        ctx.fillStyle = '#0f172a'; // keyboard
+        ctx.fillRect(x - 3.2, bodyY + 6.5, 6.4, 2.5);
+        ctx.fillStyle = '#38bdf8'; // screen glow
+        ctx.fillRect(x - 3.2, bodyY + 9.2, 6.4, 0.8);
+      } else if (acc === 'hologram') {
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(x + 7.5, bodyY + 2.5, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (acc === 'contract') {
+        ctx.fillStyle = '#fef08a';
+        ctx.fillRect(x + 5.5, bodyY + 2, 4, 5);
+      } else if (acc === 'vip_badge') {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(x - 4.5, bodyY + 1.5, 2, 2);
+      }
     } else {
+      // =======================================================================
+      // STANDING 2.5D CHARACTER
+      // =======================================================================
       // Standing Torso
       ctx.fillStyle = o.p;
       ctx.fillRect(x - 6, bodyY - 6, 12, 14);
@@ -2627,79 +2795,79 @@ export class GameEngine {
       ctx.fillStyle = skin;
       ctx.fillRect(x - 8, bodyY + 2, 2, 3);
       ctx.fillRect(x + 6, bodyY + 2, 2, 3);
-    }
 
-    // 4. Head (Skin Tone)
-    ctx.fillStyle = skin;
-    ctx.beginPath();
-    ctx.arc(x, bodyY - 10.5, 5, 0, Math.PI * 2);
-    ctx.fill();
+      // Head (Skin Tone)
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(x, bodyY - 10.5, 5, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Eyes
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(x - 2.5, bodyY - 11, 1, 1.5);
-    ctx.fillRect(x + 1.5, bodyY - 11, 1, 1.5);
-
-    // 5. Hair & Style
-    ctx.fillStyle = hair;
-    if (style === 'classic') {
-      ctx.beginPath();
-      ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
-      ctx.fill();
-    } else if (style === 'spiky') {
-      ctx.beginPath();
-      ctx.moveTo(x - 5, bodyY - 11.5);
-      ctx.lineTo(x - 3, bodyY - 17.5);
-      ctx.lineTo(x, bodyY - 13.5);
-      ctx.lineTo(x + 3, bodyY - 17.5);
-      ctx.lineTo(x + 5, bodyY - 11.5);
-      ctx.closePath();
-      ctx.fill();
-    } else if (style === 'fade') {
-      ctx.beginPath();
-      ctx.arc(x, bodyY - 13, 4.5, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(x - 4.5, bodyY - 13, 9, 2);
-    } else if (style === 'bun') {
-      ctx.beginPath();
-      ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x, bodyY - 17.5, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (style === 'cyber_visor') {
-      ctx.beginPath();
-      ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#06b6d4';
-      ctx.fillRect(x - 4, bodyY - 11.5, 8, 2.5);
-    } else if (style === 'executive_cap') {
+      // Eyes
       ctx.fillStyle = '#0f172a';
-      ctx.fillRect(x - 6, bodyY - 15.5, 12, 4);
-      ctx.fillRect(x - 7, bodyY - 12.5, 14, 1.5);
-    }
+      ctx.fillRect(x - 2.5, bodyY - 11, 1, 1.5);
+      ctx.fillRect(x + 1.5, bodyY - 11, 1, 1.5);
 
-    // 6. Held Accessory
-    if (acc === 'coffee') {
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x + 7, bodyY - 1, 3, 5);
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 0.8;
-      ctx.strokeRect(x + 9.5, bodyY, 1.5, 3);
-    } else if (acc === 'laptop') {
-      ctx.fillStyle = '#64748b';
-      ctx.fillRect(x - 9, bodyY - 1, 4, 5);
-    } else if (acc === 'hologram') {
-      ctx.fillStyle = '#06b6d4';
-      ctx.beginPath();
-      ctx.arc(x + 8, bodyY + 1, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (acc === 'contract') {
-      ctx.fillStyle = '#fef08a';
-      ctx.fillRect(x + 7, bodyY - 1, 4, 6);
-    } else if (acc === 'vip_badge') {
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x + 2, bodyY - 2, 2, 3);
+      // Hair & Style
+      ctx.fillStyle = hair;
+      if (style === 'classic') {
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
+        ctx.fill();
+      } else if (style === 'spiky') {
+        ctx.beginPath();
+        ctx.moveTo(x - 5, bodyY - 11.5);
+        ctx.lineTo(x - 3, bodyY - 17.5);
+        ctx.lineTo(x, bodyY - 13.5);
+        ctx.lineTo(x + 3, bodyY - 17.5);
+        ctx.lineTo(x + 5, bodyY - 11.5);
+        ctx.closePath();
+        ctx.fill();
+      } else if (style === 'fade') {
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 13, 4.5, Math.PI, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(x - 4.5, bodyY - 13, 9, 2);
+      } else if (style === 'bun') {
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 17.5, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (style === 'cyber_visor') {
+        ctx.beginPath();
+        ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillRect(x - 4, bodyY - 11.5, 8, 2.5);
+      } else if (style === 'executive_cap') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(x - 6, bodyY - 15.5, 12, 4);
+        ctx.fillRect(x - 7, bodyY - 12.5, 14, 1.5);
+      }
+
+      // Held Accessory
+      if (acc === 'coffee') {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(x + 7, bodyY - 1, 3, 5);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x + 9.5, bodyY, 1.5, 3);
+      } else if (acc === 'laptop') {
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(x - 9, bodyY - 1, 4, 5);
+      } else if (acc === 'hologram') {
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(x + 8, bodyY + 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (acc === 'contract') {
+        ctx.fillStyle = '#fef08a';
+        ctx.fillRect(x + 7, bodyY - 1, 4, 6);
+      } else if (acc === 'vip_badge') {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(x + 2, bodyY - 2, 2, 3);
+      }
     }
 
     ctx.restore(); // Restore rotation from sitting
