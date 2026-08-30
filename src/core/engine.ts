@@ -124,7 +124,7 @@ export class GameEngine {
     check('dev_pc_kitty', T(6.5), T(6.3), 55, '🌸 [E] Frontend Dev (Hello Kitty)');
     check('dev_pc_spidey', T(6.5), T(15.1), 55, '🕷️ [E] Backend Dev (Spider-Man)');
     check('board_leads', T(22), T(37), 50, '🛎️ [E] Open Lead Registry');
-    check('board_arch', T(21.5), T(2), 55, '📅 [E] Meeting & Planning Room');
+    check('board_arch', T(21.5), T(2.5), 65, '📅 [E] Meeting & Planning Room');
     check('board_content', T(39), T(28), 50, '📅 [E] View Content Calendar');
 
     return closest;
@@ -170,9 +170,12 @@ export class GameEngine {
     const sRetX = T(3.5), sRetY = T(12.6), sRetW = S * 2.3, sRetH = S * 1.9;
     if (wx >= sRetX && wx <= sRetX + sRetW && wy >= sRetY && wy <= sRetY + sRetH) return true;
 
-    // 5. Meeting Room: Long Conference Table
-    const confX = T(16.5), confY = T(4.0), confW = S * 10, confH = S * 4;
-    if (wx >= confX && wx <= confX + confW && wy >= confY && wy <= confY + confH) return true;
+    // 5. Meeting Room: Big Luxurious Round Conference Table
+    const meetCX = T(21.5), meetCY = T(5.5);
+    if (Math.hypot(wx - meetCX, wy - meetCY) <= S * 2.5) return true;
+    // Side Credenzas in Meeting Room
+    if (wx >= T(14.0) && wx <= T(14.9) && wy >= T(3.0) && wy <= T(7.4)) return true;
+    if (wx >= T(28.7) && wx <= T(29.6) && wy >= T(3.0) && wy <= T(7.4)) return true;
 
     // 6. Client Room: Workstation Bench & Consultation Table
     if (wx >= T(2) && wx <= T(4) && wy >= T(26) && wy <= T(36)) return true;
@@ -933,27 +936,535 @@ export class GameEngine {
     }
   }
 
-  // --- MEETING ROOM ---
+  // --- MEETING ROOM (Big Luxurious Round Conference Table & Executive Boardroom) ---
   private drawMeetingRoom(ctx: CanvasRenderingContext2D, S: number) {
-    // Long conference table
-    this.desk(ctx, T(16.5), T(4), S*10, S*4, '#e8e4de');
-    // "PLAN & MEETING ROOM" label on table
-    ctx.fillStyle='#888'; ctx.font='bold 8px sans-serif'; ctx.textAlign='center';
-    ctx.fillText('PLAN &', T(21.5), T(5.5));
-    ctx.fillText('MEETING ROOM', T(21.5), T(6.8));
-    ctx.textAlign='left';
+    const cx = T(21.5);
+    const cy = T(5.5);
+    const tableR = S * 2.5; // 40px radius (80px diameter, 5 tiles wide)
 
-    // 8 chairs around table (3 top, 3 bottom, 1 left head, 1 right head)
-    for (let i=0;i<3;i++) { this.chair(ctx, T(18+i*2.5), T(3.3), Math.PI, 10); this.chair(ctx, T(18+i*2.5), T(8.7), 0, 10); }
-    this.chair(ctx, T(15.8), T(6), Math.PI/2, 10);
-    this.chair(ctx, T(27.2), T(6), -Math.PI/2, 10);
+    ctx.save();
 
-    // Whiteboard on top wall
-    this.whiteboard(ctx, T(17), T(1.2), S*9, 14, 'PROJECT ROADMAP');
+    // =========================================================================
+    // 1. ACOUSTIC TIMBER SLAT WALL ACCENTS (Modern Studio Architecture)
+    // =========================================================================
+    // Left wall slats
+    for (let sy = T(2); sy <= T(8.5); sy += 6) {
+      ctx.fillStyle = '#1e1610';
+      ctx.fillRect(T(13.8), sy, 3, 3.5);
+      ctx.fillStyle = '#3a271d';
+      ctx.fillRect(T(13.8) + 0.5, sy, 2, 3.5);
+    }
+    // Right wall slats
+    for (let sy = T(2); sy <= T(8.5); sy += 6) {
+      ctx.fillStyle = '#1e1610';
+      ctx.fillRect(T(29.8), sy, 3, 3.5);
+      ctx.fillStyle = '#3a271d';
+      ctx.fillRect(T(29.8) + 0.5, sy, 2, 3.5);
+    }
 
-    // Side cabinets
-    this.desk(ctx, T(14.2), T(3), 10, S*5, '#bbb');
-    this.desk(ctx, T(29.2), T(3), 10, S*5, '#bbb');
+    // =========================================================================
+    // 2. GRAND LUXURY BOARDROOM DESIGNER RUG (Circular Obsidian & Gold)
+    // =========================================================================
+    const rugR = S * 3.75; // ~60px radius (~120px diameter)
+
+    // Rug Ambient Drop Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 2, rugR + 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rug Base - Midnight Slate / Obsidian Wool Weave
+    ctx.fillStyle = '#0a0f18';
+    ctx.beginPath();
+    ctx.arc(cx, cy, rugR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rug Outer Gold Greek-Key / Fillet Border Ring
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rugR - 2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Secondary Delicate Inlay Fillet Ring
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rugR - 7, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Subtle Radial Weave Accents on Rug (12 quadrant markers)
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+      const a = (i * Math.PI * 2) / 12;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * (rugR - 7), cy + Math.sin(a) * (rugR - 7));
+      ctx.lineTo(cx + Math.cos(a) * (tableR + 17), cy + Math.sin(a) * (tableR + 17));
+      ctx.stroke();
+    }
+
+    // =========================================================================
+    // 3. EXECUTIVE BOARDROOM LEATHER SWIVEL CHAIRS (8 radially arranged)
+    // =========================================================================
+    const numChairs = 8;
+    const chairDist = tableR + 13; // 53px from center (just outside table)
+
+    for (let i = 0; i < numChairs; i++) {
+      const a = (i * Math.PI * 2) / numChairs;
+      const chX = cx + Math.cos(a) * chairDist;
+      const chY = cy + Math.sin(a) * chairDist;
+      // Rotate chair to face towards center (cx, cy)
+      const chAngle = a + Math.PI / 2;
+
+      ctx.save();
+      ctx.translate(chX, chY);
+      ctx.rotate(chAngle);
+
+      // Chair Shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(0, 2, 8, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 5-Star Chrome Base Spokes
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.2;
+      for (let s = 0; s < 5; s++) {
+        const sa = (s * Math.PI * 2) / 5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(sa) * 7.5, Math.sin(sa) * 7.5);
+        ctx.stroke();
+        // Mini caster wheel
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(Math.cos(sa) * 7.5, Math.sin(sa) * 7.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Chrome Center Hub
+      ctx.fillStyle = '#cbd5e1';
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ergonomic Contoured Bucket Base (Cognac Brown / Midnight Executive Leather)
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(-6.5, -5.5, 13, 11, 3);
+      ctx.fill();
+
+      // Brass / Gold Stitching Piping Edge
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Padded Executive Seat Cushion
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(-5, -4.5, 10, 9, 2);
+      ctx.fill();
+
+      // Chrome & Leather Armrests
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(-7.5, -3, 1.8, 6.5);
+      ctx.fillRect(5.7, -3, 1.8, 6.5);
+      ctx.fillStyle = '#334155'; // Padded arm pads
+      ctx.fillRect(-7.5, -2, 1.8, 5);
+      ctx.fillRect(5.7, -2, 1.8, 5);
+
+      // High Ergonomic Curved Backrest (at y = -4 to -7)
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.roundRect(-6.5, -8, 13, 3.5, 1.5);
+      ctx.fill();
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 4. BIG LUXURIOUS ROUND TABLE (Multi-tiered Walnut, Marble & Gold)
+    // =========================================================================
+
+    // Ambient Occlusion / Table Drop Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 4, tableR + 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tier 1: Outer Heavy Beveled Edge (Smoked Burl Walnut)
+    ctx.fillStyle = '#1e140d';
+    ctx.beginPath();
+    ctx.arc(cx, cy, tableR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tier 2: Rich Walnut Woodgrain Layer
+    ctx.fillStyle = '#2b1b11';
+    ctx.beginPath();
+    ctx.arc(cx, cy, tableR - 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tier 3: Polished Brushed Gold / Brass Metallic Bezel Ring
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, tableR - 2.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Tier 4: Main Polished Nero Marquina Marble Surface
+    ctx.fillStyle = '#0b0f19';
+    ctx.beginPath();
+    ctx.arc(cx, cy, tableR - 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Delicate Marble Veining (Fine Gold & Crisp Platinum Streaks)
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.28)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(cx - 24, cy - 18);
+    ctx.bezierCurveTo(cx - 10, cy - 25, cx + 5, cy - 8, cx + 22, cy - 16);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 20, cy + 12);
+    ctx.bezierCurveTo(cx - 6, cy + 5, cx + 8, cy + 22, cx + 25, cy + 14);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 12, cy - 28);
+    ctx.bezierCurveTo(cx - 18, cy - 5, cx - 28, cy + 8, cx - 15, cy + 26);
+    ctx.stroke();
+
+    // 8 Radial Inlay Brass Spoke Dividing Lines
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.35)';
+    ctx.lineWidth = 0.9;
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI * 2) / 8;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 16, cy + Math.sin(a) * 16);
+      ctx.lineTo(cx + Math.cos(a) * (tableR - 3.5), cy + Math.sin(a) * (tableR - 3.5));
+      ctx.stroke();
+    }
+
+    // Tier 5: Inner Gold Accent Ring
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Tier 6: Central Revolving Turntable (Lazy Susan / Smoked Glass Media Hub)
+    ctx.fillStyle = '#151d2a';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner Polished Ring
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // High-Tech Conference Microphone Array (4 Brass Flush Pods with status LEDs)
+    for (let m = 0; m < 4; m++) {
+      const ma = (m * Math.PI * 2) / 4 + Math.PI / 4;
+      const mx = cx + Math.cos(ma) * 12.5;
+      const my = cy + Math.sin(ma) * 12.5;
+      ctx.fillStyle = '#d4af37';
+      ctx.beginPath();
+      ctx.arc(mx, my, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+      // Green Active Mic Indicator LED
+      ctx.fillStyle = '#34d399';
+      ctx.beginPath();
+      ctx.arc(mx, my, 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Centerpiece: Low Brass Architectural Planter with Miniature Japanese Zen Bonsai
+    // Brass Planter Bowl
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Dark Soil / River Pebbles
+    ctx.fillStyle = '#1c1917';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Lush Emerald Foliage Cluster (Bonsai Canopy)
+    ctx.fillStyle = '#15803d';
+    ctx.beginPath();
+    ctx.arc(cx - 1.5, cy - 1, 3.2, 0, Math.PI * 2);
+    ctx.arc(cx + 1.5, cy - 0.5, 3.0, 0, Math.PI * 2);
+    ctx.arc(cx, cy + 1.5, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    // Vibrant Jade Highlights
+    ctx.fillStyle = '#4ade80';
+    ctx.beginPath();
+    ctx.arc(cx - 1, cy - 1.5, 1.8, 0, Math.PI * 2);
+    ctx.arc(cx + 1, cy - 1, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // =========================================================================
+    // 5. EXECUTIVE WORKSTATION SETTINGS (8 positions around table)
+    // =========================================================================
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI * 2) / 8;
+      const setDist = tableR - 12; // 28px from center
+      const posX = cx + Math.cos(a) * setDist;
+      const posY = cy + Math.sin(a) * setDist;
+      const setAngle = a + Math.PI / 2;
+
+      ctx.save();
+      ctx.translate(posX, posY);
+      ctx.rotate(setAngle);
+
+      // Black Leather Desk Blotter / Conference Pad with Gold Corners
+      ctx.fillStyle = '#090d15';
+      ctx.beginPath();
+      ctx.roundRect(-4.5, -3.2, 9, 6.4, 1);
+      ctx.fill();
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+
+      // Ultra-Thin Space Grey Aluminum Executive Laptop
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(-3, -2, 6, 4);
+      // Keyboard base / trackpad
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-2.4, -0.6, 4.8, 2.2);
+      // Screen Bezel & Display Glow facing outwards to seat
+      ctx.fillStyle = '#38bdf8'; // Soft cyan screen light
+      ctx.fillRect(-2.4, -1.8, 4.8, 1);
+
+      // Sleek Crystal Water Tumbler on Brass Coaster (to the right of blotter)
+      ctx.fillStyle = '#d4af37';
+      ctx.beginPath();
+      ctx.arc(5.5, -0.5, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(147, 197, 253, 0.7)'; // Clear water
+      ctx.beginPath();
+      ctx.arc(5.5, -0.5, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 6. GLOSS SPECULAR SHEEN (Polished Piano Lacquer / Marble Reflection)
+    // =========================================================================
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, tableR - 3.5, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Diagonal Glass Specular Band
+    const specGrad = ctx.createLinearGradient(cx - tableR, cy - tableR, cx + tableR, cy + tableR);
+    specGrad.addColorStop(0.15, 'rgba(255, 255, 255, 0.15)');
+    specGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.03)');
+    specGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0.0)');
+    ctx.fillStyle = specGrad;
+    ctx.fillRect(cx - tableR, cy - tableR, tableR * 2, tableR * 2);
+    ctx.restore();
+
+    // Elegant Gold Embossed Monogram Badge on Tabletop (South quadrant)
+    ctx.fillStyle = '#d4af37';
+    ctx.font = 'bold 7px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('AEETHOD', cx, cy + tableR - 19);
+    ctx.fillStyle = 'rgba(212, 175, 55, 0.7)';
+    ctx.font = '600 5px sans-serif';
+    ctx.fillText('BOARDROOM', cx, cy + tableR - 13);
+    ctx.textAlign = 'left';
+
+    // =========================================================================
+    // 7. ULTRA-WIDE 85" 4K SMART PRESENTATION DISPLAY ON NORTH WALL
+    // =========================================================================
+    const screenX = T(17);
+    const screenY = T(1.1);
+    const screenW = S * 9; // 144px wide
+    const screenH = 16;
+
+    // Bezel Drop Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(screenX + 2, screenY + 3, screenW, screenH);
+
+    // Outer Titanium Bezel
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(screenX, screenY, screenW, screenH, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Display Surface
+    ctx.fillStyle = '#060d17';
+    ctx.beginPath();
+    ctx.roundRect(screenX + 2, screenY + 1.5, screenW - 4, screenH - 3, 1);
+    ctx.fill();
+
+    // Presentation UI Content on Screen
+    // Left: Agency Logo & Status
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(screenX + 8, screenY + 8, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 6px sans-serif';
+    ctx.fillText('AEETHOD HQ', screenX + 14, screenY + 7);
+    ctx.fillStyle = '#22c55e';
+    ctx.font = 'bold 5px sans-serif';
+    ctx.fillText('• LIVE STRATEGY', screenX + 14, screenY + 13);
+
+    // Center: Sprint Progress Milestone Timeline Bars
+    const barBaseX = screenX + 66;
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(barBaseX, screenY + 5, 36, 2.5);
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(barBaseX, screenY + 5, 26, 2.5);
+
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(barBaseX, screenY + 9.5, 36, 2.5);
+    ctx.fillStyle = '#a855f7';
+    ctx.fillRect(barBaseX, screenY + 9.5, 31, 2.5);
+
+    // Right: Mini KPI chart
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(screenX + screenW - 32, screenY + 12);
+    ctx.lineTo(screenX + screenW - 25, screenY + 9);
+    ctx.lineTo(screenX + screenW - 18, screenY + 11);
+    ctx.lineTo(screenX + screenW - 11, screenY + 5);
+    ctx.stroke();
+
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 6px sans-serif';
+    ctx.fillText('+38%', screenX + screenW - 9, screenY + 8);
+
+    // Soundbar underneath display
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.roundRect(screenX + 24, screenY + screenH + 0.5, screenW - 48, 3, 1);
+    ctx.fill();
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(screenX + 30, screenY + screenH + 1, screenW - 60, 1);
+
+    // =========================================================================
+    // 8. SIDE AMENITIES: LUXURY BEVERAGE BAR & DISPLAY CREDENZAS
+    // =========================================================================
+    // West Credenza: Executive Italian Espresso & Beverage Bar
+    const barX = T(14.1);
+    const barY = T(3.2);
+    const barW = 13;
+    const barH = S * 4; // 64px
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(barX + 2, barY + 3, barW, barH);
+    // Dark Smoked Walnut Cabinet Base
+    ctx.fillStyle = '#1c140d';
+    ctx.fillRect(barX, barY, barW, barH);
+    // Calacatta Marble Countertop
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(barX + 1, barY + 1, barW - 2, barH - 2);
+    // Brass Rim
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, barY, barW, barH);
+
+    // Espresso Machine on Credenza (Chrome body, steam wand, portafilter)
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(barX + 2, barY + 8, 9, 14);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(barX + 3, barY + 9, 7, 5); // Pressure gauge / display
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(barX + 4, barY + 15, 5, 4); // Grouphead
+    // Mini ceramic espresso cups on top warmer rack
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(barX + 3, barY + 5, 3, 2.5);
+    ctx.fillRect(barX + 7, barY + 5, 3, 2.5);
+
+    // Crystal Decanter & Whiskey Glasses on lower section
+    ctx.fillStyle = '#d97706'; // Amber spirit
+    ctx.fillRect(barX + 4, barY + 32, 5, 7);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(barX + 3.5, barY + 30, 6, 10);
+    // Glass Tumbler
+    ctx.fillStyle = 'rgba(219, 234, 254, 0.8)';
+    ctx.fillRect(barX + 4, barY + 44, 4.5, 4.5);
+
+    // East Credenza: Architectural Models & Awards Showcase
+    const caseX = T(28.7);
+    const caseY = T(3.2);
+    const caseW = 13;
+    const caseH = S * 4;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(caseX + 2, caseY + 3, caseW, caseH);
+    // Dark Walnut Body
+    ctx.fillStyle = '#1c140d';
+    ctx.fillRect(caseX, caseY, caseW, caseH);
+    // Backlit Warm Display Cavity
+    ctx.fillStyle = '#282019';
+    ctx.fillRect(caseX + 1.5, caseY + 1.5, caseW - 3, caseH - 3);
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(caseX, caseY, caseW, caseH);
+
+    // Glass Shelves with Interior Warm Glow
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(caseX + 2, caseY + 18); ctx.lineTo(caseX + caseW - 2, caseY + 18);
+    ctx.moveTo(caseX + 2, caseY + 36); ctx.lineTo(caseX + caseW - 2, caseY + 36);
+    ctx.moveTo(caseX + 2, caseY + 50); ctx.lineTo(caseX + caseW - 2, caseY + 50);
+    ctx.stroke();
+
+    // Top Shelf: Gold Design Trophy Cup
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.moveTo(caseX + 4, caseY + 7);
+    ctx.lineTo(caseX + caseW - 4, caseY + 7);
+    ctx.lineTo(caseX + caseW - 5.5, caseY + 14);
+    ctx.lineTo(caseX + 5.5, caseY + 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(caseX + 5, caseY + 14, caseW - 10, 3);
+
+    // Middle Shelf: Miniature Architectural Building Model (White geometric prism)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(caseX + 3, caseY + 22, 4, 12);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(caseX + 7.5, caseY + 26, 4, 8);
+
+    // Lower Shelf: Hardcover Agency Portfolios & Annual Reports
+    const bookColors = ['#dc2626', '#2563eb', '#16a34a', '#d97706'];
+    for (let b = 0; b < 4; b++) {
+      ctx.fillStyle = bookColors[b];
+      ctx.fillRect(caseX + 3 + b * 2, caseY + 40, 1.8, 9);
+    }
+
+    ctx.restore();
   }
 
   // --- DEVELOPMENT ROOM (Enriched Hello Kitty Themed Battlestation & Spider-Man Desk) ---
