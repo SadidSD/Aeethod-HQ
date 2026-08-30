@@ -9,7 +9,7 @@ interface BackendDevModalProps {
   onRefresh: () => void;
 }
 
-type TabId = 'mission' | 'tasks' | 'skills' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
+type TabId = 'projects' | 'tasks' | 'skills' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
 
 interface TabDef {
   id: TabId;
@@ -19,8 +19,8 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'mission', label: 'Engine Mission', icon: '⚡', shortcut: '1' },
-  { id: 'tasks', label: 'All Tasks & Backlog', icon: '🎯', shortcut: '2' },
+  { id: 'projects', label: 'Projects Hub', icon: '📁', shortcut: '1' },
+  { id: 'tasks', label: 'My Assigned Tasks', icon: '🎯', shortcut: '2' },
   { id: 'skills', label: 'Architecture Tree', icon: '🧠', shortcut: '3' },
   { id: 'bosses', label: 'System Bosses', icon: '🏆', shortcut: '4' },
   { id: 'portfolio', label: 'Shipped Systems', icon: '🏛️', shortcut: '5' },
@@ -29,7 +29,7 @@ const TABS: TabDef[] = [
 ];
 
 export default function BackendDevModal({ agency, manager, onClose, onRefresh }: BackendDevModalProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('mission');
+  const [activeTab, setActiveTab] = useState<TabId>('projects');
 
   // Employee info
   const backendMember = agency.team.find(m => m.id === 'backend' || m.role.toLowerCase().includes('backend')) || {
@@ -39,21 +39,18 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
     status: 'working'
   };
 
-  // Selected Project State (Defaults to first active project)
-  const activeProjects = agency.projects.filter(p => p.phase !== 'completed');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
-    return activeProjects[0]?.id || agency.projects[0]?.id || 'proj_cardvault';
-  });
+  // Selected Project for Drill-down View (null = show all projects grid)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  const currentProject = agency.projects.find(p => p.id === selectedProjectId) || agency.projects[0];
-  const projectTasks = agency.tasks.filter(t => t.projectId === currentProject?.id);
+  const selectedProject = agency.projects.find(p => p.id === selectedProjectId) || null;
+  const projectTasks = selectedProject ? agency.tasks.filter(t => t.projectId === selectedProject.id) : [];
   const doneTasks = projectTasks.filter(t => t.status === 'done');
   const inProgressTasks = projectTasks.filter(t => t.status === 'active' || t.status === 'blocked');
   const queuedTasks = projectTasks.filter(t => t.status === 'queued');
 
   const projectProgressPct = projectTasks.length > 0
     ? Math.round((doneTasks.length / projectTasks.length) * 100)
-    : 0;
+    : (selectedProject?.phase === 'completed' ? 100 : 0);
 
   // Notification Toast
   const [notification, setNotification] = useState<{ message: string; icon: string } | null>(null);
@@ -75,15 +72,14 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
     xpReward: 110,
   });
 
-  // Task Filter state in Backlog tab
-  const [taskFilter, setTaskFilter] = useState<'all' | 'mine' | 'done'>('all');
-
-  // Keyboard Shortcuts (1-7 for tabs, Escape for close)
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (showNewTaskModal) {
           setShowNewTaskModal(false);
+        } else if (selectedProjectId) {
+          setSelectedProjectId(null); // Back to projects list
         } else {
           onClose();
         }
@@ -101,7 +97,7 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showNewTaskModal]);
+  }, [onClose, showNewTaskModal, selectedProjectId]);
 
   const handleCompleteTask = (taskId: string, title: string, xp: number) => {
     manager.completeTask(taskId);
@@ -117,11 +113,11 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
   };
 
   const handleCreateTask = () => {
-    if (!newTaskInput.title.trim()) return;
+    if (!newTaskInput.title.trim() || !selectedProject) return;
     manager.addTask({
       title: newTaskInput.title,
       description: newTaskInput.description || 'Core backend architectural milestone.',
-      projectId: currentProject.id,
+      projectId: selectedProject.id,
       assignedTo: newTaskInput.assignedTo,
       phase: newTaskInput.phase as any,
       status: 'active',
@@ -131,7 +127,7 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
       xpReward: Number(newTaskInput.xpReward) || 110,
       deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
     });
-    showToast(`⚡ Architecture Task Added: ${newTaskInput.title}!`, '🚀');
+    showToast(`⚡ Added Backend Task to ${selectedProject.name}!`, '🚀');
     setShowNewTaskModal(false);
     setNewTaskInput({
       title: '',
@@ -243,273 +239,303 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
               })}
             </div>
 
-            {/* Bottom Current Project Progress Widget */}
+            {/* Bottom Overview Card */}
             <div className="p-3 bg-[#0a121c] border border-cyan-900/40 rounded-xl font-mono text-[11px]">
-              <div className="text-[10px] text-slate-400 uppercase font-bold truncate mb-1">
-                {currentProject?.name}
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span>CLIENT PIPELINES</span>
+                <span className="text-cyan-400 font-bold">{agency.projects.length} Active</span>
               </div>
-              <div className="flex items-center justify-between text-slate-300 mb-1">
-                <span>Progress</span>
-                <span className="text-cyan-400 font-bold">{projectProgressPct}%</span>
+              <div className="text-[10px] text-slate-500">
+                Click any project card to view & deploy its backend tasks.
               </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
-                <div
-                  className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
-                  style={{ width: `${projectProgressPct}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-slate-500 block text-center">
-                {doneTasks.length}/{projectTasks.length} milestones deployed
-              </span>
             </div>
           </div>
 
           {/* ────────────────────────────────────────────────────────────────
-              MAIN CONTENT TAB AREA
+              MAIN CONTENT AREA
               ──────────────────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-y-auto p-5 bg-[#05080c] space-y-4">
 
-            {/* ════════════ TAB 1: STRUCTURED PROJECT MISSION ════════════ */}
-            {activeTab === 'mission' && (
+            {/* ════════════ TAB 1: PROJECTS HUB (DRILL-DOWN) ════════════ */}
+            {activeTab === 'projects' && (
               <div className="space-y-4 animate-in fade-in">
-                
-                {/* 1. Project Selector Bar */}
-                <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-mono font-bold text-slate-400">📁 ACTIVE PROJECT:</span>
-                    <select
-                      value={selectedProjectId}
-                      onChange={(e) => setSelectedProjectId(e.target.value)}
-                      className="bg-[#05080c] border border-cyan-500/50 text-cyan-300 font-mono font-bold text-xs px-3.5 py-2 rounded-xl outline-none shadow-[0_0_15px_rgba(6,182,212,0.15)] cursor-pointer"
-                    >
-                      {agency.projects.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (${p.value.toLocaleString()}) — [{p.phase.toUpperCase()}]
-                        </option>
-                      ))}
-                    </select>
-                  </div>
 
-                  <button
-                    onClick={() => setShowNewTaskModal(true)}
-                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs rounded-xl transition shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
-                  >
-                    <span>➕</span> Add Architecture Task
-                  </button>
-                </div>
-
-                {/* 2. Structured Project Status & Roadmap Stepper */}
-                <div className="p-4 bg-[#070c14] border border-slate-800 rounded-2xl space-y-3 font-mono">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
-                    <div>
-                      <h2 className="text-sm font-black text-slate-100 flex items-center gap-2">
-                        <span>💼</span> {currentProject?.name}
-                        <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-                          Client: {currentProject?.clientName}
-                        </span>
-                      </h2>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        {currentProject?.notes || 'Backend architecture & distributed queue pipeline.'}
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-emerald-400">
-                        💰 ${currentProject?.value.toLocaleString()} Budget
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        Phase: <strong className="text-cyan-300 uppercase">{currentProject?.phase}</strong>
+                {/* LEVEL 1: ALL PROJECTS GRID */}
+                {!selectedProject ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div>
+                        <h2 className="text-sm font-black text-slate-100 font-mono tracking-wide flex items-center gap-2">
+                          <span>📁</span> BACKEND CLIENT PROJECTS ({agency.projects.length})
+                        </h2>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">
+                          Select a project below to enter its workspace and view assigned tasks.
+                        </p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Visual Stepper */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] font-bold text-center pt-1">
-                    {['discovery', 'architecture', 'design', 'development', 'launch'].map((phase, idx) => {
-                      const isPast = ['discovery', 'architecture', 'design'].includes(phase) && currentProject.phase === 'build';
-                      const isCurrent = (phase === 'development' && currentProject.phase === 'build') || phase === currentProject.phase;
-                      return (
-                        <div
-                          key={phase}
-                          className={`p-2 rounded-xl border ${
-                            isPast
-                              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
-                              : isCurrent
-                              ? 'bg-cyan-950/80 border-cyan-500 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
-                              : 'bg-[#05080c] border-slate-800 text-slate-500'
-                          }`}
-                        >
-                          <div className="text-xs">{isPast ? '✅' : isCurrent ? '⚡' : '📋'} Step {idx + 1}</div>
-                          <div className="uppercase tracking-wider mt-0.5">{phase}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    {/* Projects Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+                      {agency.projects.map(project => {
+                        const pTasks = agency.tasks.filter(t => t.projectId === project.id);
+                        const pDone = pTasks.filter(t => t.status === 'done');
+                        const pActive = pTasks.filter(t => t.status === 'active' || t.status === 'blocked');
+                        const pct = pTasks.length > 0 ? Math.round((pDone.length / pTasks.length) * 100) : (project.phase === 'completed' ? 100 : 0);
 
-                  {/* Progress Bar */}
-                  <div className="pt-2">
-                    <div className="flex justify-between text-xs text-slate-300 mb-1">
-                      <span>Milestones Deployed</span>
-                      <strong className="text-cyan-400 font-bold">{doneTasks.length} of {projectTasks.length} Done ({projectProgressPct}%)</strong>
-                    </div>
-                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-400 transition-all duration-500"
-                        style={{ width: `${projectProgressPct}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
+                        return (
+                          <div
+                            key={project.id}
+                            onClick={() => setSelectedProjectId(project.id)}
+                            className="p-5 bg-[#0a111a] border border-slate-800 hover:border-cyan-500/60 rounded-2xl cursor-pointer transition hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(6,182,212,0.2)] flex flex-col justify-between gap-4 group"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 uppercase">
+                                  {project.industry}
+                                </span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  project.phase === 'completed' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' :
+                                  'bg-cyan-950 text-cyan-300 border border-cyan-700'
+                                } uppercase`}>
+                                  Phase: {project.phase}
+                                </span>
+                              </div>
 
-                {/* 3. In Progress Sprints for This Project */}
-                <div className="space-y-2 font-mono">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                    <span className="flex items-center gap-1.5 text-cyan-400">
-                      <span>⚡</span> ACTIVE BACKEND SPRINTS ({inProgressTasks.length})
-                    </span>
-                  </div>
+                              <h3 className="text-base font-black text-slate-100 group-hover:text-cyan-300 transition">
+                                {project.name}
+                              </h3>
 
-                  {inProgressTasks.length === 0 ? (
-                    <div className="p-6 bg-[#05080c] border border-slate-800 rounded-xl text-center text-xs text-slate-500">
-                      ✨ All backend tasks currently completed for this project!
-                    </div>
-                  ) : (
-                    inProgressTasks.map(task => (
-                      <div
-                        key={task.id}
-                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition ${
-                          task.status === 'blocked'
-                            ? 'bg-rose-950/30 border-rose-600/60 text-slate-200'
-                            : 'bg-[#0a111a] border-cyan-500/40 text-slate-100 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-[10px] font-bold">
-                            <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/60 uppercase">
-                              {task.phase}
-                            </span>
-                            <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-400">
-                              Priority: {task.priority.toUpperCase()}
-                            </span>
-                            <span className="text-cyan-300 font-bold">+{task.xpReward || 110} XP</span>
+                              <div className="flex items-center justify-between text-xs text-slate-400">
+                                <span>Client: <strong className="text-slate-200">{project.clientName}</strong></span>
+                                <span className="text-emerald-400 font-bold">${project.value.toLocaleString()}</span>
+                              </div>
+
+                              <p className="text-[11px] text-slate-500 line-clamp-2">
+                                {project.notes || 'Enterprise client deliverable.'}
+                              </p>
+                            </div>
+
+                            {/* Progress Bar & Open Action */}
+                            <div className="space-y-2 pt-3 border-t border-slate-800/80">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-slate-400">Milestones Deployed</span>
+                                <strong className="text-cyan-400 font-bold">{pct}% ({pDone.length}/{pTasks.length} Tasks)</strong>
+                              </div>
+                              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+
+                              <div className="pt-2 flex items-center justify-between text-xs font-bold">
+                                <span className="text-amber-400 text-[11px]">
+                                  ⚡ {pActive.length} Active Sprints
+                                </span>
+                                <span className="text-cyan-400 group-hover:underline flex items-center gap-1">
+                                  <span>Enter Project</span>
+                                  <span>➔</span>
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <h3 className="text-sm font-bold text-slate-100">{task.title}</h3>
-                          <p className="text-xs text-slate-400 font-normal">{task.description}</p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* LEVEL 2: DRILL-DOWN INSIDE A SPECIFIC PROJECT */
+                  <div className="space-y-4 font-mono animate-in fade-in">
+                    
+                    {/* Breadcrumb Header & Back Button */}
+                    <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setSelectedProjectId(null)}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700"
+                        >
+                          <span>⬅️</span>
+                          <span>ALL PROJECTS</span>
+                        </button>
+                        <span className="text-slate-600">/</span>
+                        <div>
+                          <h2 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                            <span>💼</span> {selectedProject.name}
+                            <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                              Client: {selectedProject.clientName}
+                            </span>
+                          </h2>
+                          <span className="text-[11px] text-emerald-400 font-bold">
+                            💰 ${selectedProject.value.toLocaleString()} Budget · Phase: {selectedProject.phase.toUpperCase()}
+                          </span>
                         </div>
+                      </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => handleToggleBlocker(task)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                      <button
+                        onClick={() => setShowNewTaskModal(true)}
+                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
+                      >
+                        <span>➕</span> Add Task to {selectedProject.name}
+                      </button>
+                    </div>
+
+                    {/* Project Phase Stepper & Overall Progress */}
+                    <div className="p-4 bg-[#070c14] border border-slate-800 rounded-2xl space-y-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] font-bold text-center">
+                        {['discovery', 'architecture', 'design', 'development', 'launch'].map((phase, idx) => {
+                          const isPast = ['discovery', 'architecture', 'design'].includes(phase) && selectedProject.phase === 'build';
+                          const isCurrent = (phase === 'development' && selectedProject.phase === 'build') || phase === selectedProject.phase;
+                          return (
+                            <div
+                              key={phase}
+                              className={`p-2 rounded-xl border ${
+                                isPast
+                                  ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                                  : isCurrent
+                                  ? 'bg-cyan-950/80 border-cyan-500 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
+                                  : 'bg-[#05080c] border-slate-800 text-slate-500'
+                              }`}
+                            >
+                              <div className="text-xs">{isPast ? '✅' : isCurrent ? '⚡' : '📋'} Step {idx + 1}</div>
+                              <div className="uppercase tracking-wider mt-0.5">{phase}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="pt-2">
+                        <div className="flex justify-between text-xs text-slate-300 mb-1">
+                          <span>Architecture Milestones for {selectedProject.name}</span>
+                          <strong className="text-cyan-400 font-bold">{doneTasks.length} of {projectTasks.length} Done ({projectProgressPct}%)</strong>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-400 transition-all duration-500"
+                            style={{ width: `${projectProgressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Active In-Progress Tasks */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                        <span className="flex items-center gap-1.5 text-cyan-400">
+                          <span>⚡</span> ACTIVE IN-PROGRESS TASKS ({inProgressTasks.length})
+                        </span>
+                      </div>
+
+                      {inProgressTasks.length === 0 ? (
+                        <div className="p-6 bg-[#05080c] border border-slate-800 rounded-xl text-center text-xs text-slate-500">
+                          ✨ All backend tasks currently completed for this project!
+                        </div>
+                      ) : (
+                        inProgressTasks.map(task => (
+                          <div
+                            key={task.id}
+                            className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition ${
                               task.status === 'blocked'
-                                ? 'bg-rose-600 text-white'
-                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                ? 'bg-rose-950/30 border-rose-600/60 text-slate-200'
+                                : 'bg-[#0a111a] border-cyan-500/40 text-slate-100 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
                             }`}
                           >
-                            <span>🚨</span>
-                            <span>{task.status === 'blocked' ? 'BLOCKED' : 'REPORT ISSUE'}</span>
-                          </button>
-                          <button
-                            onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 110)}
-                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-xs rounded-xl transition shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
-                          >
-                            <span>⚡</span>
-                            <span>DEPLOY NOW</span>
-                          </button>
-                        </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-[10px] font-bold">
+                                <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/60 uppercase">
+                                  {task.phase}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-400 uppercase">
+                                  Assigned: {task.assignedTo || 'Team'}
+                                </span>
+                                <span className="text-cyan-300 font-bold">+{task.xpReward || 110} XP</span>
+                              </div>
+                              <h3 className="text-sm font-bold text-slate-100">{task.title}</h3>
+                              <p className="text-xs text-slate-400 font-normal">{task.description}</p>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => handleToggleBlocker(task)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                  task.status === 'blocked'
+                                    ? 'bg-rose-600 text-white'
+                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                }`}
+                              >
+                                <span>🚨</span>
+                                <span>{task.status === 'blocked' ? 'BLOCKED' : 'REPORT ISSUE'}</span>
+                              </button>
+                              <button
+                                onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 110)}
+                                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-xs rounded-xl transition shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
+                              >
+                                <span>⚡</span>
+                                <span>DEPLOY NOW</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Finished Deliverables */}
+                    <div className="p-4 bg-[#070c14] border border-slate-800 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+                        <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                          <span>✅</span> COMPLETED TASKS IN THIS PROJECT ({doneTasks.length})
+                        </span>
                       </div>
-                    ))
-                  )}
-                </div>
 
-                {/* 4. Completed Tasks Log for this Project */}
-                <div className="p-4 bg-[#070c14] border border-slate-800 rounded-2xl space-y-3 font-mono">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
-                    <span className="font-bold text-emerald-400 flex items-center gap-1.5">
-                      <span>✅</span> SHIPPED ARCHITECTURAL MODULES ({doneTasks.length})
-                    </span>
-                  </div>
-
-                  {doneTasks.length === 0 ? (
-                    <div className="text-center py-4 text-xs text-slate-500">
-                      No backend tasks completed yet for this project.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {doneTasks.map(task => (
-                        <div
-                          key={task.id}
-                          className="p-3 bg-[#05080c] border border-slate-800/80 rounded-xl flex items-center justify-between text-xs"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-emerald-400">✅</span>
-                            <span className="text-slate-300 font-bold line-through">{task.title}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                              {task.phase}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-[11px]">
-                            <span className="text-amber-400 font-bold">+{task.xpReward || 110} XP</span>
-                            <span className="text-slate-500">
-                              {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'Shipped'}
-                            </span>
-                          </div>
+                      {doneTasks.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-slate-500">
+                          No backend tasks finished yet for this project.
                         </div>
-                      ))}
+                      ) : (
+                        <div className="space-y-2">
+                          {doneTasks.map(task => (
+                            <div
+                              key={task.id}
+                              className="p-3 bg-[#05080c] border border-slate-800/80 rounded-xl flex items-center justify-between text-xs"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-emerald-400">✅</span>
+                                <span className="text-slate-300 font-bold line-through">{task.title}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                                  {task.phase}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-[11px]">
+                                <span className="text-amber-400 font-bold">+{task.xpReward || 110} XP</span>
+                                <span className="text-slate-500">
+                                  {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'Shipped'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+
+                  </div>
+                )}
 
               </div>
             )}
 
-            {/* ════════════ TAB 2: ALL TASKS & BACKLOG ════════════ */}
+            {/* ════════════ TAB 2: MY ASSIGNED TASKS (GLOBAL VIEW) ════════════ */}
             {activeTab === 'tasks' && (
               <div className="space-y-4 font-mono animate-in fade-in">
-                <div className="p-3.5 bg-[#0a111a] border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
-                    <span>📋 FILTER TASKS:</span>
-                    <button
-                      onClick={() => setTaskFilter('all')}
-                      className={`px-3 py-1.5 rounded-xl transition ${
-                        taskFilter === 'all' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      All Tasks ({agency.tasks.length})
-                    </button>
-                    <button
-                      onClick={() => setTaskFilter('mine')}
-                      className={`px-3 py-1.5 rounded-xl transition ${
-                        taskFilter === 'mine' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      Backend Only ({agency.tasks.filter(t => t.assignedTo === 'backend').length})
-                    </button>
-                    <button
-                      onClick={() => setTaskFilter('done')}
-                      className={`px-3 py-1.5 rounded-xl transition ${
-                        taskFilter === 'done' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      Completed ({agency.tasks.filter(t => t.status === 'done').length})
-                    </button>
+                <div className="p-3.5 bg-[#0a111a] border border-slate-800 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-100">🎯 TASKS ASSIGNED TO BACKEND</h3>
+                    <p className="text-[11px] text-slate-400">All tasks across every project assigned to your workstation</p>
                   </div>
-
-                  <button
-                    onClick={() => setShowNewTaskModal(true)}
-                    className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
-                  >
-                    ➕ New Task
-                  </button>
                 </div>
 
                 <div className="space-y-2.5">
                   {agency.tasks
-                    .filter(t => {
-                      if (taskFilter === 'mine') return t.assignedTo === 'backend';
-                      if (taskFilter === 'done') return t.status === 'done';
-                      return true;
-                    })
+                    .filter(t => t.assignedTo === 'backend')
                     .map(task => {
                       const proj = agency.projects.find(p => p.id === task.projectId);
                       return (
@@ -519,10 +545,9 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                         >
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-[10px] font-bold">
-                              <span className="text-cyan-400">{proj?.name || 'General Agency'}</span>
-                              <span className="text-slate-600">•</span>
-                              <span className="text-slate-400 uppercase">Assigned: {task.assignedTo || 'Unassigned'}</span>
-                              <span className="text-slate-600">•</span>
+                              <span className="text-cyan-400 font-bold px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-800">
+                                📁 {proj?.name || 'General Agency'}
+                              </span>
                               <span className={`px-1.5 py-0.5 rounded ${
                                 task.status === 'done' ? 'bg-emerald-950 text-emerald-300' :
                                 task.status === 'active' ? 'bg-cyan-950 text-cyan-300' :
@@ -535,13 +560,15 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {task.status !== 'done' && (
+                            {task.status !== 'done' ? (
                               <button
                                 onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 100)}
                                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg"
                               >
                                 Deploy
                               </button>
+                            ) : (
+                              <span className="text-emerald-400 font-bold">Done ✅</span>
                             )}
                           </div>
                         </div>
@@ -654,11 +681,11 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
         {/* ════════════════════════════════════════════════════════════════════
             CREATE NEW TASK MODAL
             ════════════════════════════════════════════════════════════════════ */}
-        {showNewTaskModal && (
+        {showNewTaskModal && selectedProject && (
           <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="w-full max-w-lg bg-[#0a111a] border border-cyan-500/50 rounded-2xl p-6 font-mono text-xs shadow-2xl">
               <div className="flex justify-between items-center pb-3 border-b border-slate-800 mb-4">
-                <strong className="text-sm text-cyan-400">➕ Add Architecture Task</strong>
+                <strong className="text-sm text-cyan-400">➕ Add Task to {selectedProject.name}</strong>
                 <button onClick={() => setShowNewTaskModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
               </div>
 
@@ -666,7 +693,7 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                 <div>
                   <label className="block text-slate-400 mb-1">Target Project:</label>
                   <div className="p-2.5 bg-[#05080c] border border-slate-700 rounded-lg text-slate-200 font-bold">
-                    {currentProject?.name} (${currentProject?.value.toLocaleString()})
+                    {selectedProject.name} (${selectedProject.value.toLocaleString()})
                   </div>
                 </div>
 
