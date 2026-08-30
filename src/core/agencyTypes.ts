@@ -107,7 +107,7 @@ export interface AgencyTask {
   actualHours: number;
   createdAt: string;
   completedAt: string | null;
-  deadline: string | null;
+  deadline?: string | null;
 }
 
 // --- Leads ---

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AgencyState, AgencyTask } from '../core/agencyTypes';
+import { AgencyState, AgencyTask, Project } from '../core/agencyTypes';
 import AgencyManager from '../core/agency';
 
 interface BackendDevModalProps {
@@ -7,23 +7,6 @@ interface BackendDevModalProps {
   manager: AgencyManager;
   onClose: () => void;
   onRefresh: () => void;
-}
-
-interface SubtaskItem {
-  id: string;
-  title: string;
-  status: 'done' | 'in_progress' | 'waiting' | 'pending';
-  timeLabel: string;
-}
-
-interface QuickTaskItem {
-  id: string;
-  title: string;
-  tag: string;
-  color: 'red' | 'yellow' | 'blue' | 'green';
-  estimate: string;
-  energyLevel: 'high' | 'medium' | 'low';
-  xp: number;
 }
 
 type TabId = 'mission' | 'tasks' | 'skills' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
@@ -37,7 +20,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: 'mission', label: 'Engine Mission', icon: '⚡', shortcut: '1' },
-  { id: 'tasks', label: 'System Tasks', icon: '🎯', shortcut: '2' },
+  { id: 'tasks', label: 'All Tasks & Backlog', icon: '🎯', shortcut: '2' },
   { id: 'skills', label: 'Architecture Tree', icon: '🧠', shortcut: '3' },
   { id: 'bosses', label: 'System Bosses', icon: '🏆', shortcut: '4' },
   { id: 'portfolio', label: 'Shipped Systems', icon: '🏛️', shortcut: '5' },
@@ -56,12 +39,23 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
     status: 'working'
   };
 
-  // Find linked active project / tasks
-  const myAssignedTasks = agency.tasks.filter(t => t.assignedTo === 'backend' || t.phase === 'development');
-  const activeAgencyTask = myAssignedTasks.find(t => t.status === 'active') || myAssignedTasks[0];
-  const linkedProject = activeAgencyTask?.projectId ? agency.projects.find(p => p.id === activeAgencyTask.projectId) : agency.projects[0];
+  // Selected Project State (Defaults to first active project)
+  const activeProjects = agency.projects.filter(p => p.phase !== 'completed');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    return activeProjects[0]?.id || agency.projects[0]?.id || 'proj_cardvault';
+  });
 
-  // Dynamic Notification Toast
+  const currentProject = agency.projects.find(p => p.id === selectedProjectId) || agency.projects[0];
+  const projectTasks = agency.tasks.filter(t => t.projectId === currentProject?.id);
+  const doneTasks = projectTasks.filter(t => t.status === 'done');
+  const inProgressTasks = projectTasks.filter(t => t.status === 'active' || t.status === 'blocked');
+  const queuedTasks = projectTasks.filter(t => t.status === 'queued');
+
+  const projectProgressPct = projectTasks.length > 0
+    ? Math.round((doneTasks.length / projectTasks.length) * 100)
+    : 0;
+
+  // Notification Toast
   const [notification, setNotification] = useState<{ message: string; icon: string } | null>(null);
 
   const showToast = (message: string, icon = '⚡') => {
@@ -69,51 +63,34 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // Mission State
-  const [isPaused, setIsPaused] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [subtasks, setSubtasks] = useState<SubtaskItem[]>([
-    { id: 'be-1', title: 'Design PostgreSQL schema & high-speed B-Tree indexes', status: 'done', timeLabel: '3h ago' },
-    { id: 'be-2', title: 'Build Redis caching & BullMQ price synchronization worker', status: 'in_progress', timeLabel: '30 min' },
-    { id: 'be-3', title: 'Write GraphQL resolver types & mutations for buylist', status: 'waiting', timeLabel: '-' },
-    { id: 'be-4', title: 'Run DB migration & simulate 5,000 req/sec stress test', status: 'pending', timeLabel: '20 min' },
-  ]);
+  // New Task Modal
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [newTaskInput, setNewTaskInput] = useState({
+    title: '',
+    description: '',
+    phase: 'development',
+    priority: 'urgent',
+    assignedTo: 'backend',
+    estimatedHours: 6,
+    xpReward: 110,
+  });
 
-  // Today's Progress State
-  const [tasksDoneCount, setTasksDoneCount] = useState(5);
-  const [tasksTotalCount, setTasksTotalCount] = useState(7);
-  const [todayXP, setTodayXP] = useState(310);
-  const maxTodayXP = 450;
-  const [streakDays, setStreakDays] = useState(16);
-
-  // Energy / Mood State
-  const [energyLevel, setEnergyLevel] = useState<'high' | 'medium' | 'low'>('high');
-
-  // Quick Tasks State
-  const [quickTasks, setQuickTasks] = useState<QuickTaskItem[]>([
-    { id: 'bqt-1', title: 'Tune PostgreSQL Slow Query (450ms -> 12ms)', tag: 'SQL Tune', color: 'red', estimate: '20m', energyLevel: 'high', xp: 45 },
-    { id: 'bqt-2', title: 'Implement Redis Lock for Checkout Race Condition', tag: 'Concurrency', color: 'yellow', estimate: '35m', energyLevel: 'medium', xp: 55 },
-    { id: 'bqt-3', title: 'Automate Daily Database Backup Snapshot to S3', tag: 'DevOps', color: 'blue', estimate: '15m', energyLevel: 'low', xp: 30 },
-    { id: 'bqt-4', title: 'Setup Stripe Webhook Event Idempotency Store', tag: 'Payments', color: 'green', estimate: '40m', energyLevel: 'medium', xp: 60 },
-  ]);
-
-  // Modal Popups for Quick Actions
-  const [activeModalAction, setActiveModalAction] = useState<'newTask' | null>(null);
-  const [newTaskInput, setNewTaskInput] = useState({ title: '', estimate: '20m', tag: 'Backend', energy: 'medium' });
+  // Task Filter state in Backlog tab
+  const [taskFilter, setTaskFilter] = useState<'all' | 'mine' | 'done'>('all');
 
   // Keyboard Shortcuts (1-7 for tabs, Escape for close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (activeModalAction) {
-          setActiveModalAction(null);
+        if (showNewTaskModal) {
+          setShowNewTaskModal(false);
         } else {
           onClose();
         }
         return;
       }
 
-      if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA' || (e.target as HTMLElement)?.tagName === 'SELECT') {
         return;
       }
 
@@ -124,36 +101,49 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, activeModalAction]);
+  }, [onClose, showNewTaskModal]);
 
-  // Toggle Subtask Completion
-  const toggleSubtask = (id: string) => {
-    setSubtasks(prev =>
-      prev.map(st => {
-        if (st.id === id) {
-          const nextStatus = st.status === 'done' ? 'in_progress' : 'done';
-          if (nextStatus === 'done') {
-            setTodayXP(x => Math.min(x + 25, maxTodayXP));
-            showToast('Backend Subtask deployed! +25 XP awarded ⚡', '⚡');
-          }
-          return { ...st, status: nextStatus, timeLabel: nextStatus === 'done' ? 'Just now' : 'In progress' };
-        }
-        return st;
-      })
-    );
-  };
-
-  // Complete a Quick Task
-  const completeQuickTask = (task: QuickTaskItem) => {
-    setQuickTasks(prev => prev.filter(t => t.id !== task.id));
-    setTasksDoneCount(c => c + 1);
-    setTodayXP(x => Math.min(x + task.xp, maxTodayXP));
-    manager.addXP(task.xp);
-    showToast(`Deployed: ${task.title}! +${task.xp} XP 🚀`, '⚡');
+  const handleCompleteTask = (taskId: string, title: string, xp: number) => {
+    manager.completeTask(taskId);
+    showToast(`⚡ Deployed: ${title}! +${xp} XP awarded!`, '🚀');
     onRefresh();
   };
 
-  const filteredQuickTasks = quickTasks.filter(t => energyLevel === 'high' || t.energyLevel === energyLevel || t.energyLevel === 'low');
+  const handleToggleBlocker = (task: AgencyTask) => {
+    const nextStatus = task.status === 'blocked' ? 'active' : 'blocked';
+    manager.updateTask(task.id, { status: nextStatus });
+    showToast(nextStatus === 'blocked' ? '🚨 DB Lock Blocker reported!' : '✅ Blocker resolved!', nextStatus === 'blocked' ? '🚨' : '✅');
+    onRefresh();
+  };
+
+  const handleCreateTask = () => {
+    if (!newTaskInput.title.trim()) return;
+    manager.addTask({
+      title: newTaskInput.title,
+      description: newTaskInput.description || 'Core backend architectural milestone.',
+      projectId: currentProject.id,
+      assignedTo: newTaskInput.assignedTo,
+      phase: newTaskInput.phase as any,
+      status: 'active',
+      priority: newTaskInput.priority as any,
+      cognitiveLoad: 'deep',
+      estimatedHours: Number(newTaskInput.estimatedHours) || 6,
+      xpReward: Number(newTaskInput.xpReward) || 110,
+      deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
+    });
+    showToast(`⚡ Architecture Task Added: ${newTaskInput.title}!`, '🚀');
+    setShowNewTaskModal(false);
+    setNewTaskInput({
+      title: '',
+      description: '',
+      phase: 'development',
+      priority: 'urgent',
+      assignedTo: 'backend',
+      estimatedHours: 6,
+      xpReward: 110,
+    });
+    onRefresh();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 animate-in fade-in select-none">
@@ -187,11 +177,9 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
               <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono mt-0.5">
                 <span>📅 March 15, 2026</span>
                 <span className="text-slate-600">•</span>
-                <span>⏰ 10:23 AM</span>
-                <span className="text-slate-600">•</span>
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  CLUSTER STATUS: OPTIMAL (99.99%)
+                  CLUSTER UPTIME: 99.99% (OPTIMAL)
                 </span>
               </div>
             </div>
@@ -199,11 +187,11 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
 
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-3 text-xs font-mono bg-[#05080c] px-3.5 py-1.5 rounded-xl border border-cyan-900/50 text-slate-300">
-              <span className="text-amber-400 font-bold">🔥 {streakDays}-Day Streak</span>
+              <span className="text-amber-400 font-bold">🔥 16-Day Streak</span>
               <span className="text-slate-600">|</span>
-              <span className="text-cyan-300 font-bold">⭐ {todayXP}/{maxTodayXP} XP</span>
+              <span className="text-cyan-300 font-bold">⭐ {agency.agency.xp} XP</span>
               <span className="text-slate-600">|</span>
-              <span className="text-emerald-400 font-bold">🏆 31 Bosses</span>
+              <span className="text-emerald-400 font-bold">⚡ 5.2k QPS</span>
             </div>
 
             <button
@@ -255,17 +243,23 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
               })}
             </div>
 
-            {/* Bottom Status Card */}
+            {/* Bottom Current Project Progress Widget */}
             <div className="p-3 bg-[#0a121c] border border-cyan-900/40 rounded-xl font-mono text-[11px]">
-              <div className="flex items-center justify-between text-slate-400 mb-1">
-                <span>SERVER UPTIME</span>
-                <span className="text-emerald-400 font-bold">99.99%</span>
+              <div className="text-[10px] text-slate-400 uppercase font-bold truncate mb-1">
+                {currentProject?.name}
               </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-2">
-                <div className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400" style={{ width: '92%' }} />
+              <div className="flex items-center justify-between text-slate-300 mb-1">
+                <span>Progress</span>
+                <span className="text-cyan-400 font-bold">{projectProgressPct}%</span>
               </div>
-              <span className="text-[10px] text-cyan-400/80 font-bold block text-center">
-                ⚡ 5.2k req/sec capacity
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+                  style={{ width: `${projectProgressPct}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-slate-500 block text-center">
+                {doneTasks.length}/{projectTasks.length} milestones deployed
               </span>
             </div>
           </div>
@@ -275,203 +269,284 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
               ──────────────────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-y-auto p-5 bg-[#05080c] space-y-4">
 
-            {/* ════════════ TAB 1: MISSION & SPRINT ════════════ */}
+            {/* ════════════ TAB 1: STRUCTURED PROJECT MISSION ════════════ */}
             {activeTab === 'mission' && (
               <div className="space-y-4 animate-in fade-in">
-                <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
-                    <div className="flex items-center gap-2 font-mono">
-                      <span className="text-cyan-400 font-bold flex items-center gap-1">
-                        <span>⚡</span> ACTIVE ARCHITECTURE SPRINT:
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-lg bg-cyan-950/70 border border-cyan-700/50 text-cyan-300 text-xs font-bold">
-                        💼 Project: {linkedProject ? linkedProject.name : 'CardVault AI Platform'} (${linkedProject?.value?.toLocaleString() || '12,000'})
-                      </span>
-                    </div>
-                    <span className="text-xs font-mono text-emerald-300 font-bold">⏳ 50% Complete</span>
+                
+                {/* 1. Project Selector Bar */}
+                <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-mono font-bold text-slate-400">📁 ACTIVE PROJECT:</span>
+                    <select
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      className="bg-[#05080c] border border-cyan-500/50 text-cyan-300 font-mono font-bold text-xs px-3.5 py-2 rounded-xl outline-none shadow-[0_0_15px_rgba(6,182,212,0.15)] cursor-pointer"
+                    >
+                      {agency.projects.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} (${p.value.toLocaleString()}) — [{p.phase.toUpperCase()}]
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <h2 className="text-base font-black text-slate-100 font-mono tracking-wide mb-3">
-                    Build High-Throughput Buylist Sync & Redis Engine
-                  </h2>
+                  <button
+                    onClick={() => setShowNewTaskModal(true)}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold text-xs rounded-xl transition shadow-[0_0_20px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
+                  >
+                    <span>➕</span> Add Architecture Task
+                  </button>
+                </div>
+
+                {/* 2. Structured Project Status & Roadmap Stepper */}
+                <div className="p-4 bg-[#070c14] border border-slate-800 rounded-2xl space-y-3 font-mono">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-100 flex items-center gap-2">
+                        <span>💼</span> {currentProject?.name}
+                        <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                          Client: {currentProject?.clientName}
+                        </span>
+                      </h2>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        {currentProject?.notes || 'Backend architecture & distributed queue pipeline.'}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-emerald-400">
+                        💰 ${currentProject?.value.toLocaleString()} Budget
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        Phase: <strong className="text-cyan-300 uppercase">{currentProject?.phase}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Stepper */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px] font-bold text-center pt-1">
+                    {['discovery', 'architecture', 'design', 'development', 'launch'].map((phase, idx) => {
+                      const isPast = ['discovery', 'architecture', 'design'].includes(phase) && currentProject.phase === 'build';
+                      const isCurrent = (phase === 'development' && currentProject.phase === 'build') || phase === currentProject.phase;
+                      return (
+                        <div
+                          key={phase}
+                          className={`p-2 rounded-xl border ${
+                            isPast
+                              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                              : isCurrent
+                              ? 'bg-cyan-950/80 border-cyan-500 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
+                              : 'bg-[#05080c] border-slate-800 text-slate-500'
+                          }`}
+                        >
+                          <div className="text-xs">{isPast ? '✅' : isCurrent ? '⚡' : '📋'} Step {idx + 1}</div>
+                          <div className="uppercase tracking-wider mt-0.5">{phase}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   {/* Progress Bar */}
-                  <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-4">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-500 via-emerald-500 to-teal-400 transition-all duration-500"
-                      style={{ width: `${(subtasks.filter(s => s.status === 'done').length / subtasks.length) * 100}%` }}
-                    />
-                  </div>
-
-                  {/* Subtasks Checklist */}
-                  <div className="space-y-2 font-mono text-xs mb-4">
-                    {subtasks.map(st => (
-                      <div
-                        key={st.id}
-                        onClick={() => toggleSubtask(st.id)}
-                        className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                          st.status === 'done'
-                            ? 'bg-[#06121a] border-emerald-800/50 text-slate-400 line-through'
-                            : st.status === 'in_progress'
-                            ? 'bg-[#0f1d2a] border-cyan-500/50 text-slate-100 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                            : 'bg-[#070b10] border-slate-800/80 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-base">
-                            {st.status === 'done' ? '✅' : st.status === 'in_progress' ? '🔄' : st.status === 'waiting' ? '⏳' : '📝'}
-                          </span>
-                          <span className={st.status === 'done' ? 'text-slate-400 font-normal' : 'font-bold'}>
-                            {st.title}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            st.status === 'done' ? 'bg-emerald-950 text-emerald-300' :
-                            st.status === 'in_progress' ? 'bg-cyan-950 text-cyan-300' :
-                            st.status === 'waiting' ? 'bg-amber-950 text-amber-300' :
-                            'bg-slate-800 text-slate-400'
-                          }`}>
-                            [{st.status.toUpperCase().replace('_', ' ')}]
-                          </span>
-                          <span className="text-slate-500 text-[11px] w-16 text-right">{st.timeLabel}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Action Controls */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800 font-mono text-xs font-bold">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setIsPaused(!isPaused);
-                          showToast(isPaused ? 'Workers Resumed ▶️' : 'Workers Paused ⏸️', isPaused ? '▶️' : '⏸️');
-                        }}
-                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition flex items-center gap-1.5"
-                      >
-                        <span>{isPaused ? '▶️' : '⏸️'}</span>
-                        <span>{isPaused ? 'RESUME' : 'PAUSE'}</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsBlocked(!isBlocked);
-                          showToast(isBlocked ? 'Blocker Cleared ✅' : 'DB Deadlock reported! 🚨', '🚨');
-                        }}
-                        className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 ${
-                          isBlocked ? 'bg-rose-600 text-white' : 'bg-rose-950/60 hover:bg-rose-900 border border-rose-700/50 text-rose-300'
-                        }`}
-                      >
-                        <span>🚨</span>
-                        <span>REPORT BLOCKER</span>
-                      </button>
+                  <div className="pt-2">
+                    <div className="flex justify-between text-xs text-slate-300 mb-1">
+                      <span>Milestones Deployed</span>
+                      <strong className="text-cyan-400 font-bold">{doneTasks.length} of {projectTasks.length} Done ({projectProgressPct}%)</strong>
                     </div>
-
-                    <button
-                      onClick={() => {
-                        setTodayXP(x => Math.min(x + 120, maxTodayXP));
-                        manager.addXP(120);
-                        showToast('🎉 Backend Sprint Deployed! +120 XP awarded!', '🏆');
-                        onRefresh();
-                      }}
-                      className="px-5 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white rounded-xl transition shadow-[0_0_20px_rgba(6,182,212,0.4)] flex items-center gap-2"
-                    >
-                      <span>⚡</span>
-                      <span>DEPLOY SPRINT</span>
-                    </button>
+                    <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-400 transition-all duration-500"
+                        style={{ width: `${projectProgressPct}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* 3. In Progress Sprints for This Project */}
+                <div className="space-y-2 font-mono">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                    <span className="flex items-center gap-1.5 text-cyan-400">
+                      <span>⚡</span> ACTIVE BACKEND SPRINTS ({inProgressTasks.length})
+                    </span>
+                  </div>
+
+                  {inProgressTasks.length === 0 ? (
+                    <div className="p-6 bg-[#05080c] border border-slate-800 rounded-xl text-center text-xs text-slate-500">
+                      ✨ All backend tasks currently completed for this project!
+                    </div>
+                  ) : (
+                    inProgressTasks.map(task => (
+                      <div
+                        key={task.id}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition ${
+                          task.status === 'blocked'
+                            ? 'bg-rose-950/30 border-rose-600/60 text-slate-200'
+                            : 'bg-[#0a111a] border-cyan-500/40 text-slate-100 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/60 uppercase">
+                              {task.phase}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-400">
+                              Priority: {task.priority.toUpperCase()}
+                            </span>
+                            <span className="text-cyan-300 font-bold">+{task.xpReward || 110} XP</span>
+                          </div>
+                          <h3 className="text-sm font-bold text-slate-100">{task.title}</h3>
+                          <p className="text-xs text-slate-400 font-normal">{task.description}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleToggleBlocker(task)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                              task.status === 'blocked'
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                            }`}
+                          >
+                            <span>🚨</span>
+                            <span>{task.status === 'blocked' ? 'BLOCKED' : 'REPORT ISSUE'}</span>
+                          </button>
+                          <button
+                            onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 110)}
+                            className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-xs rounded-xl transition shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
+                          >
+                            <span>⚡</span>
+                            <span>DEPLOY NOW</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* 4. Completed Tasks Log for this Project */}
+                <div className="p-4 bg-[#070c14] border border-slate-800 rounded-2xl space-y-3 font-mono">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
+                    <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                      <span>✅</span> SHIPPED ARCHITECTURAL MODULES ({doneTasks.length})
+                    </span>
+                  </div>
+
+                  {doneTasks.length === 0 ? (
+                    <div className="text-center py-4 text-xs text-slate-500">
+                      No backend tasks completed yet for this project.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {doneTasks.map(task => (
+                        <div
+                          key={task.id}
+                          className="p-3 bg-[#05080c] border border-slate-800/80 rounded-xl flex items-center justify-between text-xs"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-emerald-400">✅</span>
+                            <span className="text-slate-300 font-bold line-through">{task.title}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                              {task.phase}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px]">
+                            <span className="text-amber-400 font-bold">+{task.xpReward || 110} XP</span>
+                            <span className="text-slate-500">
+                              {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'Shipped'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
 
-            {/* ════════════ TAB 2: SYSTEM TASKS & BACKLOG ════════════ */}
+            {/* ════════════ TAB 2: ALL TASKS & BACKLOG ════════════ */}
             {activeTab === 'tasks' && (
-              <div className="space-y-4 animate-in fade-in">
+              <div className="space-y-4 font-mono animate-in fade-in">
                 <div className="p-3.5 bg-[#0a111a] border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs font-mono">
-                    <span className="text-slate-400 font-bold">🧠 Cognitive Bandwidth:</span>
-                    <span className="text-slate-500 text-[11px]">Filter backend workload</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs font-mono">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                    <span>📋 FILTER TASKS:</span>
                     <button
-                      onClick={() => setEnergyLevel('high')}
-                      className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                        energyLevel === 'high'
-                          ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                          : 'bg-[#14202e] text-slate-400 hover:text-slate-200'
+                      onClick={() => setTaskFilter('all')}
+                      className={`px-3 py-1.5 rounded-xl transition ${
+                        taskFilter === 'all' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
                       }`}
                     >
-                      <span>🔋</span> High Energy
+                      All Tasks ({agency.tasks.length})
                     </button>
                     <button
-                      onClick={() => setEnergyLevel('medium')}
-                      className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                        energyLevel === 'medium'
-                          ? 'bg-amber-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]'
-                          : 'bg-[#14202e] text-slate-400 hover:text-slate-200'
+                      onClick={() => setTaskFilter('mine')}
+                      className={`px-3 py-1.5 rounded-xl transition ${
+                        taskFilter === 'mine' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
                       }`}
                     >
-                      <span>😊</span> Medium
+                      Backend Only ({agency.tasks.filter(t => t.assignedTo === 'backend').length})
                     </button>
                     <button
-                      onClick={() => setEnergyLevel('low')}
-                      className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                        energyLevel === 'low'
-                          ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
-                          : 'bg-[#14202e] text-slate-400 hover:text-slate-200'
+                      onClick={() => setTaskFilter('done')}
+                      className={`px-3 py-1.5 rounded-xl transition ${
+                        taskFilter === 'done' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400'
                       }`}
                     >
-                      <span>😴</span> Low Energy
+                      Completed ({agency.tasks.filter(t => t.status === 'done').length})
                     </button>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 font-mono">
-                  {filteredQuickTasks.map(task => {
-                    const tagCol = {
-                      red: 'border-rose-600/50 bg-rose-950/40 text-rose-300',
-                      yellow: 'border-amber-600/50 bg-amber-950/40 text-amber-300',
-                      blue: 'border-cyan-600/50 bg-cyan-950/40 text-cyan-300',
-                      green: 'border-emerald-600/50 bg-emerald-950/40 text-emerald-300',
-                    }[task.color];
-
-                    return (
-                      <div
-                        key={task.id}
-                        onClick={() => completeQuickTask(task)}
-                        className={`p-3.5 rounded-xl border ${tagCol} hover:scale-[1.02] cursor-pointer transition flex flex-col justify-between gap-3 group`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between text-[10px] font-bold mb-1.5">
-                            <span className="uppercase px-1.5 py-0.5 rounded bg-black/40 border border-slate-700">
-                              {task.tag}
-                            </span>
-                            <span className="text-amber-400 font-bold">+{task.xp} XP</span>
-                          </div>
-                          <h3 className="text-xs font-bold text-slate-100 group-hover:text-cyan-300 transition">
-                            {task.title}
-                          </h3>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-                          <span>⏱️ {task.estimate}</span>
-                          <span className="text-cyan-400 group-hover:underline text-[10px] font-bold">
-                            Deploy Instant ⚡
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="pt-2 flex justify-end">
                   <button
-                    onClick={() => setActiveModalAction('newTask')}
-                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold font-mono text-xs rounded-xl transition flex items-center gap-1.5"
+                    onClick={() => setShowNewTaskModal(true)}
+                    className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
                   >
-                    <span>➕</span> Add Backend Task
+                    ➕ New Task
                   </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {agency.tasks
+                    .filter(t => {
+                      if (taskFilter === 'mine') return t.assignedTo === 'backend';
+                      if (taskFilter === 'done') return t.status === 'done';
+                      return true;
+                    })
+                    .map(task => {
+                      const proj = agency.projects.find(p => p.id === task.projectId);
+                      return (
+                        <div
+                          key={task.id}
+                          className="p-3.5 bg-[#070c14] border border-slate-800 rounded-xl flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-[10px] font-bold">
+                              <span className="text-cyan-400">{proj?.name || 'General Agency'}</span>
+                              <span className="text-slate-600">•</span>
+                              <span className="text-slate-400 uppercase">Assigned: {task.assignedTo || 'Unassigned'}</span>
+                              <span className="text-slate-600">•</span>
+                              <span className={`px-1.5 py-0.5 rounded ${
+                                task.status === 'done' ? 'bg-emerald-950 text-emerald-300' :
+                                task.status === 'active' ? 'bg-cyan-950 text-cyan-300' :
+                                'bg-slate-800 text-slate-400'
+                              }`}>
+                                {task.status.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="font-bold text-slate-100">{task.title}</div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {task.status !== 'done' && (
+                              <button
+                                onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 100)}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg"
+                              >
+                                Deploy
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -479,51 +554,17 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
             {/* ════════════ TAB 3: ARCHITECTURE TREE ════════════ */}
             {activeTab === 'skills' && (
               <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>🧠</span> BACKEND PROFICIENCIES & ARCHITECTURE TREE
-                  </h3>
-                  <span className="text-[11px] text-cyan-400 font-bold">Next Tier: Distributed Sharding</span>
-                </div>
-
+                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
+                  <span>🧠</span> BACKEND PROFICIENCIES & ARCHITECTURE TREE
+                </h3>
                 <div className="space-y-3 text-xs">
                   <div>
                     <div className="flex justify-between text-slate-300 mb-1">
-                      <span>PostgreSQL & High-Performance Indexing</span>
+                      <span>PostgreSQL & TimescaleDB High-Performance Indexing</span>
                       <strong className="text-cyan-400 font-bold">Level 10 (95%)</strong>
                     </div>
                     <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-cyan-500" style={{ width: '95%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>Redis Cache & BullMQ Distributed Jobs</span>
-                      <strong className="text-emerald-400 font-bold">Level 9 (90%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-400" style={{ width: '90%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>GraphQL Schema & Supabase Edge Functions</span>
-                      <strong className="text-amber-400 font-bold">Level 8 (80%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-400" style={{ width: '80%' }} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>Kafka Event Streaming & Webhooks</span>
-                      <strong className="text-purple-400 font-bold">Level 7 (70%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-400" style={{ width: '70%' }} />
                     </div>
                   </div>
                 </div>
@@ -533,27 +574,12 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
             {/* ════════════ TAB 4: SYSTEM BOSSES ════════════ */}
             {activeTab === 'bosses' && (
               <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>🏆</span> ARCHITECTURE BOSSES CONQUERED (31 DEFEATED)
-                  </h3>
-                  <span className="text-[11px] text-amber-400 font-bold">Next Boss: CardVault Redis Cluster</span>
-                </div>
-
+                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
+                  <span>🏆</span> SYSTEM BOSSES DEFEATED
+                </h3>
                 <div className="space-y-2 text-xs">
                   <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span>👾</span>
-                      <strong className="text-slate-200">The 10k Concurrent Stripe Webhook Flood</strong>
-                    </div>
-                    <span className="text-emerald-400 font-bold">✅ Defeated</span>
-                  </div>
-
-                  <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span>👾</span>
-                      <strong className="text-slate-200">PostgreSQL Connection Pool Exhaustion</strong>
-                    </div>
+                    <span>👾 10,000 Concurrent Stripe Webhook Ingestion</span>
                     <span className="text-emerald-400 font-bold">✅ Defeated</span>
                   </div>
                 </div>
@@ -563,48 +589,45 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
             {/* ════════════ TAB 5: SHIPPED SYSTEMS ════════════ */}
             {activeTab === 'portfolio' && (
               <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>🏛️</span> CORE ARCHITECTURES DEPLOYED
-                  </h3>
-                  <span className="text-[11px] text-emerald-400 font-bold">5 Production Systems</span>
-                </div>
-
+                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
+                  <span>🏛️</span> DEPLOYED PRODUCTION BACKENDS
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <strong className="text-cyan-300 block mb-1">CardVault AI Realtime Pricing DB</strong>
-                    <span className="text-[10px] text-slate-500">Postgres, TimescaleDB, Redis</span>
-                  </div>
-                  <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <strong className="text-cyan-300 block mb-1">RNG Gamez Buylist API Engine</strong>
-                    <span className="text-[10px] text-slate-500">Node.js, BullMQ, Redis Cluster</span>
-                  </div>
+                  {agency.projects.map(p => (
+                    <div key={p.id} className="p-3.5 bg-[#05080c] rounded-xl border border-slate-800">
+                      <div className="flex justify-between text-slate-200 font-bold mb-1">
+                        <span>{p.name}</span>
+                        <span className="text-emerald-400">${p.value.toLocaleString()}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 uppercase">Phase: {p.phase} · {p.industry}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* ════════════ TAB 6: METRICS & UPTIME ════════════ */}
+            {/* ════════════ TAB 6: UPTIME & XP ════════════ */}
             {activeTab === 'analytics' && (
               <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
                 <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>📊</span> CLUSTER UPTIME & XP VELOCITY
+                  <span>📊</span> CLUSTER UPTIME & XP METRICS
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
                   <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <span className="text-slate-500 text-[10px] block">SERVER UPTIME</span>
+                    <span className="text-slate-500 text-[10px] block">UPTIME</span>
                     <strong className="text-emerald-400 text-lg font-bold">99.99%</strong>
                   </div>
                   <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <span className="text-slate-500 text-[10px] block">QUERIES/SEC</span>
-                    <strong className="text-cyan-400 text-lg font-bold">5,240 QPS</strong>
+                    <span className="text-slate-500 text-[10px] block">TOTAL XP</span>
+                    <strong className="text-cyan-400 text-lg font-bold">{agency.agency.xp} XP</strong>
                   </div>
                   <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <span className="text-slate-500 text-[10px] block">ACTIVE STREAK</span>
+                    <span className="text-slate-500 text-[10px] block">STREAK</span>
                     <strong className="text-amber-400 text-lg font-bold">16 Days 🔥</strong>
                   </div>
                   <div className="p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <span className="text-slate-500 text-[10px] block">TOTAL XP</span>
-                    <strong className="text-purple-400 text-lg font-bold">6,120 XP</strong>
+                    <span className="text-slate-500 text-[10px] block">HOURS</span>
+                    <strong className="text-purple-400 text-lg font-bold">{agency.stats.hoursLogged}h</strong>
                   </div>
                 </div>
               </div>
@@ -614,16 +637,12 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
             {activeTab === 'settings' && (
               <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl space-y-4 font-mono text-xs animate-in fade-in">
                 <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>⚙️</span> BACKEND ENVIRONMENT CONFIGURATION
+                  <span>⚙️</span> BACKEND CLUSTER CONFIGURATION
                 </h3>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 bg-[#05080c] rounded-xl border border-slate-800">
                     <span>Database Connection Pool</span>
                     <span className="text-emerald-400 font-bold">PgBouncer (Active)</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-[#05080c] rounded-xl border border-slate-800">
-                    <span>Redis Replication Mode</span>
-                    <span className="text-cyan-400 font-bold">Multi-AZ Sentinel</span>
                   </div>
                 </div>
               </div>
@@ -631,6 +650,95 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
 
           </div>
         </div>
+
+        {/* ════════════════════════════════════════════════════════════════════
+            CREATE NEW TASK MODAL
+            ════════════════════════════════════════════════════════════════════ */}
+        {showNewTaskModal && (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="w-full max-w-lg bg-[#0a111a] border border-cyan-500/50 rounded-2xl p-6 font-mono text-xs shadow-2xl">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-800 mb-4">
+                <strong className="text-sm text-cyan-400">➕ Add Architecture Task</strong>
+                <button onClick={() => setShowNewTaskModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+              </div>
+
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-slate-400 mb-1">Target Project:</label>
+                  <div className="p-2.5 bg-[#05080c] border border-slate-700 rounded-lg text-slate-200 font-bold">
+                    {currentProject?.name} (${currentProject?.value.toLocaleString()})
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1">Task Title:</label>
+                  <input
+                    type="text"
+                    value={newTaskInput.title}
+                    onChange={e => setNewTaskInput({ ...newTaskInput, title: e.target.value })}
+                    placeholder="e.g. Implement Redis Lock for Checkout Race Condition"
+                    className="w-full bg-[#05080c] border border-slate-700 rounded-lg p-2.5 text-slate-200 outline-none focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1">Description / Spec:</label>
+                  <textarea
+                    value={newTaskInput.description}
+                    onChange={e => setNewTaskInput({ ...newTaskInput, description: e.target.value })}
+                    placeholder="Database schema changes, endpoints, and queue worker specs..."
+                    className="w-full h-20 bg-[#05080c] border border-slate-700 rounded-lg p-2.5 text-slate-200 outline-none focus:border-cyan-500 resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1">Phase:</label>
+                    <select
+                      value={newTaskInput.phase}
+                      onChange={e => setNewTaskInput({ ...newTaskInput, phase: e.target.value })}
+                      className="w-full bg-[#05080c] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="discovery">Discovery</option>
+                      <option value="architecture">Architecture</option>
+                      <option value="development">Development</option>
+                      <option value="testing">Testing</option>
+                      <option value="launch">Launch</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1">Assigned Role:</label>
+                    <select
+                      value={newTaskInput.assignedTo}
+                      onChange={e => setNewTaskInput({ ...newTaskInput, assignedTo: e.target.value })}
+                      className="w-full bg-[#05080c] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="backend">Backend Dev</option>
+                      <option value="frontend">Frontend Dev</option>
+                      <option value="designer">Lead Designer</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                  <button
+                    onClick={() => setShowNewTaskModal(false)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateTask}
+                    className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                  >
+                    Deploy Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
