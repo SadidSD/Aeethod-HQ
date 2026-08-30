@@ -29,6 +29,98 @@ export class GameEngine {
   remotePlayers = new Map<string, RemotePlayer>();
   onPositionChange: ((x: number, y: number, facing: 'up' | 'down' | 'left' | 'right', room: string) => void) | null = null;
   private animationFrameId: number | null = null;
+  public sittingChair: { id: string; x: number; y: number; angle: number; name: string } | null = null;
+
+  public getChairSpots(): { id: string; x: number; y: number; angle: number; name: string }[] {
+    const S = TILE_SIZE;
+    const chairs: { id: string; x: number; y: number; angle: number; name: string }[] = [];
+
+    // 1. Meeting Room: 8 Executive Round Table Chairs
+    const meetCX = T(21.5);
+    const meetCY = T(5.5);
+    const meetChairDist = S * 2.5 + 13;
+    const chairTitles = [
+      'Founder Seat',
+      'Strategy Seat',
+      'Lead Dev Seat',
+      'Backend Seat',
+      'Lead Designer Seat',
+      'Product Seat',
+      'Client Partner Seat',
+      'Advisor Seat'
+    ];
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI * 2) / 8;
+      chairs.push({
+        id: `meet_chair_${i}`,
+        x: meetCX + Math.cos(a) * meetChairDist,
+        y: meetCY + Math.sin(a) * meetChairDist,
+        angle: a + Math.PI / 2,
+        name: `Meeting Room (${chairTitles[i]})`
+      });
+    }
+
+    // 2. Management Room: Executive Throne & 4 Advisory Chairs
+    chairs.push({
+      id: 'mgmt_exec',
+      x: T(DIAMOND_CX),
+      y: T(DIAMOND_CY) - 14,
+      angle: 0,
+      name: 'Executive Management Chair'
+    });
+    chairs.push({ id: 'mgmt_w1', x: T(DIAMOND_CX) - 28, y: T(DIAMOND_CY) + S * 1.8, angle: Math.PI / 2, name: 'Advisory Chair West 1' });
+    chairs.push({ id: 'mgmt_w2', x: T(DIAMOND_CX) - 28, y: T(DIAMOND_CY) + S * 3.4, angle: Math.PI / 2, name: 'Advisory Chair West 2' });
+    chairs.push({ id: 'mgmt_e1', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 1.8, angle: -Math.PI / 2, name: 'Advisory Chair East 1' });
+    chairs.push({ id: 'mgmt_e2', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 3.4, angle: -Math.PI / 2, name: 'Advisory Chair East 2' });
+
+    // 3. Dev Room: Workstation Gaming Chairs
+    chairs.push({ id: 'dev_kitty', x: T(6.5), y: T(6.3), angle: Math.PI / 2, name: 'Hello Kitty Gaming Chair' });
+    chairs.push({ id: 'dev_spidey', x: T(6.5), y: T(15.1), angle: Math.PI / 2, name: 'Spider-Man Gaming Chair' });
+
+    // 4. Design Room: Boss Executive Chair
+    chairs.push({ id: 'design_chair', x: T(38.0), y: T(9.0), angle: -Math.PI / 2, name: 'Lead Designer Executive Chair' });
+
+    // 5. Reception: Guest Lounge Chairs
+    chairs.push({ id: 'rec_w1', x: T(17), y: T(35), angle: Math.PI / 2, name: 'Lobby Lounge Chair' });
+    chairs.push({ id: 'rec_w2', x: T(17), y: T(37), angle: Math.PI / 2, name: 'Lobby Lounge Chair' });
+    chairs.push({ id: 'rec_w3', x: T(27), y: T(35), angle: -Math.PI / 2, name: 'Lobby Lounge Chair' });
+    chairs.push({ id: 'rec_w4', x: T(27), y: T(37), angle: -Math.PI / 2, name: 'Lobby Lounge Chair' });
+
+    // 6. Client Consultation Round Table
+    chairs.push({ id: 'client_c1', x: T(6.5), y: T(32), angle: Math.PI / 2, name: 'Client Consultation Chair' });
+    chairs.push({ id: 'client_c2', x: T(9.5), y: T(32), angle: -Math.PI / 2, name: 'Client Consultation Chair' });
+    chairs.push({ id: 'client_c3', x: T(8), y: T(30.5), angle: Math.PI, name: 'Client Consultation Chair' });
+    chairs.push({ id: 'client_c4', x: T(8), y: T(33.5), angle: 0, name: 'Client Consultation Chair' });
+
+    // 7. Content Breakout Round Table
+    chairs.push({ id: 'content_c1', x: T(34.8), y: T(38), angle: Math.PI / 2, name: 'Content Breakout Chair' });
+    chairs.push({ id: 'content_c2', x: T(37.2), y: T(38), angle: -Math.PI / 2, name: 'Content Breakout Chair' });
+    chairs.push({ id: 'content_c3', x: T(36), y: T(36.8), angle: Math.PI, name: 'Content Breakout Chair' });
+    chairs.push({ id: 'content_c4', x: T(36), y: T(39.2), angle: 0, name: 'Content Breakout Chair' });
+
+    return chairs;
+  }
+
+  public sitInChair(chair: { id: string; x: number; y: number; angle: number; name: string }) {
+    this.sittingChair = chair;
+    this.state.player.x = chair.x;
+    this.state.player.y = chair.y;
+    const facing: 'up' | 'down' | 'left' | 'right' =
+      chair.angle > Math.PI * 0.75 || chair.angle < -Math.PI * 0.75 ? 'up' :
+      chair.angle < Math.PI * 0.25 && chair.angle > -Math.PI * 0.25 ? 'down' :
+      chair.angle >= Math.PI * 0.25 && chair.angle <= Math.PI * 0.75 ? 'left' : 'right';
+    this.onPositionChange?.(chair.x, chair.y, facing, this.state.activeRoom);
+  }
+
+  public standUp() {
+    if (!this.sittingChair) return;
+    const a = this.sittingChair.angle;
+    const stepDist = 8;
+    this.state.player.x -= Math.sin(a) * stepDist;
+    this.state.player.y += Math.cos(a) * stepDist;
+    this.sittingChair = null;
+    this.onPositionChange?.(this.state.player.x, this.state.player.y, 'down', this.state.activeRoom);
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -56,10 +148,19 @@ export class GameEngine {
       const key = e.key.toLowerCase();
       this.keys.add(key);
       if (key === 'q') { const d: Direction[] = ['up','right','down','left']; this.selectedDirection = d[(d.indexOf(this.selectedDirection)+1)%4]; }
+      if (key === ' ' || key === 'escape') {
+        if (this.sittingChair) {
+          this.standUp();
+        }
+      }
       if (key === 'e') {
         const interaction = this.getNearestInteraction();
         if (interaction) {
-          if (interaction.type === 'door' && interaction.id) {
+          if (interaction.type === 'chair_stand') {
+            this.standUp();
+          } else if (interaction.type === 'chair' && interaction.chairData) {
+            this.sitInChair(interaction.chairData);
+          } else if (interaction.type === 'door' && interaction.id) {
             this.state.doors[interaction.id] = !this.state.doors[interaction.id];
           } else if (interaction.type === 'mgmt_pc') {
             this.onOpenComputer?.();
@@ -95,19 +196,35 @@ export class GameEngine {
     this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.state.camera.zoom = Math.max(0.4, Math.min(2.5, this.state.camera.zoom * (e.deltaY<0?1.08:0.92))); });
   }
 
-  getNearestInteraction(): { type: 'door' | 'mgmt_pc' | 'designer_pc' | 'client_pc' | 'dev_pc' | 'dev_pc_kitty' | 'dev_pc_spidey' | 'board_leads' | 'board_arch' | 'board_content'; text: string; x: number; y: number; id?: string } | null {
+  getNearestInteraction(): { type: 'door' | 'mgmt_pc' | 'designer_pc' | 'client_pc' | 'dev_pc' | 'dev_pc_kitty' | 'dev_pc_spidey' | 'board_leads' | 'board_arch' | 'board_content' | 'chair' | 'chair_stand'; text: string; x: number; y: number; id?: string; chairData?: any } | null {
     const px = this.state.player.x;
     const py = this.state.player.y;
-    let closest: { type: any; text: string; x: number; y: number; id?: string } | null = null;
+
+    if (this.sittingChair) {
+      return {
+        type: 'chair_stand',
+        text: '🪑 [E / WASD] Stand Up',
+        x: this.sittingChair.x,
+        y: this.sittingChair.y,
+        id: this.sittingChair.id
+      };
+    }
+
+    let closest: { type: any; text: string; x: number; y: number; id?: string; chairData?: any } | null = null;
     let minDist = 999;
 
-    const check = (type: any, ox: number, oy: number, distThresh: number, text: string, id?: string) => {
+    const check = (type: any, ox: number, oy: number, distThresh: number, text: string, id?: string, chairData?: any) => {
       const d = Math.hypot(px - ox, py - oy);
       if (d < distThresh && d < minDist) {
         minDist = d;
-        closest = { type, text, x: ox, y: oy, id };
+        closest = { type, text, x: ox, y: oy, id, chairData };
       }
     };
+
+    // Check chairs across the office
+    for (const ch of this.getChairSpots()) {
+      check('chair', ch.x, ch.y, 22, `🪑 [E] Sit (${ch.name})`, ch.id, ch);
+    }
 
     // Check doors with tight distance
     for (const d of DOORS) {
@@ -218,6 +335,19 @@ export class GameEngine {
       }
     }
 
+    // Click chair to sit down or stand up
+    for (const ch of this.getChairSpots()) {
+      if (Math.hypot(mx - ch.x, my - ch.y) < 18) {
+        if (this.sittingChair && this.sittingChair.id === ch.id) {
+          this.standUp();
+          return;
+        } else if (Math.hypot(px - ch.x, py - ch.y) < 65) {
+          this.sitInChair(ch);
+          return;
+        }
+      }
+    }
+
     const checkClick = (ox: number, oy: number, maxPlayerDist: number, cb: () => void) => {
       if (Math.hypot(mx - ox, my - oy) < 40 && Math.hypot(px - ox, py - oy) < maxPlayerDist) {
         cb();
@@ -268,6 +398,30 @@ export class GameEngine {
     if (this.keys.has('s')||this.keys.has('arrowdown')) dy+=1;
     if (this.keys.has('a')||this.keys.has('arrowleft')) dx-=1;
     if (this.keys.has('d')||this.keys.has('arrowright')) dx+=1;
+
+    // Handle sitting state: if user presses any movement key, stand up!
+    if (this.sittingChair) {
+      if (dx !== 0 || dy !== 0) {
+        this.sittingChair = null;
+      } else {
+        // Stay firmly locked in chair while seated
+        this.state.player.x = this.sittingChair.x;
+        this.state.player.y = this.sittingChair.y;
+        this.state.activeRoom = getRoomAt(this.state.player.x/TILE_SIZE, this.state.player.y/TILE_SIZE);
+        this.state.camera.x += (this.state.player.x - this.state.camera.x)*0.1;
+        this.state.camera.y += (this.state.player.y - this.state.camera.y)*0.1;
+
+        // Multiplayer: interpolate remote players
+        for (const rp of this.remotePlayers.values()) {
+          rp.x += (rp.targetX - rp.x) * 0.25;
+          rp.y += (rp.targetY - rp.y) * 0.25;
+        }
+
+        for (const b of this.state.buildings.values()) { if (b.type==='miner') { b.progress++; if (b.progress>=100) { b.progress=0; const t=this.getTile(b.x,b.y); if (t?.resource&&t.resourceAmount>0) { t.resourceAmount--; b.inventory[t.resource]=(b.inventory[t.resource]||0)+1; } } } }
+        if (this.state.tick%10===0&&this.onStateChange) this.onStateChange({...this.state});
+        return;
+      }
+    }
     if (dx!==0&&dy!==0) { dx*=0.7071; dy*=0.7071; }
     const baseSpeed = 3.6;
     const isSprinting = this.keys.has('shift');
@@ -2378,7 +2532,9 @@ export class GameEngine {
     char?: CharacterSetup,
     name?: string,
     role?: string,
-    color?: string
+    color?: string,
+    isSitting: boolean = false,
+    sittingAngle: number = 0
   ) {
     const skin = char?.skinTone || '#ffdbac';
     const hair = char?.hairColor || '#0f172a';
@@ -2387,19 +2543,23 @@ export class GameEngine {
     const aura = char?.auraColor || color || '#f59e0b';
     const acc = char?.accessory || 'none';
 
+    // Seated breathing bob
+    const sitBob = isSitting ? Math.sin(this.state.tick * 0.08) * 0.7 : 0;
+    const bodyY = isSitting ? y + 1 + sitBob : y;
+
     // 1. Ambient Floor Aura
-    const auraGrad = ctx.createRadialGradient(x, y + 8, 3, x, y + 8, 20);
-    auraGrad.addColorStop(0, aura + '66');
+    const auraGrad = ctx.createRadialGradient(x, bodyY + 6, 2, x, bodyY + 6, isSitting ? 16 : 20);
+    auraGrad.addColorStop(0, aura + (isSitting ? '44' : '66'));
     auraGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = auraGrad;
     ctx.beginPath();
-    ctx.ellipse(x, y + 8, 20, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, bodyY + 6, isSitting ? 16 : 20, isSitting ? 8 : 10, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // 2. Drop shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(x, y + 8, 8, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, bodyY + 6, 8, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // 3. Body / Outfit
@@ -2412,108 +2572,158 @@ export class GameEngine {
     };
     const o = outfitColors[outfit] || outfitColors.executive_suit;
 
-    ctx.fillStyle = o.p;
-    ctx.fillRect(x - 6, y - 6, 12, 14);
+    // Rotate body if seated to face the chair orientation
+    ctx.save();
+    if (isSitting) {
+      ctx.translate(x, bodyY);
+      ctx.rotate(sittingAngle);
+      ctx.translate(-x, -bodyY);
+    }
 
-    // Shirt & Tie/Trim
-    ctx.fillStyle = o.s;
-    ctx.fillRect(x - 2, y - 6, 4, 6);
-    ctx.fillStyle = o.t;
-    ctx.fillRect(x - 1, y - 4, 2, 5);
+    if (isSitting) {
+      // Seated Torso & Folded Lap
+      ctx.fillStyle = o.p;
+      ctx.beginPath();
+      ctx.roundRect(x - 6, bodyY - 5, 12, 10, 2);
+      ctx.fill();
 
-    // Hands
-    ctx.fillStyle = skin;
-    ctx.fillRect(x - 8, y + 2, 2, 3);
-    ctx.fillRect(x + 6, y + 2, 2, 3);
+      // Folded legs / thighs forward on seat
+      ctx.fillStyle = o.p;
+      ctx.beginPath();
+      ctx.roundRect(x - 5, bodyY + 3, 10, 5.5, 2);
+      ctx.fill();
+
+      // Shoes / pants cuff
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(x - 5, bodyY + 7.5, 3.5, 2);
+      ctx.fillRect(x + 1.5, bodyY + 7.5, 3.5, 2);
+
+      // Shirt & Tie
+      ctx.fillStyle = o.s;
+      ctx.fillRect(x - 2, bodyY - 5, 4, 5);
+      ctx.fillStyle = o.t;
+      ctx.fillRect(x - 1, bodyY - 3, 2, 4);
+
+      // Relaxed Arms resting on armrests / lap
+      ctx.fillStyle = o.p;
+      ctx.fillRect(x - 7.5, bodyY - 2, 2.5, 5.5);
+      ctx.fillRect(x + 5, bodyY - 2, 2.5, 5.5);
+      // Hands
+      ctx.fillStyle = skin;
+      ctx.fillRect(x - 7.5, bodyY + 3, 2.5, 2.5);
+      ctx.fillRect(x + 5, bodyY + 3, 2.5, 2.5);
+    } else {
+      // Standing Torso
+      ctx.fillStyle = o.p;
+      ctx.fillRect(x - 6, bodyY - 6, 12, 14);
+
+      // Shirt & Tie/Trim
+      ctx.fillStyle = o.s;
+      ctx.fillRect(x - 2, bodyY - 6, 4, 6);
+      ctx.fillStyle = o.t;
+      ctx.fillRect(x - 1, bodyY - 4, 2, 5);
+
+      // Hands
+      ctx.fillStyle = skin;
+      ctx.fillRect(x - 8, bodyY + 2, 2, 3);
+      ctx.fillRect(x + 6, bodyY + 2, 2, 3);
+    }
 
     // 4. Head (Skin Tone)
     ctx.fillStyle = skin;
     ctx.beginPath();
-    ctx.arc(x, y - 11, 5, 0, Math.PI * 2);
+    ctx.arc(x, bodyY - 10.5, 5, 0, Math.PI * 2);
     ctx.fill();
 
     // Eyes
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(x - 2.5, y - 11.5, 1, 1.5);
-    ctx.fillRect(x + 1.5, y - 11.5, 1, 1.5);
+    ctx.fillRect(x - 2.5, bodyY - 11, 1, 1.5);
+    ctx.fillRect(x + 1.5, bodyY - 11, 1, 1.5);
 
     // 5. Hair & Style
     ctx.fillStyle = hair;
     if (style === 'classic') {
       ctx.beginPath();
-      ctx.arc(x, y - 13, 5, Math.PI, Math.PI * 2);
+      ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
       ctx.fill();
     } else if (style === 'spiky') {
       ctx.beginPath();
-      ctx.moveTo(x - 5, y - 12);
-      ctx.lineTo(x - 3, y - 18);
-      ctx.lineTo(x, y - 14);
-      ctx.lineTo(x + 3, y - 18);
-      ctx.lineTo(x + 5, y - 12);
+      ctx.moveTo(x - 5, bodyY - 11.5);
+      ctx.lineTo(x - 3, bodyY - 17.5);
+      ctx.lineTo(x, bodyY - 13.5);
+      ctx.lineTo(x + 3, bodyY - 17.5);
+      ctx.lineTo(x + 5, bodyY - 11.5);
       ctx.closePath();
       ctx.fill();
     } else if (style === 'fade') {
       ctx.beginPath();
-      ctx.arc(x, y - 13.5, 4.5, Math.PI, Math.PI * 2);
+      ctx.arc(x, bodyY - 13, 4.5, Math.PI, Math.PI * 2);
       ctx.fill();
-      ctx.fillRect(x - 4.5, y - 13.5, 9, 2);
+      ctx.fillRect(x - 4.5, bodyY - 13, 9, 2);
     } else if (style === 'bun') {
       ctx.beginPath();
-      ctx.arc(x, y - 13, 5, Math.PI, Math.PI * 2);
+      ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(x, y - 18, 2.5, 0, Math.PI * 2);
+      ctx.arc(x, bodyY - 17.5, 2.5, 0, Math.PI * 2);
       ctx.fill();
     } else if (style === 'cyber_visor') {
       ctx.beginPath();
-      ctx.arc(x, y - 13, 5, Math.PI, Math.PI * 2);
+      ctx.arc(x, bodyY - 12.5, 5, Math.PI, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#06b6d4';
-      ctx.fillRect(x - 4, y - 12, 8, 2.5);
+      ctx.fillRect(x - 4, bodyY - 11.5, 8, 2.5);
     } else if (style === 'executive_cap') {
       ctx.fillStyle = '#0f172a';
-      ctx.fillRect(x - 6, y - 16, 12, 4);
-      ctx.fillRect(x - 7, y - 13, 14, 1.5);
+      ctx.fillRect(x - 6, bodyY - 15.5, 12, 4);
+      ctx.fillRect(x - 7, bodyY - 12.5, 14, 1.5);
     }
 
     // 6. Held Accessory
     if (acc === 'coffee') {
       ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x + 8, y, 3, 5);
+      ctx.fillRect(x + 7, bodyY - 1, 3, 5);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(x + 9.5, bodyY, 1.5, 3);
     } else if (acc === 'laptop') {
       ctx.fillStyle = '#64748b';
-      ctx.fillRect(x - 9, y - 1, 4, 5);
+      ctx.fillRect(x - 9, bodyY - 1, 4, 5);
     } else if (acc === 'hologram') {
       ctx.fillStyle = '#06b6d4';
       ctx.beginPath();
-      ctx.arc(x + 8, y + 2, 2.5, 0, Math.PI * 2);
+      ctx.arc(x + 8, bodyY + 1, 2.5, 0, Math.PI * 2);
       ctx.fill();
     } else if (acc === 'contract') {
       ctx.fillStyle = '#fef08a';
-      ctx.fillRect(x + 7, y - 1, 4, 6);
+      ctx.fillRect(x + 7, bodyY - 1, 4, 6);
     } else if (acc === 'vip_badge') {
       ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x + 2, y - 2, 2, 3);
+      ctx.fillRect(x + 2, bodyY - 2, 2, 3);
     }
 
-    // 7. Floating Name & Role Badge
+    ctx.restore(); // Restore rotation from sitting
+
+    // 7. Floating Name & Role Badge (Always drawn upright above character)
     if (name) {
       ctx.save();
       const roleLabel = role ? `[${role}] ` : '';
-      const nameTag = `${roleLabel}${name}`;
+      const sitTag = isSitting ? ' 🪑' : '';
+      const nameTag = `${roleLabel}${name}${sitTag}`;
       ctx.font = 'bold 8px sans-serif';
       const tw = ctx.measureText(nameTag).width;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      const tagY = bodyY - (isSitting ? 24 : 27);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
       ctx.beginPath();
-      ctx.roundRect(x - (tw + 10) / 2, y - 27, tw + 10, 12, 3);
+      ctx.roundRect(x - (tw + 10) / 2, tagY, tw + 10, 12, 3);
       ctx.fill();
-      ctx.strokeStyle = aura || '#38bdf8';
+      ctx.strokeStyle = isSitting ? '#34d399' : (aura || '#38bdf8');
       ctx.lineWidth = 1;
       ctx.stroke();
 
       ctx.fillStyle = '#f8fafc';
       ctx.textAlign = 'center';
-      ctx.fillText(nameTag, x, y - 18);
+      ctx.fillText(nameTag, x, tagY + 9);
       ctx.restore();
     }
   }
@@ -2530,15 +2740,19 @@ export class GameEngine {
       pInfo?.character,
       pInfo?.name || 'You',
       pInfo?.role || 'Founder',
-      pInfo?.color || '#f59e0b'
+      pInfo?.color || '#f59e0b',
+      !!this.sittingChair,
+      this.sittingChair?.angle || 0
     );
   }
 
   // --- MULTIPLAYER REMOTE PLAYERS ---
   private drawRemotePlayers(ctx: CanvasRenderingContext2D) {
+    const chairSpots = this.getChairSpots();
     for (const rp of this.remotePlayers.values()) {
       const rx = rp.x;
       const ry = rp.y;
+      const nearChair = chairSpots.find(ch => Math.hypot(rx - ch.x, ry - ch.y) < 7);
 
       this.drawCustomCharacter(
         ctx,
@@ -2547,7 +2761,9 @@ export class GameEngine {
         rp.character,
         rp.name,
         rp.role,
-        rp.color
+        rp.color,
+        !!nearChair,
+        nearChair?.angle || 0
       );
 
       // Speech Bubble if recent chat
@@ -2610,10 +2826,11 @@ export class GameEngine {
     ctx.beginPath();
     ctx.roundRect(promptX - w / 2, promptY - 12, w, 24, 6);
     ctx.fill();
-    ctx.strokeStyle = '#38bdf8';
+    const isChair = interaction.type === 'chair' || interaction.type === 'chair_stand';
+    ctx.strokeStyle = isChair ? '#34d399' : '#38bdf8';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = isChair ? '#34d399' : '#38bdf8';
     ctx.font = 'bold 9px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(interaction.text, promptX, promptY + 4);
