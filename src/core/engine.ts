@@ -73,9 +73,10 @@ export class GameEngine {
     chairs.push({ id: 'mgmt_e1', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 1.8, angle: -Math.PI / 2, name: 'Advisory Chair East 1' });
     chairs.push({ id: 'mgmt_e2', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 3.4, angle: -Math.PI / 2, name: 'Advisory Chair East 2' });
 
-    // 3. Dev Room: Workstation Gaming Chairs
+    // 3. Dev Room: Workstation Gaming Chairs & Debugging Lounge Chair
     chairs.push({ id: 'dev_kitty', x: T(6.5), y: T(6.3), angle: Math.PI / 2, name: 'Hello Kitty Gaming Chair' });
     chairs.push({ id: 'dev_spidey', x: T(6.5), y: T(15.1), angle: Math.PI / 2, name: 'Spider-Man Gaming Chair' });
+    chairs.push({ id: 'dev_lounge', x: T(9.2), y: T(17.2), angle: -Math.PI * 0.75, name: 'Rubber Duck Debugging Chair' });
 
     // 4. Design Room: Boss Executive Chair
     chairs.push({ id: 'design_chair', x: T(38.0), y: T(9.0), angle: -Math.PI / 2, name: 'Lead Designer Executive Chair' });
@@ -286,6 +287,19 @@ export class GameEngine {
     if (wx >= sMainX && wx <= sMainX + sMainW && wy >= sMainY && wy <= sMainY + sMainH) return true;
     const sRetX = T(3.5), sRetY = T(12.6), sRetW = S * 2.3, sRetH = S * 1.9;
     if (wx >= sRetX && wx <= sRetX + sRetW && wy >= sRetY && wy <= sRetY + sRetH) return true;
+
+    // Dev Room: 42U DevOps Server Rack Bay (East wall)
+    if (wx >= T(10.0) && wx <= T(11.8) && wy >= T(2.8) && wy <= T(7.8)) return true;
+
+    // Dev Room: Multi-Device QA Testing Bench (East wall)
+    if (wx >= T(10.0) && wx <= T(11.8) && wy >= T(8.8) && wy <= T(12.4)) return true;
+
+    // Dev Room: Dev Fuel & Caffeine Counter (South-West corner)
+    if (wx >= T(1.2) && wx <= T(4.4) && wy >= T(18.0) && wy <= T(19.8)) return true;
+
+    // Dev Room: Bookshelf & Coffee Table in Debug Lounge (South-East corner)
+    if (wx >= T(7.0) && wx <= T(11.8) && wy >= T(18.8) && wy <= T(19.8)) return true;
+    if (Math.hypot(wx - T(8.0), wy - T(17.2)) <= S * 0.9) return true;
 
     // 5. Meeting Room: Big Luxurious Round Conference Table
     const meetCX = T(21.5), meetCY = T(5.5);
@@ -781,6 +795,71 @@ export class GameEngine {
       ctx.closePath();
       ctx.stroke();
     }
+
+    ctx.restore();
+  }
+
+  // --- DESIGNER SWIVEL LOUNGE CHAIR (For Debugging Corner) ---
+  private drawDesignerLoungeChair(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    // 1. 4-star polished brass base with glides
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 2;
+    for (let a = 0; a < 4; a++) {
+      const rad = (a * Math.PI) / 2 + Math.PI / 4;
+      const legX = Math.cos(rad) * 9;
+      const legY = Math.sin(rad) * 9;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(legX, legY);
+      ctx.stroke();
+      // Brass glide pad
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(legX, legY, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Center brass swivel post
+    ctx.fillStyle = '#d4af37';
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.roundRect(-8, -8, 16, 16, 5);
+    ctx.fill();
+
+    // 3. Sculpted tub armchair shell (Deep Midnight Teal)
+    ctx.fillStyle = '#0f3a46';
+    ctx.beginPath();
+    ctx.roundRect(-8, -8, 16, 16, 5);
+    ctx.fill();
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 4. Memory foam seat cushion (Plush Soft Cyan/Teal)
+    ctx.fillStyle = '#155e75';
+    ctx.beginPath();
+    ctx.roundRect(-6, -6, 12, 12, 3);
+    ctx.fill();
+
+    // 5. Curved wrap-around backrest
+    ctx.fillStyle = '#0e7490';
+    ctx.beginPath();
+    ctx.roundRect(-8, -8, 4, 16, 2);
+    ctx.fill();
+
+    // 6. Gold contrast throw pillow
+    ctx.fillStyle = '#d4af37';
+    ctx.beginPath();
+    ctx.roundRect(-6, -3, 3, 6, 1.5);
+    ctx.fill();
 
     ctx.restore();
   }
@@ -1658,13 +1737,299 @@ export class GameEngine {
     ctx.restore();
   }
 
-  // --- DEVELOPMENT ROOM (Enriched Hello Kitty Themed Battlestation & Spider-Man Desk) ---
+  // --- DEVELOPMENT ROOM (Silicon Valley Boutique Engineering Floor) ---
   private drawDevRoom(ctx: CanvasRenderingContext2D, S: number) {
     const isNearKitty = Math.hypot(this.state.player.x - T(6.5), this.state.player.y - T(6.3)) < 55;
     const isNearSpidey = Math.hypot(this.state.player.x - T(6.5), this.state.player.y - T(15.1)) < 55;
 
     // =========================================================================
-    // 🌸 1. TOP WORKSTATION: ENRICHED PINK HELLO KITTY THEMED L-DESK
+    // 0. FLOORING & CYBERPUNK ATMOSPHERE
+    // =========================================================================
+    const devX1 = T(1), devY1 = T(1);
+    const devW = S * 10.9, devH = S * 18.9;
+
+    ctx.save();
+    // Industrial dark-slate cyber floor tint over base tiles
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+    ctx.fillRect(devX1, devY1, devW, devH);
+
+    // Subtle grid lines for high-tech raised floor tiles
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
+    ctx.lineWidth = 1;
+    for (let ty = 1; ty <= 19; ty++) {
+      ctx.beginPath();
+      ctx.moveTo(devX1, T(ty));
+      ctx.lineTo(devX1 + devW, T(ty));
+      ctx.stroke();
+    }
+    for (let tx = 1; tx <= 11; tx++) {
+      ctx.beginPath();
+      ctx.moveTo(T(tx), devY1);
+      ctx.lineTo(T(tx), devY1 + devH);
+      ctx.stroke();
+    }
+
+    // Glowing under-floor cyan fiber-optic cable conduits from Server Rack to Workstations
+    const pulseCyan = 0.4 + Math.sin(this.state.tick * 0.08) * 0.25;
+    ctx.strokeStyle = `rgba(6, 182, 212, ${pulseCyan})`;
+    ctx.lineWidth = 2.5;
+    // Conduit trunk from server rack
+    ctx.beginPath();
+    ctx.moveTo(T(10.2), T(5.2));
+    ctx.lineTo(T(8.5), T(5.2));
+    ctx.lineTo(T(8.5), T(10.5));
+    ctx.lineTo(T(7.8), T(10.5));
+    ctx.stroke();
+    // Branch to Kitty battlestation
+    ctx.beginPath();
+    ctx.moveTo(T(8.5), T(6.2));
+    ctx.lineTo(T(7.8), T(6.2));
+    ctx.stroke();
+    // Branch to Spidey battlestation
+    ctx.beginPath();
+    ctx.moveTo(T(8.5), T(15.2));
+    ctx.lineTo(T(7.8), T(15.2));
+    ctx.stroke();
+
+    // Translucent conduit floor viewing grates
+    ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+    ctx.fillRect(T(8.3), T(5.0), 6, T(10.5));
+
+    // Acoustic Hex Felt Sound Panels on West Wall (x = T(1.1))
+    const hexColors = ['#1e293b', '#334155', '#0f172a', '#0284c7', '#ec4899', '#1e293b', '#334155'];
+    for (let h = 0; h < 14; h++) {
+      const hy = T(2.5) + h * 13;
+      const c = hexColors[h % hexColors.length];
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      const r = 4.2;
+      for (let a = 0; a < 6; a++) {
+        const rad = (a * Math.PI) / 3;
+        const hx = T(1.2) + Math.cos(rad) * r;
+        const pY = hy + Math.sin(rad) * r;
+        if (a === 0) ctx.moveTo(hx, pY); else ctx.lineTo(hx, pY);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // =========================================================================
+    // 🖥️ 1. DEVOPS 42U SERVER RACK BAY (East Wall, y = 2.8..7.8)
+    // =========================================================================
+    const srvX = T(10.2);
+    const srvY = T(2.8);
+    const srvW = S * 1.6; // 25px
+    const srvH = S * 4.8; // 76px
+
+    ctx.save();
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.fillRect(srvX + 2, srvY + 3, srvW, srvH);
+
+    // Matte Black Steel Server Chassis
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(srvX, srvY, srvW, srvH);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(srvX, srvY, srvW, srvH);
+
+    // Interior Smoked Glass Backlight
+    ctx.fillStyle = 'rgba(6, 182, 212, 0.08)';
+    ctx.fillRect(srvX + 2, srvY + 2, srvW - 4, srvH - 4);
+
+    // Top Rack Header LCD Display
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(srvX + 2, srvY + 2, srvW - 4, 8);
+    ctx.fillStyle = '#22c55e'; // Green cluster healthy status
+    ctx.fillRect(srvX + 4, srvY + 5, 2.5, 2.5);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 5px monospace';
+    ctx.fillText('99.99%', srvX + 8, srvY + 8);
+
+    // Individual Rack Units (U-Servers, Switches, Storage)
+    for (let u = 0; u < 7; u++) {
+      const uy = srvY + 12 + u * 9;
+      // Server bezel
+      ctx.fillStyle = u % 2 === 0 ? '#0f172a' : '#1e293b';
+      ctx.fillRect(srvX + 2, uy, srvW - 4, 8);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(srvX + 2, uy, srvW - 4, 8);
+
+      // Blinking activity LEDs
+      const tickOffset = (this.state.tick + u * 17);
+      const isGreen = (tickOffset % 12) < 6;
+      const isAmber = (tickOffset % 19) < 8;
+      const isCyan = (tickOffset % 7) < 4;
+
+      ctx.fillStyle = isGreen ? '#22c55e' : '#14532d';
+      ctx.fillRect(srvX + 4, uy + 2, 1.5, 1.5);
+      ctx.fillStyle = isCyan ? '#06b6d4' : '#0e7490';
+      ctx.fillRect(srvX + 7, uy + 2, 1.5, 1.5);
+      ctx.fillStyle = isAmber ? '#f59e0b' : '#78350f';
+      ctx.fillRect(srvX + 10, uy + 2, 1.5, 1.5);
+
+      // Fiber patch cables (mini colored strands)
+      ctx.strokeStyle = u % 2 === 0 ? '#38bdf8' : '#fbbf24';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(srvX + 13, uy + 4);
+      ctx.lineTo(srvX + 17, uy + 6);
+      ctx.stroke();
+
+      // Vent grill lines
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(srvX + 14, uy + 1.5, 6, 1);
+      ctx.fillRect(srvX + 14, uy + 3.5, 6, 1);
+    }
+
+    // Outer Tempered Glass Door with Blue Edge Tint
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(srvX + 1, srvY + 1, srvW - 2, srvH - 2);
+    // Vertical door handle
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(srvX + srvW - 3, srvY + srvH / 2 - 6, 1.5, 12);
+    ctx.restore();
+
+    // =========================================================================
+    // 📱 2. MULTI-DEVICE RESPONSIVE QA BENCH (East Wall, y = 8.8..12.4)
+    // =========================================================================
+    const qaX = T(10.2);
+    const qaY = T(8.8);
+    const qaW = S * 1.6; // 25px
+    const qaH = S * 3.5; // 56px
+
+    ctx.save();
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.beginPath();
+    ctx.roundRect(qaX + 2, qaY + 3, qaW, qaH, 2);
+    ctx.fill();
+
+    // Natural Scandinavian Birch Workbench
+    ctx.fillStyle = '#fef3c7';
+    ctx.beginPath();
+    ctx.roundRect(qaX, qaY, qaW, qaH, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Matte black steel frame edge
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(qaX, qaY, 3, qaH);
+
+    // 1. iPad Pro on Stand (Top)
+    const padX = qaX + 6, padY = qaY + 5;
+    ctx.fillStyle = '#1e293b'; // Space gray chassis
+    ctx.fillRect(padX, padY, 13, 17);
+    ctx.fillStyle = '#0284c7'; // Glowing responsive tablet web layout
+    ctx.fillRect(padX + 1, padY + 1, 11, 15);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(padX + 2, padY + 3, 9, 2); // Header bar
+    ctx.fillStyle = '#93c5fd';
+    ctx.fillRect(padX + 2, padY + 6, 4, 8); // Sidebar
+    ctx.fillRect(padX + 7, padY + 6, 4, 8); // Content cards
+
+    // 2. iPhone (Middle)
+    const ph1X = qaX + 6, ph1Y = qaY + 25;
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.roundRect(ph1X, ph1Y, 7, 12, 2); ctx.fill();
+    ctx.fillStyle = '#10b981'; // Mobile UI preview (emerald)
+    ctx.beginPath(); ctx.roundRect(ph1X + 0.8, ph1Y + 0.8, 5.4, 10.4, 1.5); ctx.fill();
+
+    // 3. Android Pixel (Bottom)
+    const ph2X = qaX + 6, ph2Y = qaY + 39;
+    ctx.fillStyle = '#18181b';
+    ctx.beginPath(); ctx.roundRect(ph2X, ph2Y, 7, 13, 2); ctx.fill();
+    ctx.fillStyle = '#8b5cf6'; // Mobile UI preview (purple)
+    ctx.beginPath(); ctx.roundRect(ph2X + 0.8, ph2Y + 0.8, 5.4, 11.4, 1.5); ctx.fill();
+
+    // QA Checklist Clipboard on desk
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(qaX + 14.5, qaY + 28, 6, 9);
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(qaX + 16, qaY + 27, 3, 1.5); // Clip
+    ctx.fillStyle = '#22c55e'; // Green checkmarks
+    ctx.fillRect(qaX + 15.5, qaY + 30.5, 1.5, 1.5);
+    ctx.fillRect(qaX + 15.5, qaY + 33, 1.5, 1.5);
+    ctx.restore();
+
+    // =========================================================================
+    // 📊 3. ARCHITECTURE WHITEBOARD & 55" BUILD MONITOR HUD (North Wall)
+    // =========================================================================
+    const wbX = T(3.8), wbY = T(1.1), wbW = S * 4.0, wbH = 15;
+    ctx.save();
+    // Glass drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(wbX + 2, wbY + 2, wbW, wbH);
+    // Frosted magnetic glass panel
+    ctx.fillStyle = 'rgba(248, 250, 252, 0.95)';
+    ctx.fillRect(wbX, wbY, wbW, wbH);
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(wbX, wbY, wbW, wbH);
+
+    // Git Branching Flow Lines
+    ctx.strokeStyle = '#22c55e'; // main branch (green)
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(wbX + 6, wbY + 4); ctx.lineTo(wbW + wbX - 8, wbY + 4);
+    ctx.stroke();
+    // Commit dots on main
+    ctx.fillStyle = '#22c55e';
+    ctx.beginPath(); ctx.arc(wbX + 10, wbY + 4, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(wbX + 24, wbY + 4, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(wbX + 40, wbY + 4, 1.2, 0, Math.PI * 2); ctx.fill();
+
+    // Dev branch (cyan)
+    ctx.strokeStyle = '#06b6d4';
+    ctx.beginPath();
+    ctx.moveTo(wbX + 10, wbY + 4);
+    ctx.lineTo(wbX + 16, wbY + 8);
+    ctx.lineTo(wbX + 34, wbY + 8);
+    ctx.lineTo(wbX + 40, wbY + 4);
+    ctx.stroke();
+
+    // Colored sprint sticky notes
+    ctx.fillStyle = '#fef08a'; ctx.fillRect(wbX + 46, wbY + 2, 4, 4); // yellow
+    ctx.fillStyle = '#bae6fd'; ctx.fillRect(wbX + 51, wbY + 2, 4, 4); // cyan
+    ctx.fillStyle = '#fbcfe8'; ctx.fillRect(wbX + 46, wbY + 7, 4, 4); // pink
+
+    // Stainless steel corner standoffs
+    ctx.fillStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.arc(wbX + 2, wbY + 2, 1, 0, Math.PI * 2);
+    ctx.arc(wbX + wbW - 2, wbY + 2, 1, 0, Math.PI * 2);
+    ctx.arc(wbX + 2, wbY + wbH - 2, 1, 0, Math.PI * 2);
+    ctx.arc(wbX + wbW - 2, wbY + wbH - 2, 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 55" Wall-Mounted Ultra-Wide Build Monitor HUD (to the right of whiteboard)
+    const hudX = wbX + wbW + 4, hudY = T(1.1), hudW = S * 2.8, hudH = 15;
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(hudX, hudY, hudW, hudH);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(hudX, hudY, hudW, hudH);
+    // Green build status dot
+    const bPulse = (this.state.tick % 30 < 15);
+    ctx.fillStyle = bPulse ? '#22c55e' : '#15803d';
+    ctx.beginPath(); ctx.arc(hudX + 4, hudY + 5, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 5px sans-serif';
+    ctx.fillText('CI/CD: PASS', hudX + 8, hudY + 6.5);
+    // Animated progress / microservice bars
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(hudX + 4, hudY + 9.5, hudW - 8, 1.5);
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(hudX + 4, hudY + 12, (hudW - 8) * 0.75, 1);
+    ctx.restore();
+
+    // =========================================================================
+    // 🌸 4. TOP WORKSTATION: ENRICHED PINK HELLO KITTY THEMED L-DESK
     // =========================================================================
     const kMainX = T(5.8);
     const kMainY = T(3.6);
@@ -1829,7 +2194,7 @@ export class GameEngine {
 
 
     // =========================================================================
-    // 🕷️ 2. BOTTOM WORKSTATION: ENRICHED RED SPIDER-MAN THEMED L-DESK
+    // 🕷️ 5. BOTTOM WORKSTATION: ENRICHED RED SPIDER-MAN THEMED L-DESK
     // =========================================================================
     const sMainX = T(5.8);
     const sMainY = T(12.6);
@@ -2001,8 +2366,147 @@ export class GameEngine {
     // 🪑 Custom Spider-Man Hero Racing Gaming Chair on LEFT Side
     this.drawThemedGamingChair(ctx, sMainX - 16, sMainY + sMainH / 2, Math.PI / 2, 'spiderman');
 
-    // Top Wall Architecture Whiteboard
-    this.whiteboard(ctx, T(5), T(1.2), S * 5, 14, '</> CODE ARCHITECTURE');
+    // =========================================================================
+    // ☕ 6. DEV FUEL & CAFFEINE BAR (South-West Corner, x = 1.2..4.2, y = 18.0..19.5)
+    // =========================================================================
+    const fX = T(1.2), fY = T(18.0), fW = S * 3.0, fH = S * 1.5;
+    ctx.save();
+    // Drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(fX + 2, fY + 3, fW, fH);
+
+    // Deep Charcoal Stone Countertop
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath(); ctx.roundRect(fX, fY, fW, fH, 2); ctx.fill();
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 1. Italian Chrome Espresso Machine with Portafilter & Steam
+    const espX = fX + 4, espY = fY + 3;
+    ctx.fillStyle = '#94a3b8'; // Stainless steel body
+    ctx.fillRect(espX, espY, 11, 10);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(espX, espY, 11, 10);
+    // Double group head
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(espX + 2, espY + 8, 3, 2);
+    ctx.fillRect(espX + 6, espY + 8, 3, 2);
+    // Pressure gauge
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath(); ctx.arc(espX + 5.5, espY + 4, 1.5, 0, Math.PI * 2); ctx.fill();
+    // Tiny white ceramic espresso cups on top warming tray
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(espX + 1.5, espY + 1, 2, 2);
+    ctx.fillRect(espX + 4.5, espY + 1, 2, 2);
+    ctx.fillRect(espX + 7.5, espY + 1, 2, 2);
+
+    // 2. Nitrogen Cold Brew Tap
+    const tapX = fX + 18, tapY = fY + 3;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(tapX, tapY + 2, 2, 8); // Tower
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(tapX - 1, tapY, 4, 2); // Black tap handle
+
+    // 3. Mini Glass-Door Beverage Cooler (Stocked with Energy Drinks)
+    const coolX = fX + 24, coolY = fY + 2;
+    ctx.fillStyle = '#090d16'; // Cooler housing
+    ctx.fillRect(coolX, coolY, 20, 14);
+    // Glowing cyan interior
+    ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
+    ctx.fillRect(coolX + 1.5, coolY + 1.5, 17, 11);
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(coolX + 1.5, coolY + 1.5, 17, 11);
+    // Cans inside (Red Bull / Yerba Mate / Monster)
+    const canColors = ['#38bdf8', '#ef4444', '#10b981', '#fbbf24', '#a855f7'];
+    for (let c = 0; c < 5; c++) {
+      ctx.fillStyle = canColors[c];
+      ctx.fillRect(coolX + 3 + c * 2.8, coolY + 4, 1.8, 4);
+      ctx.fillRect(coolX + 3 + c * 2.8, coolY + 9, 1.8, 3);
+    }
+
+    // Japanese Snack Tray (Pocky & Matcha snacks)
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(fX + 16, fY + 15, 6, 4);
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillRect(fX + 17, fY + 16, 2, 2); // Strawberry pocky box
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(fX + 19.5, fY + 16, 2, 2); // Matcha box
+    ctx.restore();
+
+    // =========================================================================
+    // 🛋️ 7. "BUG-HUNTER" RUBBER DUCK DEBUGGING LOUNGE (South-East Corner)
+    // =========================================================================
+    const lgX = T(7.2), lgY = T(15.8), lgW = S * 4.4, lgH = S * 3.8;
+    ctx.save();
+
+    // 1. Designer Geometric Area Rug (Charcoal & Deep Cyan)
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.roundRect(lgX, lgY, lgW, lgH, 6); ctx.fill();
+    ctx.strokeStyle = '#0e7490';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Inner geometric diamond accent
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(lgX + 5, lgY + 5, lgW - 10, lgH - 10);
+
+    // 2. Low Smoked-Glass Coffee Table with Gold Rim
+    const tblCX = T(8.0), tblCY = T(17.2);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.arc(tblCX + 2, tblCY + 2, 11, 0, Math.PI * 2); ctx.fill();
+    // Smoked glass surface
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.beginPath(); ctx.arc(tblCX, tblCY, 10, 0, Math.PI * 2); ctx.fill();
+    // Polished gold rim
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 3. ✨ THE GOLDEN RUBBER DUCK CENTERPIECE ✨
+    // Golden Duck Body
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath(); ctx.ellipse(tblCX, tblCY + 1, 4.5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    // Duck Head
+    ctx.beginPath(); ctx.arc(tblCX - 1.5, tblCY - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+    // Duck Bill / Beak (Orange)
+    ctx.fillStyle = '#f97316';
+    ctx.beginPath();
+    ctx.moveTo(tblCX - 3.5, tblCY - 2.5);
+    ctx.lineTo(tblCX - 6, tblCY - 2);
+    ctx.lineTo(tblCX - 3.5, tblCY - 1.5);
+    ctx.fill();
+    // Duck Eye
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(tblCX - 2.5, tblCY - 2.5, 0.6, 0, Math.PI * 2); ctx.fill();
+    // Specular Golden Sheen
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(tblCX - 1, tblCY - 2.8, 0.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(tblCX + 1, tblCY + 0.5, 2, 1, 0.2, 0, Math.PI * 2); ctx.fill();
+
+    // 4. Low Walnut Tech Bookshelf (Against South Wall)
+    const bsX = T(7.2), bsY = T(19.0), bsW = S * 4.4, bsH = 8;
+    ctx.fillStyle = '#451a03'; // Rich dark walnut wood
+    ctx.fillRect(bsX, bsY, bsW, bsH);
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bsX, bsY, bsW, bsH);
+
+    // Books with colorful spine labels (SICP, Clean Code, Pragmatic Programmer)
+    const bookColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#64748b', '#fbbf24', '#14b8a6', '#f43f5e'];
+    for (let b = 0; b < 11; b++) {
+      ctx.fillStyle = bookColors[b];
+      ctx.fillRect(bsX + 3 + b * 5.2, bsY + 1.5, 3.8, 5.5);
+      ctx.fillStyle = '#ffffff'; // Gold/white spine text line
+      ctx.fillRect(bsX + 4 + b * 5.2, bsY + 2.5, 1.8, 1);
+    }
+
+    ctx.restore();
+
+    // 5. 🪑 Plush Ergonomic Debugging Lounge Chair (Sit-able!)
+    this.drawDesignerLoungeChair(ctx, T(9.2), T(17.2), -Math.PI * 0.75);
   }
 
   // --- DESIGN ROOM (Luxury All-White Architectural L-Shaped Boss Desk & Studio PC) ---
