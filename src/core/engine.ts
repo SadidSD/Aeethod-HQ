@@ -63,18 +63,18 @@ export class GameEngine {
       });
     }
 
-    // 2. Management Room: Executive Throne & 4 Advisory Chairs
+    // 2. Management Room: Executive Throne & 4 Advisory Chairs (Vertically Reversed Table)
     chairs.push({
       id: 'mgmt_exec',
       x: T(DIAMOND_CX),
-      y: T(DIAMOND_CY) - 14,
-      angle: 0,
-      name: 'Executive Management Chair'
+      y: T(DIAMOND_CY) + S * 2.2 + 15,
+      angle: Math.PI,
+      name: 'Executive Management Chair (CEO)'
     });
-    chairs.push({ id: 'mgmt_w1', x: T(DIAMOND_CX) - 28, y: T(DIAMOND_CY) + S * 1.8, angle: Math.PI / 2, name: 'Advisory Chair West 1' });
-    chairs.push({ id: 'mgmt_w2', x: T(DIAMOND_CX) - 28, y: T(DIAMOND_CY) + S * 3.4, angle: Math.PI / 2, name: 'Advisory Chair West 2' });
-    chairs.push({ id: 'mgmt_e1', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 1.8, angle: -Math.PI / 2, name: 'Advisory Chair East 1' });
-    chairs.push({ id: 'mgmt_e2', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 3.4, angle: -Math.PI / 2, name: 'Advisory Chair East 2' });
+    chairs.push({ id: 'mgmt_w1', x: T(DIAMOND_CX) - 28, y: T(DIAMOND_CY) - S * 1.0, angle: Math.PI / 2, name: 'Advisory Chair West 1' });
+    chairs.push({ id: 'mgmt_w2', x: T(DIAMOND_CX) - 28, y: T(DIAMOND_CY) + S * 0.6, angle: Math.PI / 2, name: 'Advisory Chair West 2' });
+    chairs.push({ id: 'mgmt_e1', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) - S * 1.0, angle: -Math.PI / 2, name: 'Advisory Chair East 1' });
+    chairs.push({ id: 'mgmt_e2', x: T(DIAMOND_CX) + 28, y: T(DIAMOND_CY) + S * 0.6, angle: -Math.PI / 2, name: 'Advisory Chair East 2' });
 
     // 3. Dev Room: Workstation Gaming Chairs
     chairs.push({ id: 'dev_kitty', x: T(6.5), y: T(6.3), angle: Math.PI / 2, name: 'Hello Kitty Gaming Chair' });
@@ -313,7 +313,7 @@ export class GameEngine {
     }
 
     // Check Workstations & Boards with tight radius right at the object
-    check('mgmt_pc', T(DIAMOND_CX), T(DIAMOND_CY) - TILE_SIZE * 1.5, 65, '👑 [E] Open Management PC');
+    check('mgmt_pc', T(DIAMOND_CX), T(DIAMOND_CY) + TILE_SIZE * 1.3, 65, '👑 [E] Open Management PC');
     check('designer_pc', T(38.0), T(9.0), 50, '🎨 [E] Open Designer Terminal');
     check('client_pc', T(3.5), T(30.5), 55, '🤝 [E] Open Client Relations PC');
     check('dev_pc_kitty', T(6.5), T(6.3), 55, '🌸 [E] Frontend Dev (Hello Kitty)');
@@ -336,20 +336,21 @@ export class GameEngine {
     const S = TILE_SIZE;
     const cx = T(DIAMOND_CX), cy = T(DIAMOND_CY);
 
-    // 1. Management Room: Big U-Shaped Executive Table
+    // 1. Management Room: Big U-Shaped Executive Table (Vertically Reversed)
     const topW = S * 7.2;
     const topH = S * 1.8;
     const topX = cx - topW / 2;
-    const topY = cy - S * 2.4;
-    // Top desk bridge
-    if (wx >= topX && wx <= topX + topW && wy >= topY && wy <= topY + topH) return true;
-    // Left wing
     const wingW = S * 1.8;
     const wingH = S * 4.6;
-    if (wx >= topX && wx <= topX + wingW && wy >= topY && wy <= topY + wingH) return true;
+    const wingY = cy - S * 2.4;
+    const bridgeY = wingY + wingH - topH;
+    // Bottom desk bridge
+    if (wx >= topX && wx <= topX + topW && wy >= bridgeY && wy <= bridgeY + topH) return true;
+    // Left wing
+    if (wx >= topX && wx <= topX + wingW && wy >= wingY && wy <= wingY + wingH) return true;
     // Right wing
     const rightX = topX + topW - wingW;
-    if (wx >= rightX && wx <= rightX + wingW && wy >= topY && wy <= topY + wingH) return true;
+    if (wx >= rightX && wx <= rightX + wingW && wy >= wingY && wy <= wingY + wingH) return true;
 
     // 2. Design Room: White L-Shaped Boss Executive Table
     const dMainX = T(36.8), dMainY = T(6.0), dMainW = S * 1.9, dMainH = S * 5.6;
@@ -443,7 +444,7 @@ export class GameEngine {
       }
       return false;
     };
-    if (checkClick(T(DIAMOND_CX), T(DIAMOND_CY) - TILE_SIZE * 1.5, 75, () => this.onOpenComputer?.())) return;
+    if (checkClick(T(DIAMOND_CX), T(DIAMOND_CY) + TILE_SIZE * 1.3, 75, () => this.onOpenComputer?.())) return;
     if (checkClick(T(38.0), T(9.0), 55, () => this.onOpenDesignerPC?.())) return;
     if (checkClick(T(3.5), T(30.5), 55, () => this.onOpenClientPC?.())) return;
     if (checkClick(T(6.5), T(6.3), 60, () => this.onOpenMember?.('frontend'))) return;
@@ -2498,52 +2499,75 @@ export class GameEngine {
     this.drawColdDrinksVendingMachine(ctx, T(40.2), T(15.2), 'tokyo_neon', S);
   }
 
-  // --- MANAGEMENT ROOM (Big Luxury U-Shaped Executive Table & Command PC) ---
+  // --- MANAGEMENT ROOM (Luxury All-White U-Shaped Executive Table & Command PC - Vertically Reversed) ---
   private drawManagementRoom(ctx: CanvasRenderingContext2D, S: number) {
     const cx = T(DIAMOND_CX), cy = T(DIAMOND_CY);
-    const distToPC = Math.hypot(this.state.player.x - cx, this.state.player.y - (cy - S * 1.5));
-    const isNearPC = distToPC < 70;
 
     // =========================================================================
-    // 👑 BIG U-SHAPED EXECUTIVE TABLE
+    // 👑 BIG U-SHAPED EXECUTIVE TABLE (VERTICALLY REVERSED)
     // =========================================================================
     // Dimensions
-    const topW = S * 7.2; // 115px wide top horizontal bridge
+    const topW = S * 7.2; // 115px wide horizontal bridge
     const topH = S * 1.8; // 29px tall
     const topX = cx - topW / 2;
-    const topY = cy - S * 2.4;
 
     const wingW = S * 1.8; // 29px wide left and right wings
-    const wingH = S * 4.6; // 74px long vertical wings extending downwards
+    const wingH = S * 4.6; // 74px long vertical wings
+    const wingY = cy - S * 2.4; // Starts at North
+    const bridgeY = wingY + wingH - topH; // Connected at South (Bottom)
+
     const leftX = topX;
-    const leftY = topY;
+    const leftY = wingY;
 
     const rightX = topX + topW - wingW;
-    const rightY = topY;
+    const rightY = wingY;
+
+    const distToPC = Math.hypot(this.state.player.x - cx, this.state.player.y - (bridgeY + topH / 2));
+    const isNearPC = distToPC < 70;
 
     ctx.save();
 
     // 1. Soft Ambient Occlusion / Drop Shadow for entire U-Table
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.26)';
     ctx.beginPath();
-    ctx.roundRect(topX + 4, topY + 4, topW, topH, 3);
+    ctx.roundRect(topX + 4, bridgeY + 4, topW, topH, 3);
     ctx.roundRect(leftX + 4, leftY + 4, wingW, wingH, 3);
     ctx.roundRect(rightX + 4, rightY + 4, wingW, wingH, 3);
     ctx.fill();
 
-    // 2. Executive Tabletop (Dark Obsidian & Smoked Ash with Brass Trim)
-    ctx.fillStyle = '#1e293b';
+    // 2. Executive Tabletop: Pristine White Marble / High-Gloss White Lacquer
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.roundRect(topX, topY, topW, topH, 2);
+    ctx.roundRect(topX, bridgeY, topW, topH, 2);
     ctx.roundRect(leftX, leftY, wingW, wingH, 2);
     ctx.roundRect(rightX, rightY, wingW, wingH, 2);
     ctx.fill();
 
-    // Polished Champagne Gold / Brass Perimeter Trim
+    // Subtle Natural Calacatta Marble Veining
+    ctx.strokeStyle = 'rgba(226, 232, 240, 0.85)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // Left wing veins
+    ctx.moveTo(leftX + 4, leftY + 12);
+    ctx.lineTo(leftX + 18, leftY + 34);
+    ctx.lineTo(leftX + 8, leftY + 56);
+    // Right wing veins
+    ctx.moveTo(rightX + 6, rightY + 14);
+    ctx.lineTo(rightX + 22, rightY + 38);
+    ctx.lineTo(rightX + 12, rightY + 60);
+    // Bottom bridge veins
+    ctx.moveTo(topX + 24, bridgeY + 6);
+    ctx.lineTo(topX + 48, bridgeY + 20);
+    ctx.lineTo(topX + 78, bridgeY + 8);
+    ctx.moveTo(topX + 88, bridgeY + 18);
+    ctx.lineTo(topX + 104, bridgeY + 7);
+    ctx.stroke();
+
+    // Polished Champagne Gold / Brushed Brass Perimeter Trim
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.roundRect(topX, topY, topW, topH, 2);
+    ctx.roundRect(topX, bridgeY, topW, topH, 2);
     ctx.stroke();
     ctx.beginPath();
     ctx.roundRect(leftX, leftY, wingW, wingH, 2);
@@ -2553,106 +2577,129 @@ export class GameEngine {
     ctx.stroke();
 
     // Seamless Mitered Corner Junction Blends (Removes interior dividing lines)
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(leftX + 2, topY + 2, wingW - 4, topH - 4);
-    ctx.fillRect(rightX + 2, topY + 2, wingW - 4, topH - 4);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(leftX + 2, bridgeY + 2, wingW - 4, topH - 4);
+    ctx.fillRect(rightX + 2, bridgeY + 2, wingW - 4, topH - 4);
 
-    // Executive Inlaid Leather Blotters
-    // Top Desk Center Blotter
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(cx - S * 1.8, topY + 5, S * 3.6, topH - 10);
-    ctx.strokeStyle = '#334155';
+    // 3. Executive Inlaid Ivory Leather Blotters with Gold Accent Corners
+    // Bottom Desk Center Blotter (In front of CEO)
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(cx - S * 1.8, bridgeY + 4, S * 3.6, topH - 8);
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
-    ctx.strokeRect(cx - S * 1.8, topY + 5, S * 3.6, topH - 10);
+    ctx.strokeRect(cx - S * 1.8, bridgeY + 4, S * 3.6, topH - 8);
+    // Gold corner brackets
+    ctx.fillStyle = '#d4af37';
+    ctx.fillRect(cx - S * 1.8, bridgeY + 4, 3, 3);
+    ctx.fillRect(cx + S * 1.8 - 3, bridgeY + 4, 3, 3);
+    ctx.fillRect(cx - S * 1.8, bridgeY + topH - 7, 3, 3);
+    ctx.fillRect(cx + S * 1.8 - 3, bridgeY + topH - 7, 3, 3);
 
     // Left Wing Blotter
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(leftX + 5, topY + topH + 6, wingW - 10, wingH - topH - 16);
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(leftX + 4, leftY + 6, wingW - 8, wingH - topH - 12);
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
-    ctx.strokeRect(leftX + 5, topY + topH + 6, wingW - 10, wingH - topH - 16);
+    ctx.strokeRect(leftX + 4, leftY + 6, wingW - 8, wingH - topH - 12);
+    ctx.fillStyle = '#d4af37';
+    ctx.fillRect(leftX + 4, leftY + 6, 2.5, 2.5);
+    ctx.fillRect(leftX + wingW - 6.5, leftY + 6, 2.5, 2.5);
 
     // Right Wing Blotter
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(rightX + 5, topY + topH + 6, wingW - 10, wingH - topH - 16);
-    ctx.strokeStyle = '#334155';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(rightX + 4, rightY + 6, wingW - 8, wingH - topH - 12);
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
-    ctx.strokeRect(rightX + 5, topY + topH + 6, wingW - 10, wingH - topH - 16);
-
+    ctx.strokeRect(rightX + 4, rightY + 6, wingW - 8, wingH - topH - 12);
+    ctx.fillStyle = '#d4af37';
+    ctx.fillRect(rightX + 4, rightY + 6, 2.5, 2.5);
+    ctx.fillRect(rightX + wingW - 6.5, rightY + 6, 2.5, 2.5);
 
     // =========================================================================
-    // 🖥️ 3. HIGH-TECH COMMAND PC (On Top of the U-Table)
+    // 🖥️ 3. HIGH-TECH COMMAND PC (White & Champagne Gold Studio Edition)
     // =========================================================================
     const pcX = cx;
-    const pcY = topY + 4;
+    const pcY = bridgeY + 4;
 
-    // Ultrawide Curved Studio Monitor (Centered on top span)
-    ctx.fillStyle = '#090d12';
-    ctx.fillRect(pcX - 26, pcY + 2, 52, 14);
+    // Ultrawide Curved Studio Monitor (Pure White Frame with Gold Stand)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(pcX - 26, pcY + 2, 52, 12);
     ctx.strokeStyle = isNearPC ? '#38bdf8' : '#d4af37';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(pcX - 26, pcY + 2, 52, 14);
+    ctx.strokeRect(pcX - 26, pcY + 2, 52, 12);
+
+    // Curved Gold Stand
+    ctx.fillStyle = '#d4af37';
+    ctx.fillRect(pcX - 6, pcY, 12, 2);
 
     // Live Executive Agency Analytics Screen
     ctx.fillStyle = '#0284c7';
-    ctx.fillRect(pcX - 24, pcY + 4, 48, 10);
-    ctx.fillStyle = '#38bdf8'; ctx.fillRect(pcX - 22, pcY + 5, 12, 8); // Window 1 (Projects)
-    ctx.fillStyle = '#22c55e'; ctx.fillRect(pcX - 8, pcY + 5, 16, 8);  // Window 2 (Revenue Chart)
-    ctx.fillStyle = '#fbbf24'; ctx.fillRect(pcX + 10, pcY + 5, 12, 8); // Window 3 (Quests)
+    ctx.fillRect(pcX - 24, pcY + 3, 48, 9);
+    ctx.fillStyle = '#38bdf8'; ctx.fillRect(pcX - 22, pcY + 4, 12, 7); // Window 1 (Projects)
+    ctx.fillStyle = '#22c55e'; ctx.fillRect(pcX - 8, pcY + 4, 16, 7);  // Window 2 (Revenue Chart)
+    ctx.fillStyle = '#fbbf24'; ctx.fillRect(pcX + 10, pcY + 4, 12, 7); // Window 3 (Quests)
 
-    // Warm Architectural Lightbar Glow behind monitor
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+    // Warm Architectural Amber / Golden Backlight Glow
+    ctx.fillStyle = 'rgba(212, 175, 55, 0.24)';
     ctx.beginPath();
-    ctx.ellipse(pcX, pcY + 10, 28, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(pcX, pcY + 6, 28, 12, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Executive Keyboard on Leather Blotter
-    ctx.fillStyle = '#334155';
-    ctx.fillRect(pcX - 14, topY + topH - 9, 28, 6);
+    // White Magic Keyboard on Leather Blotter
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(pcX - 14, bridgeY + topH - 10, 28, 6);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(pcX - 14, bridgeY + topH - 10, 28, 6);
     ctx.fillStyle = isNearPC ? '#38bdf8' : '#cbd5e1';
     for (let k = 0; k < 4; k++) {
-      ctx.fillRect(pcX - 12 + k * 6, topY + topH - 8, 4, 2);
-      ctx.fillRect(pcX - 12 + k * 6, topY + topH - 5, 4, 2);
+      ctx.fillRect(pcX - 12 + k * 6, bridgeY + topH - 9, 4, 2);
+      ctx.fillRect(pcX - 12 + k * 6, bridgeY + topH - 6, 4, 2);
     }
-    // Precision Mouse
-    ctx.fillStyle = '#64748b';
-    ctx.fillRect(pcX + 17, topY + topH - 8, 4, 6);
 
-    // Workstation Tower PC with Breathing RGB Strip (on top-right of U-table)
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(topX + topW - 22, topY + 4, 14, 20);
-    ctx.strokeStyle = '#475569';
+    // White Precision Mouse
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(pcX + 17, bridgeY + topH - 9, 5, 5);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(pcX + 17, bridgeY + topH - 9, 5, 5);
+
+    // Workstation Tower PC: Pure White Tempered Glass with Breathing RGB Strip
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(topX + topW - 22, bridgeY + 3, 14, 20);
+    ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 1;
-    ctx.strokeRect(topX + topW - 22, topY + 4, 14, 20);
+    ctx.strokeRect(topX + topW - 22, bridgeY + 3, 14, 20);
     const rgbHue = (this.state.tick * 2) % 360;
     ctx.fillStyle = `hsl(${rgbHue}, 90%, 60%)`;
-    ctx.fillRect(topX + topW - 20, topY + 7, 2, 14);
+    ctx.fillRect(topX + topW - 20, bridgeY + 6, 2, 14);
 
-    // CEO Ceramic Coffee Mug
-    ctx.fillStyle = '#e2e8f0';
-    ctx.beginPath(); ctx.arc(topX + 16, topY + 12, 3.5, 0, Math.PI * 2); ctx.fill();
+    // CEO White Ceramic Coffee Mug with Gold Rim
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(topX + 16, bridgeY + 12, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 0.8; ctx.stroke();
     ctx.fillStyle = '#78350f';
-    ctx.beginPath(); ctx.arc(topX + 16, topY + 12, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(topX + 16, bridgeY + 12, 2.2, 0, Math.PI * 2); ctx.fill();
     const steamY = (this.state.tick * 0.3) % 8;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.beginPath(); ctx.arc(topX + 16, topY + 8 - steamY, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(topX + 16, bridgeY + 8 - steamY, 1.2, 0, Math.PI * 2); ctx.fill();
 
     ctx.restore();
 
     // =========================================================================
     // 🪑 4. SEATING
     // =========================================================================
-    // High-Backed CEO Executive Boss Chair (Behind the top desk, facing down into U-cockpit)
-    this.chair(ctx, cx, topY - 14, 0, 13);
+    // High-Backed CEO Executive White & Gold Throne (South of the desk, facing North into U)
+    this.drawThemedGamingChair(ctx, cx, bridgeY + topH + 15, Math.PI, 'white_gold');
 
-    // Executive Wing Chairs along the Left and Right Wings
-    // Left Wing Chairs (Facing Right into the U)
-    this.chair(ctx, leftX - 14, leftY + S * 1.8, Math.PI / 2, 10);
-    this.chair(ctx, leftX - 14, leftY + S * 3.4, Math.PI / 2, 10);
+    // Executive Wing Chairs along the Left and Right Wings (Facing into the U)
+    // Left Wing Chairs (Facing East)
+    this.chair(ctx, leftX - 14, cy - S * 1.0, Math.PI / 2, 10);
+    this.chair(ctx, leftX - 14, cy + S * 0.6, Math.PI / 2, 10);
 
-    // Right Wing Chairs (Facing Left into the U)
-    this.chair(ctx, rightX + wingW + 14, rightY + S * 1.8, -Math.PI / 2, 10);
-    this.chair(ctx, rightX + wingW + 14, rightY + S * 3.4, -Math.PI / 2, 10);
+    // Right Wing Chairs (Facing West)
+    this.chair(ctx, rightX + wingW + 14, cy - S * 1.0, -Math.PI / 2, 10);
+    this.chair(ctx, rightX + wingW + 14, cy + S * 0.6, -Math.PI / 2, 10);
   }
 
   // --- CLIENT MANAGEMENT ROOM ---
