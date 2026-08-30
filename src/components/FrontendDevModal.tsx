@@ -60,7 +60,12 @@ export default function FrontendDevModal({ agency, manager, onClose, onRefresh }
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // New Task Modal
+  // Sorting & Filtering State for Assigned Tasks
+  const [taskSortBy, setTaskSortBy] = useState<'priority' | 'status' | 'xp_desc' | 'xp_asc' | 'hours_asc' | 'hours_desc' | 'project' | 'newest'>('priority');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'active' | 'blocked' | 'queued' | 'done'>('all');
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+
+  // New Task Modal State
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [newTaskInput, setNewTaskInput] = useState({
     title: '',
@@ -569,60 +574,263 @@ export default function FrontendDevModal({ agency, manager, onClose, onRefresh }
               </div>
             )}
 
-            {/* ════════════ TAB 2: MY ASSIGNED TASKS (GLOBAL VIEW) ════════════ */}
-            {activeTab === 'tasks' && (
-              <div className="space-y-4 font-mono animate-in fade-in">
-                <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-100">🎯 TASKS ASSIGNED TO FRONTEND</h3>
-                    <p className="text-[11px] text-slate-400">All tasks across every project assigned to your workstation</p>
+            {/* ════════════ TAB 2: MY ASSIGNED TASKS (WITH SORTING & FILTERING) ════════════ */}
+            {activeTab === 'tasks' && (() => {
+              const myTasks = agency.tasks.filter(t => t.assignedTo === 'frontend');
+
+              // Filtered list
+              const filtered = myTasks.filter(task => {
+                const proj = agency.projects.find(p => p.id === task.projectId);
+                const matchesStatus =
+                  taskStatusFilter === 'all' ||
+                  (taskStatusFilter === 'active' && task.status === 'active') ||
+                  (taskStatusFilter === 'blocked' && task.status === 'blocked') ||
+                  (taskStatusFilter === 'queued' && task.status === 'queued') ||
+                  (taskStatusFilter === 'done' && task.status === 'done');
+
+                const matchesSearch =
+                  !taskSearchQuery.trim() ||
+                  task.title.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
+                  (proj && proj.name.toLowerCase().includes(taskSearchQuery.toLowerCase()));
+
+                return matchesStatus && matchesSearch;
+              });
+
+              // Sorted list
+              const sorted = [...filtered].sort((a, b) => {
+                if (taskSortBy === 'priority') {
+                  const pRank: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+                  return (pRank[b.priority] || 0) - (pRank[a.priority] || 0);
+                }
+                if (taskSortBy === 'xp_desc') {
+                  return (b.xpReward || 0) - (a.xpReward || 0);
+                }
+                if (taskSortBy === 'xp_asc') {
+                  return (a.xpReward || 0) - (b.xpReward || 0);
+                }
+                if (taskSortBy === 'hours_asc') {
+                  return (a.estimatedHours || 0) - (b.estimatedHours || 0);
+                }
+                if (taskSortBy === 'hours_desc') {
+                  return (b.estimatedHours || 0) - (a.estimatedHours || 0);
+                }
+                if (taskSortBy === 'project') {
+                  const pA = agency.projects.find(p => p.id === a.projectId)?.name || '';
+                  const pB = agency.projects.find(p => p.id === b.projectId)?.name || '';
+                  return pA.localeCompare(pB);
+                }
+                if (taskSortBy === 'newest') {
+                  return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                }
+                if (taskSortBy === 'status') {
+                  const sRank: Record<string, number> = { active: 4, blocked: 3, queued: 2, done: 1 };
+                  return (sRank[b.status] || 0) - (sRank[a.status] || 0);
+                }
+                return 0;
+              });
+
+              const totalXPPotential = myTasks.filter(t => t.status !== 'done').reduce((acc, t) => acc + (t.xpReward || 0), 0);
+              const totalHoursRemaining = myTasks.filter(t => t.status !== 'done').reduce((acc, t) => acc + (t.estimatedHours || 0), 0);
+
+              return (
+                <div className="space-y-4 font-mono animate-in fade-in">
+                  
+                  {/* Top Stats Banner */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-[#0d1522] border border-slate-800 rounded-xl">
+                      <span className="text-slate-500 text-[10px] block">TOTAL ASSIGNED</span>
+                      <strong className="text-pink-400 text-sm font-bold">{myTasks.length} Tasks</strong>
+                    </div>
+                    <div className="p-3 bg-[#0d1522] border border-slate-800 rounded-xl">
+                      <span className="text-slate-500 text-[10px] block">IN PROGRESS / QUEUED</span>
+                      <strong className="text-amber-400 text-sm font-bold">
+                        {myTasks.filter(t => t.status !== 'done').length} Active
+                      </strong>
+                    </div>
+                    <div className="p-3 bg-[#0d1522] border border-slate-800 rounded-xl">
+                      <span className="text-slate-500 text-[10px] block">ESTIMATED WORK</span>
+                      <strong className="text-cyan-400 text-sm font-bold">{totalHoursRemaining} Hours</strong>
+                    </div>
+                    <div className="p-3 bg-[#0d1522] border border-slate-800 rounded-xl">
+                      <span className="text-slate-500 text-[10px] block">AVAILABLE XP</span>
+                      <strong className="text-emerald-400 text-sm font-bold">+{totalXPPotential} XP</strong>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2.5">
-                  {agency.tasks
-                    .filter(t => t.assignedTo === 'frontend')
-                    .map(task => {
-                      const proj = agency.projects.find(p => p.id === task.projectId);
-                      return (
-                        <div
-                          key={task.id}
-                          className="p-3.5 bg-[#0a111a] border border-slate-800 rounded-xl flex items-center justify-between gap-3 text-xs"
+                  {/* Search, Filter & Sort Controls Toolbar */}
+                  <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-3">
+                    
+                    {/* Search & Sort Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      {/* Search Bar */}
+                      <div className="relative flex-1 min-w-[220px]">
+                        <input
+                          type="text"
+                          value={taskSearchQuery}
+                          onChange={e => setTaskSearchQuery(e.target.value)}
+                          placeholder="🔍 Search tasks or project names..."
+                          className="w-full bg-[#080d14] border border-slate-700 focus:border-pink-500 rounded-xl px-3.5 py-2 text-xs text-slate-200 outline-none"
+                        />
+                        {taskSearchQuery && (
+                          <button
+                            onClick={() => setTaskSearchQuery('')}
+                            className="absolute right-3 top-2 text-slate-500 hover:text-slate-300 text-xs"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Sorting Dropdown */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 text-xs font-bold whitespace-nowrap">↕️ SORT BY:</span>
+                        <select
+                          value={taskSortBy}
+                          onChange={e => setTaskSortBy(e.target.value as any)}
+                          className="bg-[#080d14] border border-pink-500/50 text-pink-300 font-mono font-bold text-xs px-3 py-2 rounded-xl outline-none cursor-pointer"
                         >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-[10px] font-bold">
-                              <span className="text-pink-400 font-bold px-1.5 py-0.5 rounded bg-pink-950/70 border border-pink-800">
-                                📁 {proj?.name || 'General Agency'}
-                              </span>
-                              <span className={`px-1.5 py-0.5 rounded ${
-                                task.status === 'done' ? 'bg-emerald-950 text-emerald-300' :
-                                task.status === 'active' ? 'bg-cyan-950 text-cyan-300' :
-                                'bg-slate-800 text-slate-400'
-                              }`}>
-                                {task.status.toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="font-bold text-slate-100">{task.title}</div>
-                          </div>
+                          <option value="priority">🔥 Priority (Urgent first)</option>
+                          <option value="status">⚡ Status (Active first)</option>
+                          <option value="xp_desc">⭐ XP Reward (Highest first)</option>
+                          <option value="xp_asc">⭐ XP Reward (Lowest first)</option>
+                          <option value="hours_asc">⏳ Estimated Hours (Shortest)</option>
+                          <option value="hours_desc">⏳ Estimated Hours (Longest)</option>
+                          <option value="project">📁 Project Name (A-Z)</option>
+                          <option value="newest">📅 Recently Added (Newest)</option>
+                        </select>
+                      </div>
+                    </div>
 
-                          <div className="flex items-center gap-2">
-                            {task.status !== 'done' ? (
-                              <button
-                                onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 80)}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg"
-                              >
-                                Complete
-                              </button>
-                            ) : (
-                              <span className="text-emerald-400 font-bold">Done ✅</span>
-                            )}
+                    {/* Status Filter Tabs */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800 text-xs font-bold">
+                      <span className="text-slate-400 mr-1">STATUS:</span>
+                      {[
+                        { id: 'all', label: `All (${myTasks.length})` },
+                        { id: 'active', label: `⚡ In Progress (${myTasks.filter(t => t.status === 'active').length})` },
+                        { id: 'blocked', label: `🚨 Blocked (${myTasks.filter(t => t.status === 'blocked').length})` },
+                        { id: 'queued', label: `📋 Queued (${myTasks.filter(t => t.status === 'queued').length})` },
+                        { id: 'done', label: `✅ Completed (${myTasks.filter(t => t.status === 'done').length})` },
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setTaskStatusFilter(tab.id as any)}
+                          className={`px-3 py-1.5 rounded-xl transition ${
+                            taskStatusFilter === tab.id
+                              ? 'bg-pink-600 text-white shadow-[0_0_15px_rgba(244,114,182,0.3)]'
+                              : 'bg-[#080d14] border border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                  </div>
+
+                  {/* Task List */}
+                  <div className="space-y-2.5">
+                    {sorted.length === 0 ? (
+                      <div className="p-8 bg-[#080d14] border border-slate-800 rounded-2xl text-center text-xs text-slate-500">
+                        🔍 No tasks match your current filter and search query.
+                      </div>
+                    ) : (
+                      sorted.map(task => {
+                        const proj = agency.projects.find(p => p.id === task.projectId);
+                        const priorityColor = {
+                          urgent: 'bg-rose-950 text-rose-300 border-rose-800',
+                          high: 'bg-amber-950 text-amber-300 border-amber-800',
+                          medium: 'bg-blue-950 text-blue-300 border-blue-800',
+                          low: 'bg-slate-800 text-slate-400 border-slate-700',
+                        }[task.priority] || 'bg-slate-800 text-slate-400 border-slate-700';
+
+                        return (
+                          <div
+                            key={task.id}
+                            className={`p-4 rounded-2xl border transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                              task.status === 'blocked'
+                                ? 'bg-rose-950/20 border-rose-700/60'
+                                : task.status === 'done'
+                                ? 'bg-[#070c14] border-slate-800/80 text-slate-400'
+                                : 'bg-[#0a111a] border-slate-800 hover:border-pink-500/50'
+                            }`}
+                          >
+                            <div className="space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+                                {proj && (
+                                  <span
+                                    onClick={() => {
+                                      setSelectedProjectId(proj.id);
+                                      setActiveTab('projects');
+                                    }}
+                                    className="cursor-pointer text-pink-400 font-bold px-2 py-0.5 rounded bg-pink-950/70 border border-pink-800 hover:underline"
+                                    title="Click to open project"
+                                  >
+                                    📁 {proj.name}
+                                  </span>
+                                )}
+                                <span className={`px-2 py-0.5 rounded border uppercase ${priorityColor}`}>
+                                  {task.priority} Priority
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
+                                  {task.phase}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded uppercase ${
+                                  task.status === 'done' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
+                                  task.status === 'blocked' ? 'bg-rose-950 text-rose-300 border border-rose-800 animate-pulse' :
+                                  task.status === 'active' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
+                                  'bg-slate-800 text-slate-400'
+                                }`}>
+                                  {task.status}
+                                </span>
+                              </div>
+
+                              <h4 className={`text-sm font-bold ${task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+                                {task.title}
+                              </h4>
+                              {task.description && (
+                                <p className="text-xs text-slate-400">{task.description}</p>
+                              )}
+                            </div>
+
+                            {/* Task Action & Metrics */}
+                            <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                              <div className="text-right text-xs">
+                                <div className="text-amber-400 font-bold">+{task.xpReward || 80} XP</div>
+                                <div className="text-[10px] text-slate-500">⏱️ {task.estimatedHours || 4}h est.</div>
+                              </div>
+
+                              {task.status !== 'done' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleToggleBlocker(task)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                                      task.status === 'blocked' ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                    }`}
+                                    title={task.status === 'blocked' ? 'Clear blocker' : 'Flag blocker'}
+                                  >
+                                    🚨
+                                  </button>
+                                  <button
+                                    onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 80)}
+                                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.3)] transition"
+                                  >
+                                    Complete
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-emerald-400 font-bold text-xs">Done ✅</span>
+                              )}
+                            </div>
+
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
+                  </div>
+
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ════════════ TAB 3: SKILLS & MASTERY ════════════ */}
             {activeTab === 'skills' && (
