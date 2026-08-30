@@ -124,7 +124,7 @@ export class GameEngine {
     check('dev_pc_kitty', T(6.5), T(6.3), 55, '🌸 [E] Frontend Dev (Hello Kitty)');
     check('dev_pc_spidey', T(6.5), T(15.1), 55, '🕷️ [E] Backend Dev (Spider-Man)');
     check('board_leads', T(22), T(37), 50, '🛎️ [E] Open Lead Registry');
-    check('board_arch', T(21.5), T(2), 50, '📐 [E] View Architecture Whiteboard');
+    check('board_arch', T(21.5), T(2), 55, '📅 [E] Meeting & Planning Room');
     check('board_content', T(39), T(28), 50, '📅 [E] View Content Calendar');
 
     return closest;

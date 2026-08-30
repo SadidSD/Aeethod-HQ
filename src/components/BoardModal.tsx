@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AgencyState, Lead, LeadStatus, ProjectPackage } from '../core/agencyTypes';
 import AgencyManager from '../core/agency';
 import ContentManagementRoom from './ContentManagementRoom';
+import MeetingPlanningRoom from './MeetingPlanningRoom';
 
 interface BoardModalProps {
   boardType: 'leads' | 'architecture' | 'content';
@@ -15,6 +16,17 @@ export default function BoardModal({ boardType, agency, manager, onClose, onRefr
   if (boardType === 'content') {
     return (
       <ContentManagementRoom
+        agency={agency}
+        manager={manager}
+        onClose={onClose}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+
+  if (boardType === 'architecture') {
+    return (
+      <MeetingPlanningRoom
         agency={agency}
         manager={manager}
         onClose={onClose}
@@ -201,7 +213,7 @@ export default function BoardModal({ boardType, agency, manager, onClose, onRefr
         <div className="flex items-center justify-between px-5 py-4 bg-[#101820] border-b border-slate-800">
           <div className="flex items-center gap-2">
             <span className="text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider">
-              {boardType === 'leads' ? '🛎️ Reception Lead Registry' : '📐 Architecture Whiteboard'}
+              🛎️ Reception Lead Registry
             </span>
           </div>
 
@@ -212,8 +224,7 @@ export default function BoardModal({ boardType, agency, manager, onClose, onRefr
 
         {/* Content */}
         <div className="p-6 max-h-[75vh] overflow-y-auto">
-          {boardType === 'leads' && renderLeadsBoard()}
-          {boardType === 'architecture' && renderArchitectureBoard()}
+          {renderLeadsBoard()}
         </div>
 
         {/* Footer */}
