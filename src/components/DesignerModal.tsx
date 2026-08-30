@@ -821,7 +821,9 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
               const currentShippedProject = completedProjects.find(p => p.id === selectedShippedProjectId) || null;
 
               if (currentShippedProject) {
-                const projectDeliverables = agency.tasks.filter(t => t.projectId === currentShippedProject.id);
+                const projectDeliverables = agency.tasks.filter(
+                  t => t.projectId === currentShippedProject.id || (currentShippedProject.taskIds && currentShippedProject.taskIds.includes(t.id))
+                );
                 const totalEarnedXP = projectDeliverables.reduce((acc, t) => acc + (t.xpReward || 0), 0);
 
                 return (
@@ -959,7 +961,7 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {completedProjects.map(p => {
-                        const pTasks = agency.tasks.filter(t => t.projectId === p.id);
+                        const pTasks = agency.tasks.filter(t => t.projectId === p.id || (p.taskIds && p.taskIds.includes(t.id)));
                         return (
                           <div
                             key={p.id}
