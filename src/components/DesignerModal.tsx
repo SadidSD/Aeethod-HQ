@@ -264,90 +264,99 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
             {activeTab === 'projects' && (
               <div className="space-y-4 animate-in fade-in">
 
-                {/* LEVEL 1: ALL PROJECTS GRID */}
-                {!selectedProject ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <div>
-                        <h2 className="text-sm font-black text-slate-100 font-mono tracking-wide flex items-center gap-2">
-                          <span>📁</span> DESIGN CLIENT PROJECTS ({agency.projects.length})
-                        </h2>
-                        <p className="text-xs text-slate-400 font-mono mt-0.5">
-                          Select a project below to enter its workspace and view assigned tasks.
-                        </p>
+                {/* LEVEL 1: ALL ONGOING PROJECTS GRID */}
+                {!selectedProject ? (() => {
+                  const ongoingProjects = agency.projects.filter(p => p.phase !== 'completed');
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                        <div>
+                          <h2 className="text-sm font-black text-slate-100 font-mono tracking-wide flex items-center gap-2">
+                            <span>📁</span> ONGOING CLIENT PROJECTS ({ongoingProjects.length})
+                          </h2>
+                          <p className="text-xs text-slate-400 font-mono mt-0.5">
+                            Active design & UI systems in progress. Select a project to craft & approve tokens.
+                          </p>
+                        </div>
                       </div>
+
+                      {ongoingProjects.length === 0 ? (
+                        <div className="p-12 bg-[#0d1522] border border-slate-800 rounded-2xl text-center font-mono space-y-3">
+                          <div className="text-3xl">🎉</div>
+                          <h3 className="text-sm font-bold text-slate-100">All Design Systems Approved & Delivered!</h3>
+                          <p className="text-xs text-slate-400 max-w-md mx-auto">
+                            All active client UI/UX specifications are shipped. Check the <strong className="text-amber-400">Design Systems</strong> tab to inspect published libraries.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+                          {ongoingProjects.map(project => {
+                            const pTasks = agency.tasks.filter(t => t.projectId === project.id);
+                            const pDone = pTasks.filter(t => t.status === 'done');
+                            const pActive = pTasks.filter(t => t.status === 'active' || t.status === 'blocked');
+                            const pct = pTasks.length > 0 ? Math.round((pDone.length / pTasks.length) * 100) : 0;
+
+                            return (
+                              <div
+                                key={project.id}
+                                onClick={() => setSelectedProjectId(project.id)}
+                                className="p-5 bg-[#0d1522] border border-slate-800 hover:border-amber-500/60 rounded-2xl cursor-pointer transition hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] flex flex-col justify-between gap-4 group"
+                              >
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 uppercase">
+                                      {project.industry}
+                                    </span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-700 uppercase">
+                                      Phase: {project.phase}
+                                    </span>
+                                  </div>
+
+                                  <h3 className="text-base font-black text-slate-100 group-hover:text-amber-300 transition">
+                                    {project.name}
+                                  </h3>
+
+                                  <div className="flex items-center justify-between text-xs text-slate-400">
+                                    <span>Client: <strong className="text-slate-200">{project.clientName}</strong></span>
+                                    <span className="text-emerald-400 font-bold">${project.value.toLocaleString()}</span>
+                                  </div>
+
+                                  <p className="text-[11px] text-slate-500 line-clamp-2">
+                                    {project.notes || 'Creative visual system.'}
+                                  </p>
+                                </div>
+
+                                {/* Progress Bar & Open Action */}
+                                <div className="space-y-2 pt-3 border-t border-slate-800/80">
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-slate-400">Design Deliverables Approved</span>
+                                    <strong className="text-amber-400 font-bold">{pct}% ({pDone.length}/{pTasks.length} Tasks)</strong>
+                                  </div>
+                                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-amber-500 to-rose-400 transition-all duration-300"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+
+                                  <div className="pt-2 flex items-center justify-between text-xs font-bold">
+                                    <span className="text-amber-400 text-[11px]">
+                                      ⚡ {pActive.length} Active Sprints
+                                    </span>
+                                    <span className="text-amber-400 group-hover:underline flex items-center gap-1">
+                                      <span>Enter Project</span>
+                                      <span>➔</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Projects Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
-                      {agency.projects.map(project => {
-                        const pTasks = agency.tasks.filter(t => t.projectId === project.id);
-                        const pDone = pTasks.filter(t => t.status === 'done');
-                        const pActive = pTasks.filter(t => t.status === 'active' || t.status === 'blocked');
-                        const pct = pTasks.length > 0 ? Math.round((pDone.length / pTasks.length) * 100) : (project.phase === 'completed' ? 100 : 0);
-
-                        return (
-                          <div
-                            key={project.id}
-                            onClick={() => setSelectedProjectId(project.id)}
-                            className="p-5 bg-[#0d1522] border border-slate-800 hover:border-amber-500/60 rounded-2xl cursor-pointer transition hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] flex flex-col justify-between gap-4 group"
-                          >
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 uppercase">
-                                  {project.industry}
-                                </span>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                  project.phase === 'completed' ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' :
-                                  'bg-amber-950 text-amber-300 border border-amber-700'
-                                } uppercase`}>
-                                  Phase: {project.phase}
-                                </span>
-                              </div>
-
-                              <h3 className="text-base font-black text-slate-100 group-hover:text-amber-300 transition">
-                                {project.name}
-                              </h3>
-
-                              <div className="flex items-center justify-between text-xs text-slate-400">
-                                <span>Client: <strong className="text-slate-200">{project.clientName}</strong></span>
-                                <span className="text-emerald-400 font-bold">${project.value.toLocaleString()}</span>
-                              </div>
-
-                              <p className="text-[11px] text-slate-500 line-clamp-2">
-                                {project.notes || 'Creative visual system.'}
-                              </p>
-                            </div>
-
-                            {/* Progress Bar & Open Action */}
-                            <div className="space-y-2 pt-3 border-t border-slate-800/80">
-                              <div className="flex justify-between text-xs">
-                                <span className="text-slate-400">Design Deliverables Approved</span>
-                                <strong className="text-amber-400 font-bold">{pct}% ({pDone.length}/{pTasks.length} Tasks)</strong>
-                              </div>
-                              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-gradient-to-r from-amber-500 to-rose-400 transition-all duration-300"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-
-                              <div className="pt-2 flex items-center justify-between text-xs font-bold">
-                                <span className="text-amber-400 text-[11px]">
-                                  ⚡ {pActive.length} Active Sprints
-                                </span>
-                                <span className="text-amber-400 group-hover:underline flex items-center gap-1">
-                                  <span>Enter Project</span>
-                                  <span>➔</span>
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
+                  );
+                })() : (
                   /* LEVEL 2: DRILL-DOWN INSIDE A SPECIFIC PROJECT */
                   <div className="space-y-4 font-mono animate-in fade-in">
                     
@@ -801,25 +810,57 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
               </div>
             )}
 
-            {/* ════════════ TAB 5: DESIGN SYSTEMS ════════════ */}
-            {activeTab === 'portfolio' && (
-              <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>🏛️</span> PUBLISHED DESIGN SYSTEMS & FIGMA LIBRARIES
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {agency.projects.map(p => (
-                    <div key={p.id} className="p-3.5 bg-[#080d14] rounded-xl border border-slate-800">
-                      <div className="flex justify-between text-slate-200 font-bold mb-1">
-                        <span>{p.name}</span>
-                        <span className="text-emerald-400">${p.value.toLocaleString()}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 uppercase">Phase: {p.phase} · {p.industry}</div>
+            {/* ════════════ TAB 4: PUBLISHED DESIGN SYSTEMS (COMPLETED PROJECTS) ════════════ */}
+            {activeTab === 'portfolio' && (() => {
+              const completedProjects = agency.projects.filter(p => p.phase === 'completed');
+              return (
+                <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>🏛️</span> PUBLISHED DESIGN SYSTEMS & FIGMA LIBRARIES ({completedProjects.length})
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        All approved and published client design tokens, Figma libraries, and UI kits.
+                      </p>
                     </div>
-                  ))}
+                  </div>
+
+                  {completedProjects.length === 0 ? (
+                    <div className="p-10 bg-[#080d14] border border-slate-800/80 rounded-xl text-center space-y-2.5">
+                      <div className="text-2xl">🎨</div>
+                      <div className="text-xs font-bold text-slate-200">No Design Systems Fully Published Yet</div>
+                      <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                        Complete all phase deliverables for active projects in the <strong className="text-amber-400">Projects Hub</strong> to publish them into your production design showcase!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {completedProjects.map(p => {
+                        const pTasks = agency.tasks.filter(t => t.projectId === p.id);
+                        return (
+                          <div key={p.id} className="p-4 bg-[#080d14] rounded-xl border border-amber-800/40 space-y-2">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold uppercase">
+                                  ✨ PUBLISHED
+                                </span>
+                                <h4 className="font-bold text-slate-100 mt-1">{p.name}</h4>
+                                <div className="text-[11px] text-slate-400">Client: {p.clientName} · {p.industry}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-emerald-400 font-bold text-sm">+${p.value.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-500">{pTasks.length} Design Specs Shipped</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ════════════ TAB 6: STUDIO VELOCITY ════════════ */}
             {activeTab === 'analytics' && (
