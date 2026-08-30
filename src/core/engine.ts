@@ -30,6 +30,9 @@ export class GameEngine {
   onPositionChange: ((x: number, y: number, facing: 'up' | 'down' | 'left' | 'right', room: string) => void) | null = null;
   private animationFrameId: number | null = null;
   public sittingChair: { id: string; x: number; y: number; angle: number; name: string } | null = null;
+  public lastVendedMachine: string | null = null;
+  public lastVendTime: number = 0;
+  public vendingToast: { text: string; timer: number; x: number; y: number } | null = null;
 
   public getChairSpots(): { id: string; x: number; y: number; angle: number; name: string }[] {
     const S = TILE_SIZE;
@@ -122,6 +125,79 @@ export class GameEngine {
     this.onPositionChange?.(this.state.player.x, this.state.player.y, 'down', this.state.activeRoom);
   }
 
+  // --- VENDING MACHINE INTERACTION ---
+  public playVendingSound() {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const actx = new AudioCtx();
+      const now = actx.currentTime;
+
+      // 1. Coin insert chirp
+      const osc1 = actx.createOscillator();
+      const gain1 = actx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(987, now);
+      osc1.frequency.exponentialRampToValueAtTime(1318, now + 0.08);
+      gain1.gain.setValueAtTime(0.2, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc1.connect(gain1);
+      gain1.connect(actx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.1);
+
+      // 2. Mechanical servo click
+      const osc2 = actx.createOscillator();
+      const gain2 = actx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(240, now + 0.12);
+      osc2.frequency.exponentialRampToValueAtTime(90, now + 0.22);
+      gain2.gain.setValueAtTime(0.25, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+      osc2.connect(gain2);
+      gain2.connect(actx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.22);
+
+      // 3. Can drop clunk into tray
+      const osc3 = actx.createOscillator();
+      const gain3 = actx.createGain();
+      osc3.type = 'square';
+      osc3.frequency.setValueAtTime(140, now + 0.24);
+      osc3.frequency.exponentialRampToValueAtTime(45, now + 0.40);
+      gain3.gain.setValueAtTime(0.3, now + 0.24);
+      gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.40);
+      osc3.connect(gain3);
+      gain3.connect(actx.destination);
+      osc3.start(now + 0.24);
+      osc3.stop(now + 0.40);
+    } catch {
+      // Audio fails gracefully if sound context is blocked
+    }
+  }
+
+  public dispenseDrink(machineId: string) {
+    this.playVendingSound();
+    this.lastVendedMachine = machineId;
+    this.lastVendTime = Date.now();
+
+    const flavors = [
+      '🥤 Chilled Classic Cola! *Glug glug* ❄️',
+      '⚡ Chilled Cyber Neon Energy! ⚡',
+      '🍋 Sparkling Lime Soda! Ahh, refreshing! ❄️',
+      '🍇 Chilled Japanese Grape Soda! 🍇',
+      '🍑 Iced White Peach Green Tea! 🍑',
+    ];
+    const picked = flavors[Math.floor(Math.random() * flavors.length)];
+
+    this.vendingToast = {
+      text: picked,
+      timer: 160,
+      x: this.state.player.x,
+      y: this.state.player.y - 28,
+    };
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -178,6 +254,8 @@ export class GameEngine {
             this.onOpenBoard?.('architecture');
           } else if (interaction.type === 'board_content') {
             this.onOpenBoard?.('content');
+          } else if (interaction.type === 'vending_dev' || interaction.type === 'vending_design') {
+            this.dispenseDrink(interaction.type);
           }
         }
       }
@@ -196,7 +274,7 @@ export class GameEngine {
     this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.state.camera.zoom = Math.max(0.4, Math.min(2.5, this.state.camera.zoom * (e.deltaY<0?1.08:0.92))); });
   }
 
-  getNearestInteraction(): { type: 'door' | 'mgmt_pc' | 'designer_pc' | 'client_pc' | 'dev_pc' | 'dev_pc_kitty' | 'dev_pc_spidey' | 'board_leads' | 'board_arch' | 'board_content' | 'chair' | 'chair_stand'; text: string; x: number; y: number; id?: string; chairData?: any } | null {
+  getNearestInteraction(): { type: 'door' | 'mgmt_pc' | 'designer_pc' | 'client_pc' | 'dev_pc' | 'dev_pc_kitty' | 'dev_pc_spidey' | 'board_leads' | 'board_arch' | 'board_content' | 'chair' | 'chair_stand' | 'vending_dev' | 'vending_design'; text: string; x: number; y: number; id?: string; chairData?: any } | null {
     const px = this.state.player.x;
     const py = this.state.player.y;
 
@@ -243,6 +321,10 @@ export class GameEngine {
     check('board_leads', T(22), T(37), 50, '🛎️ [E] Open Lead Registry');
     check('board_arch', T(21.5), T(2.5), 65, '📅 [E] Meeting & Planning Room');
     check('board_content', T(39), T(28), 50, '📅 [E] View Content Calendar');
+
+    // Cold Drinks Vending Machines
+    check('vending_dev', T(10.2) + 12, T(8.8) + 18, 48, '🥤 [E] Buy Cold Drink ($2)');
+    check('vending_design', T(40.2) + 12, T(15.2) + 18, 48, '🥤 [E] Buy Cold Drink ($2)');
 
     return closest;
   }
@@ -308,6 +390,12 @@ export class GameEngine {
     const angle = Math.atan2(wy - rDeskCY, wx - rDeskCX);
     if (rDist >= S * 2.6 && rDist <= S * 3.8 && angle >= Math.PI * 0.16 && angle <= Math.PI * 0.84) return true;
 
+    // 9. Cold Drinks Vending Machines
+    // Dev Room (East wall)
+    if (wx >= T(10.2) && wx <= T(10.2) + 24 && wy >= T(8.8) && wy <= T(8.8) + 38) return true;
+    // Design Room (East wall)
+    if (wx >= T(40.2) && wx <= T(40.2) + 24 && wy >= T(15.2) && wy <= T(15.2) + 38) return true;
+
     return false;
   }
 
@@ -363,6 +451,8 @@ export class GameEngine {
     if (checkClick(T(22), T(37), 55, () => this.onOpenBoard?.('leads'))) return;
     if (checkClick(T(21.5), T(2), 55, () => this.onOpenBoard?.('architecture'))) return;
     if (checkClick(T(39), T(28), 55, () => this.onOpenBoard?.('content'))) return;
+    if (checkClick(T(10.2) + 12, T(8.8) + 18, 55, () => this.dispenseDrink('vending_dev'))) return;
+    if (checkClick(T(40.2) + 12, T(15.2) + 18, 55, () => this.dispenseDrink('vending_design'))) return;
     if (this.selectedBuilding) {
       const sz = BUILDING_SIZES[this.selectedBuilding]; let ok=true;
       for (let dx=0;dx<sz.w;dx++) for (let dy=0;dy<sz.h;dy++) { const t=this.getTile(tx+dx,ty+dy); if (!t||t.building||t.isWall||t.isDoor||this.isSolid(T(tx+dx)+16,T(ty+dy)+16)) ok=false; }
@@ -636,10 +726,256 @@ export class GameEngine {
     // Door prompts
     this.drawDoorPrompts(ctx);
 
+    // Vending drink toast popup
+    this.drawVendingToast(ctx);
+
     ctx.restore();
   }
 
   // ====== FURNITURE DRAWING METHODS ======
+
+  // --- VENDING TOAST NOTIFICATION ---
+  private drawVendingToast(ctx: CanvasRenderingContext2D) {
+    if (!this.vendingToast || this.vendingToast.timer <= 0) return;
+    this.vendingToast.timer--;
+    this.vendingToast.y -= 0.15;
+    const alpha = Math.min(1, this.vendingToast.timer / 25);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+    ctx.font = 'bold 9px sans-serif';
+    const tw = ctx.measureText(this.vendingToast.text).width + 24;
+    ctx.beginPath();
+    ctx.roundRect(this.vendingToast.x - tw / 2, this.vendingToast.y - 12, tw, 22, 5);
+    ctx.fill();
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    ctx.fillStyle = '#67e8f9';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.vendingToast.text, this.vendingToast.x, this.vendingToast.y + 3.5);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+
+  // --- COLD DRINKS VENDING MACHINE ---
+  private drawColdDrinksVendingMachine(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    theme: 'cyber_cyan' | 'tokyo_neon',
+    S: number
+  ) {
+    const isCyan = theme === 'cyber_cyan';
+    const isRecentlyVended =
+      ((isCyan && this.lastVendedMachine === 'vending_dev') || (!isCyan && this.lastVendedMachine === 'vending_design')) &&
+      Date.now() - this.lastVendTime < 5000;
+
+    const w = 24;
+    const h = 38;
+
+    ctx.save();
+
+    // 1. Drop shadow on floor
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.roundRect(x + 2, y + 3, w, h, 4);
+    ctx.fill();
+
+    // 2. Heavy steel outer cabinet chassis
+    ctx.fillStyle = isCyan ? '#090d16' : '#110d21';
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 3);
+    ctx.fill();
+    ctx.strokeStyle = isCyan ? '#0284c7' : '#db2777';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 3. Top illuminated header marquee sign ("COLD DRINKS ❄")
+    const marqueeH = 8;
+    ctx.fillStyle = isCyan ? '#0369a1' : '#9d174d';
+    ctx.beginPath();
+    ctx.roundRect(x + 1.5, y + 1.5, w - 3, marqueeH, 2);
+    ctx.fill();
+
+    // Pulsing neon marquee ambient glow
+    const pulseAlpha = 0.22 + Math.sin(this.state.tick * 0.1) * 0.1;
+    ctx.fillStyle = isCyan ? `rgba(6, 182, 212, ${pulseAlpha})` : `rgba(244, 63, 94, ${pulseAlpha})`;
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + marqueeH / 2 + 1, 15, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Marquee text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 4px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('COLD DRINKS ❄', x + w / 2, y + 6.8);
+
+    // 4. Large Refrigerated Glass Showcase Window
+    const winX = x + 2;
+    const winY = y + 11;
+    const winW = 14;
+    const winH = 17;
+
+    // Chilled dark interior
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(winX, winY, winW, winH);
+
+    // Interior frosty cold LED glow
+    ctx.fillStyle = isCyan ? 'rgba(56, 189, 248, 0.18)' : 'rgba(236, 72, 153, 0.18)';
+    ctx.fillRect(winX, winY, winW, winH);
+
+    // 3 Tiers of chilled soda cans
+    // Shelf 1 (Top): Red Cola & Cherry Sparkle
+    const canColorsTier1 = ['#ef4444', '#dc2626', '#f43f5e'];
+    for (let c = 0; c < 3; c++) {
+      const cx = winX + 1.5 + c * 4.2;
+      const cy = winY + 1.5;
+      ctx.fillStyle = canColorsTier1[c];
+      ctx.fillRect(cx, cy, 3, 4);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(cx, cy, 3, 0.8);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cx + 0.5, cy + 2, 2, 0.8);
+    }
+
+    // Shelf 2 (Middle): Emerald Lime Soda & Cyan Cyber Energy
+    const canColorsTier2 = ['#10b981', '#06b6d4', '#38bdf8'];
+    for (let c = 0; c < 3; c++) {
+      const cx = winX + 1.5 + c * 4.2;
+      const cy = winY + 6.5;
+      ctx.fillStyle = canColorsTier2[c];
+      ctx.fillRect(cx, cy, 3, 4);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(cx, cy, 3, 0.8);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cx + 0.5, cy + 2, 2, 0.8);
+    }
+
+    // Shelf 3 (Bottom): Japanese Purple Grape & Mango Peach
+    const canColorsTier3 = ['#8b5cf6', '#f59e0b', '#ec4899'];
+    for (let c = 0; c < 3; c++) {
+      const cx = winX + 1.5 + c * 4.2;
+      const cy = winY + 11.5;
+      ctx.fillStyle = canColorsTier3[c];
+      ctx.fillRect(cx, cy, 3, 4);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(cx, cy, 3, 0.8);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cx + 0.5, cy + 2, 2, 0.8);
+    }
+
+    // Wire rack lines
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(winX, winY + 5.8); ctx.lineTo(winX + winW, winY + 5.8);
+    ctx.moveTo(winX, winY + 10.8); ctx.lineTo(winX + winW, winY + 10.8);
+    ctx.moveTo(winX, winY + 15.8); ctx.lineTo(winX + winW, winY + 15.8);
+    ctx.stroke();
+
+    // Tiny green in-stock indicator LEDs
+    ctx.fillStyle = '#22c55e';
+    for (let c = 0; c < 3; c++) {
+      ctx.fillRect(winX + 2.5 + c * 4.2, winY + 5.2, 1, 0.6);
+      ctx.fillRect(winX + 2.5 + c * 4.2, winY + 10.2, 1, 0.6);
+      ctx.fillRect(winX + 2.5 + c * 4.2, winY + 15.2, 1, 0.6);
+    }
+
+    // Specular diagonal shine across glass
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(winX + 2, winY + 2);
+    ctx.lineTo(winX + winW - 3, winY + winH - 2);
+    ctx.stroke();
+
+    // Glass perimeter border
+    ctx.strokeStyle = isCyan ? 'rgba(56, 189, 248, 0.5)' : 'rgba(244, 114, 182, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(winX, winY, winW, winH);
+
+    // 5. Interactive Payment & Button Strip (Right side)
+    const payX = x + 17;
+    const payY = y + 11;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(payX, payY, 5.5, winH);
+
+    // Digital LED screen ($2.00)
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(payX + 0.8, payY + 1, 4, 2.5);
+    ctx.fillStyle = '#22c55e';
+    ctx.font = 'bold 3px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('$2', payX + 2.8, payY + 3);
+
+    // Coin slot with blinking blue/gold light
+    const blinkLed = (this.state.tick % 24 < 12);
+    ctx.fillStyle = blinkLed ? '#38bdf8' : '#0369a1';
+    ctx.fillRect(payX + 1.2, payY + 4.5, 3, 0.8);
+
+    // Keypad buttons
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(payX + 1.2, payY + 6.5, 1.2, 1.2);
+    ctx.fillRect(payX + 3, payY + 6.5, 1.2, 1.2);
+    ctx.fillRect(payX + 1.2, payY + 8.5, 1.2, 1.2);
+    ctx.fillRect(payX + 3, payY + 8.5, 1.2, 1.2);
+
+    // RFID Tap card sensor
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(payX + 1.2, payY + 11, 3, 2);
+
+    // Coin return pocket
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(payX + 1.2, payY + 14, 3, 1.8);
+
+    // 6. Bottom Dispenser Chute Bay
+    const chuteX = x + 2.5;
+    const chuteY = y + 29.5;
+    const chuteW = w - 5;
+    const chuteH = 6.5;
+
+    ctx.fillStyle = '#020617';
+    ctx.beginPath();
+    ctx.roundRect(chuteX, chuteY, chuteW, chuteH, 1.5);
+    ctx.fill();
+
+    // Retrieval flap
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(chuteX + 1, chuteY + 1, chuteW - 2, chuteH - 2);
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 0.6;
+    ctx.strokeRect(chuteX + 1, chuteY + 1, chuteW - 2, chuteH - 2);
+
+    // "PUSH" label on flap
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 3.5px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('PUSH', chuteX + chuteW / 2, chuteY + 4.5);
+
+    // If recently vended: show dispensed ice-cold can resting in tray + cold mist!
+    if (isRecentlyVended) {
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(chuteX + chuteW / 2 - 2, chuteY + 1.5, 4, 3.5);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(chuteX + chuteW / 2 - 2, chuteY + 1.5, 4, 0.8);
+
+      const mistOffset = (this.state.tick * 0.3) % 7;
+      ctx.fillStyle = 'rgba(186, 230, 253, 0.45)';
+      ctx.beginPath();
+      ctx.arc(chuteX + chuteW / 2, chuteY - mistOffset, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 7. Base leveling feet
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(x + 2, y + h - 1, 3.5, 2);
+    ctx.fillRect(x + w - 5.5, y + h - 1, 3.5, 2);
+
+    ctx.restore();
+  }
 
   // --- THEMED LUXURY RACING GAMING CHAIR HELPER ---
   private drawThemedGamingChair(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, theme: 'kitty' | 'spiderman' | 'white_gold') {
@@ -2001,6 +2337,9 @@ export class GameEngine {
     // 🪑 Custom Spider-Man Hero Racing Gaming Chair on LEFT Side
     this.drawThemedGamingChair(ctx, sMainX - 16, sMainY + sMainH / 2, Math.PI / 2, 'spiderman');
 
+    // 🥤 Cold Drinks Vending Machine on East Wall
+    this.drawColdDrinksVendingMachine(ctx, T(10.2), T(8.8), 'cyber_cyan', S);
+
     // Top Wall Architecture Whiteboard
     this.whiteboard(ctx, T(5), T(1.2), S * 5, 14, '</> CODE ARCHITECTURE');
   }
@@ -2154,6 +2493,9 @@ export class GameEngine {
     // 4. Luxury Visitor Armchairs on the LEFT Side (Facing Right towards Boss Desk)
     this.chair(ctx, mainX - 16, mainY + S * 1.2, Math.PI / 2, 10);
     this.chair(ctx, mainX - 16, mainY + mainH - S * 1.2, Math.PI / 2, 10);
+
+    // 🥤 Cold Drinks Vending Machine on East Wall
+    this.drawColdDrinksVendingMachine(ctx, T(40.2), T(15.2), 'tokyo_neon', S);
   }
 
   // --- MANAGEMENT ROOM (Big Luxury U-Shaped Executive Table & Command PC) ---
@@ -2995,10 +3337,11 @@ export class GameEngine {
     ctx.roundRect(promptX - w / 2, promptY - 12, w, 24, 6);
     ctx.fill();
     const isChair = interaction.type === 'chair' || interaction.type === 'chair_stand';
-    ctx.strokeStyle = isChair ? '#34d399' : '#38bdf8';
+    const isVending = interaction.type === 'vending_dev' || interaction.type === 'vending_design';
+    ctx.strokeStyle = isChair ? '#34d399' : (isVending ? '#06b6d4' : '#38bdf8');
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = isChair ? '#34d399' : '#38bdf8';
+    ctx.fillStyle = isChair ? '#34d399' : (isVending ? '#22d3ee' : '#38bdf8');
     ctx.font = 'bold 9px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(interaction.text, promptX, promptY + 4);
