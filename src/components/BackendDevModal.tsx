@@ -9,7 +9,7 @@ interface BackendDevModalProps {
   onRefresh: () => void;
 }
 
-type TabId = 'projects' | 'tasks' | 'skills' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
+type TabId = 'projects' | 'tasks' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
 
 interface TabDef {
   id: TabId;
@@ -21,11 +21,10 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: 'projects', label: 'Projects Hub', icon: '📁', shortcut: '1' },
   { id: 'tasks', label: 'My Assigned Tasks', icon: '🎯', shortcut: '2' },
-  { id: 'skills', label: 'Architecture Tree', icon: '🧠', shortcut: '3' },
-  { id: 'bosses', label: 'System Bosses', icon: '🏆', shortcut: '4' },
-  { id: 'portfolio', label: 'Shipped Systems', icon: '🏛️', shortcut: '5' },
-  { id: 'analytics', label: 'Uptime & XP', icon: '📊', shortcut: '6' },
-  { id: 'settings', label: 'Cluster Config', icon: '⚙️', shortcut: '7' },
+  { id: 'bosses', label: 'System Bosses', icon: '🏆', shortcut: '3' },
+  { id: 'portfolio', label: 'Shipped Systems', icon: '🏛️', shortcut: '4' },
+  { id: 'analytics', label: 'Uptime & XP', icon: '📊', shortcut: '5' },
+  { id: 'settings', label: 'Cluster Config', icon: '⚙️', shortcut: '6' },
 ];
 
 export default function BackendDevModal({ agency, manager, onClose, onRefresh }: BackendDevModalProps) {
@@ -786,25 +785,6 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
               );
             })()}
 
-            {/* ════════════ TAB 3: ARCHITECTURE TREE ════════════ */}
-            {activeTab === 'skills' && (
-              <div className="p-4 bg-[#0a111a] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>🧠</span> BACKEND PROFICIENCIES & ARCHITECTURE TREE
-                </h3>
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>PostgreSQL & TimescaleDB High-Performance Indexing</span>
-                      <strong className="text-cyan-400 font-bold">Level 10 (95%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-500" style={{ width: '95%' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* ════════════ TAB 4: SYSTEM BOSSES ════════════ */}
             {activeTab === 'bosses' && (

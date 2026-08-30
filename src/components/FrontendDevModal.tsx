@@ -9,7 +9,7 @@ interface FrontendDevModalProps {
   onRefresh: () => void;
 }
 
-type TabId = 'projects' | 'tasks' | 'skills' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
+type TabId = 'projects' | 'tasks' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
 
 interface TabDef {
   id: TabId;
@@ -21,11 +21,10 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: 'projects', label: 'Projects Hub', icon: '📁', shortcut: '1' },
   { id: 'tasks', label: 'My Assigned Tasks', icon: '🎯', shortcut: '2' },
-  { id: 'skills', label: 'Skills & Tree', icon: '🧠', shortcut: '3' },
-  { id: 'bosses', label: 'Boss Battles', icon: '🏆', shortcut: '4' },
-  { id: 'portfolio', label: 'Shipped Work', icon: '🏛️', shortcut: '5' },
-  { id: 'analytics', label: 'Daily Progress', icon: '📊', shortcut: '6' },
-  { id: 'settings', label: 'Environment', icon: '⚙️', shortcut: '7' },
+  { id: 'bosses', label: 'Boss Battles', icon: '🏆', shortcut: '3' },
+  { id: 'portfolio', label: 'Shipped Work', icon: '🏛️', shortcut: '4' },
+  { id: 'analytics', label: 'Daily Progress', icon: '📊', shortcut: '5' },
+  { id: 'settings', label: 'Environment', icon: '⚙️', shortcut: '6' },
 ];
 
 export default function FrontendDevModal({ agency, manager, onClose, onRefresh }: FrontendDevModalProps) {
@@ -832,34 +831,6 @@ export default function FrontendDevModal({ agency, manager, onClose, onRefresh }
               );
             })()}
 
-            {/* ════════════ TAB 3: SKILLS & MASTERY ════════════ */}
-            {activeTab === 'skills' && (
-              <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>🧠</span> FRONTEND PROFICIENCIES & SKILL TREE
-                </h3>
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>React & TypeScript Components</span>
-                      <strong className="text-pink-400 font-bold">Level 9 (90%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-pink-500" style={{ width: '90%' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>Tailwind CSS & Responsive Layouts</span>
-                      <strong className="text-cyan-400 font-bold">Level 8 (80%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-400" style={{ width: '80%' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* ════════════ TAB 4: BOSS BATTLES ════════════ */}
             {activeTab === 'bosses' && (

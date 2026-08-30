@@ -9,7 +9,7 @@ interface DesignerModalProps {
   onRefresh: () => void;
 }
 
-type TabId = 'projects' | 'tasks' | 'skills' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
+type TabId = 'projects' | 'tasks' | 'bosses' | 'portfolio' | 'analytics' | 'settings';
 
 interface TabDef {
   id: TabId;
@@ -21,11 +21,10 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: 'projects', label: 'Projects Hub', icon: '📁', shortcut: '1' },
   { id: 'tasks', label: 'My Design Tasks', icon: '🎯', shortcut: '2' },
-  { id: 'skills', label: 'Design Skills', icon: '🧠', shortcut: '3' },
-  { id: 'bosses', label: 'Design Bosses', icon: '🏆', shortcut: '4' },
-  { id: 'portfolio', label: 'Design Systems', icon: '🏛️', shortcut: '5' },
-  { id: 'analytics', label: 'Studio Velocity', icon: '📊', shortcut: '6' },
-  { id: 'settings', label: 'Figma Config', icon: '⚙️', shortcut: '7' },
+  { id: 'bosses', label: 'Design Bosses', icon: '🏆', shortcut: '3' },
+  { id: 'portfolio', label: 'Design Systems', icon: '🏛️', shortcut: '4' },
+  { id: 'analytics', label: 'Studio Velocity', icon: '📊', shortcut: '5' },
+  { id: 'settings', label: 'Figma Config', icon: '⚙️', shortcut: '6' },
 ];
 
 export default function DesignerModal({ agency, manager, onClose, onRefresh }: DesignerModalProps) {
@@ -786,25 +785,6 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
               );
             })()}
 
-            {/* ════════════ TAB 3: DESIGN SKILLS ════════════ */}
-            {activeTab === 'skills' && (
-              <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>🧠</span> CREATIVE PROFICIENCIES & DESIGN TREE
-                </h3>
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <div className="flex justify-between text-slate-300 mb-1">
-                      <span>Figma Components & Auto-Layout 5.0</span>
-                      <strong className="text-amber-400 font-bold">Level 9 (90%)</strong>
-                    </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500" style={{ width: '90%' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* ════════════ TAB 4: DESIGN BOSSES ════════════ */}
             {activeTab === 'bosses' && (
