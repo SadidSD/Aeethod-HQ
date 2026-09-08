@@ -116,8 +116,35 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
 
   const handleToggleBlocker = (task: AgencyTask) => {
     const nextStatus = task.status === 'blocked' ? 'active' : 'blocked';
-    manager.updateTask(task.id, { status: nextStatus });
-    showToast(nextStatus === 'blocked' ? '🚨 DB Lock Blocker reported!' : '✅ Blocker resolved!', nextStatus === 'blocked' ? '🚨' : '✅');
+    manager.updateTask(task.id, { status: nextStatus, completedAt: null });
+    showToast(
+      nextStatus === 'blocked' 
+        ? '🚨 Backend Blockage reported! Team notified.' 
+        : '✅ Backend Blockage cleared! Task resumed.', 
+      nextStatus === 'blocked' ? '🚨' : '✅'
+    );
+    onRefresh();
+  };
+
+  const handleStatusChange = (task: AgencyTask, newStatus: string) => {
+    if (newStatus === task.status) return;
+
+    if (newStatus === 'done') {
+      manager.completeTask(task.id);
+      showToast(`⚡ Shipped & Deployed: ${task.title}! +${task.xpReward || 110} XP awarded!`, '🚀');
+    } else {
+      manager.updateTask(task.id, { 
+        status: newStatus as any,
+        completedAt: null 
+      });
+      const statusLabels: Record<string, string> = {
+        active: 'Active (In Progress)',
+        review: 'In Review (PR & Security Audit)',
+        blocked: 'Blocked (Blocker Reported)',
+        queued: 'Queued (Backlog)'
+      };
+      showToast(`Task status updated to ${statusLabels[newStatus] || newStatus}`, '🔄');
+    }
     onRefresh();
   };
 
@@ -472,25 +499,44 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                               <p className="text-xs text-slate-400 font-normal">{task.description}</p>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                              {/* 1. Report Blockage Button */}
                               <button
                                 onClick={() => handleToggleBlocker(task)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
                                   task.status === 'blocked'
-                                    ? 'bg-rose-600 text-white'
-                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_12px_rgba(225,29,72,0.4)] animate-pulse'
+                                    : 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 hover:border-rose-600'
                                 }`}
+                                title={task.status === 'blocked' ? 'Click to clear blockage' : 'Click to report blockage on this backend task'}
                               >
-                                <span>🚨</span>
-                                <span>{task.status === 'blocked' ? 'BLOCKED' : 'REPORT ISSUE'}</span>
+                                <span>{task.status === 'blocked' ? '⚠️' : '🚨'}</span>
+                                <span>{task.status === 'blocked' ? 'Blocked (Clear)' : 'Report Blockage'}</span>
                               </button>
-                              <button
-                                onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 110)}
-                                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-xs rounded-xl transition shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5"
-                              >
-                                <span>⚡</span>
-                                <span>DEPLOY NOW</span>
-                              </button>
+
+                              {/* 2. Status Dropdown */}
+                              <div className="relative">
+                                <select
+                                  value={task.status}
+                                  onChange={(e) => handleStatusChange(task, e.target.value)}
+                                  className={`px-3 py-1.5 pr-7 rounded-xl text-xs font-bold border appearance-none cursor-pointer focus:outline-none transition ${
+                                    task.status === 'done' ? 'bg-emerald-950/60 border-emerald-700 text-emerald-300' :
+                                    task.status === 'blocked' ? 'bg-rose-950/60 border-rose-700 text-rose-300' :
+                                    task.status === 'review' ? 'bg-cyan-950/60 border-cyan-700 text-cyan-300' :
+                                    task.status === 'active' ? 'bg-amber-950/60 border-amber-700 text-amber-300' :
+                                    'bg-slate-900 border-slate-700 text-slate-400'
+                                  }`}
+                                >
+                                  <option value="active" className="bg-slate-900 text-amber-300">⚡ Status: Active</option>
+                                  <option value="review" className="bg-slate-900 text-cyan-300">👀 Status: Review</option>
+                                  <option value="blocked" className="bg-slate-900 text-rose-300">🚨 Status: Blocked</option>
+                                  <option value="queued" className="bg-slate-900 text-slate-300">⏳ Status: Queued</option>
+                                  <option value="done" className="bg-slate-900 text-emerald-300">✅ Status: Done</option>
+                                </select>
+                                <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">
+                                  ▼
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))
@@ -514,7 +560,7 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                           {doneTasks.map(task => (
                             <div
                               key={task.id}
-                              className="p-3 bg-[#05080c] border border-slate-800/80 rounded-xl flex items-center justify-between text-xs"
+                              className="p-3 bg-[#05080c] border border-slate-800/80 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
                             >
                               <div className="flex items-center gap-2.5">
                                 <span className="text-emerald-400">✅</span>
@@ -523,11 +569,37 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                                   {task.phase}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-3 text-[11px]">
-                                <span className="text-amber-400 font-bold">+{task.xpReward || 110} XP</span>
-                                <span className="text-slate-500">
-                                  {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'Shipped'}
-                                </span>
+                              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                                <span className="text-amber-400 font-bold hidden sm:inline">+{task.xpReward || 110} XP</span>
+                                {/* Report Blockage Button */}
+                                <button
+                                  onClick={() => handleToggleBlocker(task)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                                    task.status === 'blocked'
+                                      ? 'bg-rose-600 hover:bg-rose-500 text-white'
+                                      : 'bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 border border-rose-800/40'
+                                  }`}
+                                  title="Report blockage or revision needed"
+                                >
+                                  <span>{task.status === 'blocked' ? '⚠️' : '🚨'}</span>
+                                  <span>{task.status === 'blocked' ? 'Blocked (Clear)' : 'Report Blockage'}</span>
+                                </button>
+                                {/* Status Dropdown */}
+                                <div className="relative">
+                                  <select
+                                    value={task.status}
+                                    onChange={(e) => handleStatusChange(task, e.target.value)}
+                                    className="px-2.5 py-1 pr-6 rounded-lg text-xs font-bold border border-emerald-800 bg-emerald-950/40 text-emerald-300 appearance-none cursor-pointer focus:outline-none"
+                                  >
+                                    <option value="done" className="bg-slate-900 text-emerald-300">✅ Done</option>
+                                    <option value="active" className="bg-slate-900 text-amber-300">⚡ Reopen: Active</option>
+                                    <option value="review" className="bg-slate-900 text-cyan-300">👀 Review</option>
+                                    <option value="blocked" className="bg-slate-900 text-rose-300">🚨 Blocked</option>
+                                  </select>
+                                  <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-emerald-400">
+                                    ▼
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -760,33 +832,49 @@ export default function BackendDevModal({ agency, manager, onClose, onRefresh }:
                             </div>
 
                             {/* Task Action & Metrics */}
-                            <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
-                              <div className="text-right text-xs">
+                            <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-end sm:self-center">
+                              <div className="text-right text-xs mr-1 hidden sm:block">
                                 <div className="text-amber-400 font-bold">+{task.xpReward || 110} XP</div>
                                 <div className="text-[10px] text-slate-500">⏱️ {task.estimatedHours || 6}h est.</div>
                               </div>
 
-                              {task.status !== 'done' ? (
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={() => handleToggleBlocker(task)}
-                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
-                                      task.status === 'blocked' ? 'bg-rose-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                                    }`}
-                                    title={task.status === 'blocked' ? 'Clear blocker' : 'Flag blocker'}
-                                  >
-                                    🚨
-                                  </button>
-                                  <button
-                                    onClick={() => handleCompleteTask(task.id, task.title, task.xpReward || 110)}
-                                    className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.3)] transition"
-                                  >
-                                    Deploy
-                                  </button>
+                              {/* 1. Report Blockage Button */}
+                              <button
+                                onClick={() => handleToggleBlocker(task)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                                  task.status === 'blocked'
+                                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_12px_rgba(225,29,72,0.4)] animate-pulse'
+                                    : 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 hover:border-rose-600'
+                                }`}
+                                title={task.status === 'blocked' ? 'Click to clear blockage' : 'Click to report blockage on this backend task'}
+                              >
+                                <span>{task.status === 'blocked' ? '⚠️' : '🚨'}</span>
+                                <span>{task.status === 'blocked' ? 'Blocked (Clear)' : 'Report Blockage'}</span>
+                              </button>
+
+                              {/* 2. Status Dropdown */}
+                              <div className="relative">
+                                <select
+                                  value={task.status}
+                                  onChange={(e) => handleStatusChange(task, e.target.value)}
+                                  className={`px-3 py-1.5 pr-7 rounded-xl text-xs font-bold border appearance-none cursor-pointer focus:outline-none transition ${
+                                    task.status === 'done' ? 'bg-emerald-950/60 border-emerald-700 text-emerald-300' :
+                                    task.status === 'blocked' ? 'bg-rose-950/60 border-rose-700 text-rose-300' :
+                                    task.status === 'review' ? 'bg-cyan-950/60 border-cyan-700 text-cyan-300' :
+                                    task.status === 'active' ? 'bg-amber-950/60 border-amber-700 text-amber-300' :
+                                    'bg-slate-900 border-slate-700 text-slate-400'
+                                  }`}
+                                >
+                                  <option value="active" className="bg-slate-900 text-amber-300">⚡ Status: Active</option>
+                                  <option value="review" className="bg-slate-900 text-cyan-300">👀 Status: Review</option>
+                                  <option value="blocked" className="bg-slate-900 text-rose-300">🚨 Status: Blocked</option>
+                                  <option value="queued" className="bg-slate-900 text-slate-300">⏳ Status: Queued</option>
+                                  <option value="done" className="bg-slate-900 text-emerald-300">✅ Status: Done</option>
+                                </select>
+                                <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">
+                                  ▼
                                 </div>
-                              ) : (
-                                <span className="text-emerald-400 font-bold text-xs">Done ✅</span>
-                              )}
+                              </div>
                             </div>
 
                           </div>
