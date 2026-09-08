@@ -42,20 +42,27 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Monthly Salaries
+  // Monthly Salaries derived from agency.team
+  const founderMember = agency.team.find(m => m.id === 'founder') || agency.team[0];
   const founderSalaries = [
-    { name: 'You (Founder)', role: 'CEO & Architect', salary: 1000, status: 'paid' },
-    { name: 'Designer (Founder)', role: 'Creative Director', salary: 1000, status: 'paid' },
-    { name: 'Frontend (Founder)', role: 'UI/UX Lead', salary: 1000, status: 'paid' },
+    { name: founderMember ? `${founderMember.name}` : 'You (Founder)', role: 'CEO & Executive Lead', salary: 1000, status: 'paid' }
   ];
 
-  const employeeSalaries = [
-    { name: 'Marcus Chen', role: 'Backend Engineer', salary: 1500, due: 'Mar 31', status: 'pending' },
-    { name: 'Sarah Connor', role: 'Graphic Designer', salary: 1200, due: 'Mar 31', status: 'pending' },
-    { name: 'Leo Vance', role: 'Operations & QA', salary: 800, due: 'Mar 31', status: 'pending' },
-  ];
+  const employeeSalaries = agency.team
+    .filter(m => m.id !== 'founder')
+    .map(m => {
+      const sal = 800 + (m.level || 1) * 150;
+      return {
+        id: m.id,
+        name: m.name,
+        role: m.role,
+        salary: sal,
+        due: 'End of month',
+        status: (cashBalance >= sal) ? 'active' : 'pending'
+      };
+    });
 
-  const totalMonthlySalaries = 6500;
+  const totalMonthlySalaries = founderSalaries.reduce((sum, f) => sum + f.salary, 0) + employeeSalaries.reduce((sum, e) => sum + e.salary, 0);
   const annualSalaries = totalMonthlySalaries * 12;
 
   // Invoices
@@ -63,14 +70,20 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
 
   const totalReceivables = invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount, 0);
 
-  // Growth Fund
-  const totalRevenue6mo = agency.stats?.totalRevenue || 0;
+  // Growth Fund & Expenses
+  const totalRevenue6mo = agency.stats?.totalRevenue || agency.resources?.revenue || 0;
   const totalGrowthFund = Math.round(totalRevenue6mo * 0.2);
+  const operatingCosts = Math.round(totalRevenue6mo * 0.2);
+  const salariesAllocation = Math.round(totalRevenue6mo * 0.3);
+  const totalExpenses = operatingCosts + salariesAllocation;
+  const netProfit = Math.max(0, totalRevenue6mo - totalExpenses);
+  const profitMarginPct = totalRevenue6mo > 0 ? ((netProfit / totalRevenue6mo) * 100).toFixed(1) : '0.0';
+
   const growthAllocations = [
-    { category: 'Marketing & Ads', pct: '40%', amount: Math.round(totalGrowthFund * 0.4), bar: '████████░░░░░░' },
-    { category: 'Tools & Software', pct: '30%', amount: Math.round(totalGrowthFund * 0.3), bar: '██████░░░░░░░░' },
-    { category: 'Training & Skillsets', pct: '20%', amount: Math.round(totalGrowthFund * 0.2), bar: '████░░░░░░░░░░' },
-    { category: 'Operational Experiments', pct: '10%', amount: Math.round(totalGrowthFund * 0.1), bar: '██░░░░░░░░░░░░' },
+    { category: 'Marketing & Ads', pct: '40%', amount: Math.round(totalGrowthFund * 0.4), bar: totalGrowthFund > 0 ? '████████░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░' },
+    { category: 'Tools & Software', pct: '30%', amount: Math.round(totalGrowthFund * 0.3), bar: totalGrowthFund > 0 ? '██████░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░' },
+    { category: 'Training & Skillsets', pct: '20%', amount: Math.round(totalGrowthFund * 0.2), bar: totalGrowthFund > 0 ? '████░░░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░' },
+    { category: 'Operational Experiments', pct: '10%', amount: Math.round(totalGrowthFund * 0.1), bar: totalGrowthFund > 0 ? '██░░░░░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░' },
   ];
 
   // Project Profitability Breakdown
@@ -88,13 +101,22 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
 
   // Handlers
   const handlePayPayroll = () => {
-    showToast('💳 Monthly Payroll of $3,500 executed for all employees!');
-    setCashBalance(prev => Math.max(0, prev - 3500));
+    if (cashBalance < totalMonthlySalaries) {
+      showToast(`⚠️ Insufficient cash (${formatCurrency(cashBalance)}) to process ${formatCurrency(totalMonthlySalaries)} payroll.`);
+      return;
+    }
+    showToast(`💳 Monthly Payroll of ${formatCurrency(totalMonthlySalaries)} executed for all team members!`);
+    setCashBalance(prev => Math.max(0, prev - totalMonthlySalaries));
   };
 
   const handleDistributeProfits = () => {
-    if (profitPool <= 0) return;
-    showToast('🎉 6-Month Profit Distribution executed! $5,400 paid to Founder, $1,800 each to Co-founders!');
+    if (profitPool <= 0) {
+      showToast('ℹ️ Profit pool is currently empty. Complete projects to accumulate dividends.');
+      return;
+    }
+    const founderCut = Math.round(profitPool * 0.6);
+    const eachPartner = Math.round(profitPool * 0.2);
+    showToast(`🎉 Profit Distribution executed! ${formatCurrency(founderCut)} paid to Founder, ${formatCurrency(eachPartner)} each to Co-founders!`);
     setProfitPool(0);
   };
 
@@ -173,15 +195,15 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-400 text-[10px] block font-mono">💸 Total Expenses</span>
-              <span className="text-sm font-bold text-rose-400 font-mono">$20,000</span>
+              <span className="text-sm font-bold text-rose-400 font-mono">{formatCurrency(totalExpenses)}</span>
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-400 text-[10px] block font-mono">💰 Net Profit</span>
-              <span className="text-sm font-bold text-emerald-400 font-mono">$10,000</span>
+              <span className="text-sm font-bold text-emerald-400 font-mono">{formatCurrency(netProfit)}</span>
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-400 text-[10px] block font-mono">📊 Profit Margin</span>
-              <span className="text-sm font-bold text-cyan-300 font-mono">16.7%</span>
+              <span className="text-sm font-bold text-cyan-300 font-mono">{profitMarginPct}%</span>
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-400 text-[10px] block font-mono">💳 Cash in Bank</span>
@@ -197,7 +219,7 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-400 text-[10px] block font-mono">💳 A/P (Payable)</span>
-              <span className="text-sm font-bold text-rose-300 font-mono">$3,000</span>
+              <span className="text-sm font-bold text-rose-300 font-mono">{formatCurrency(0)}</span>
             </div>
           </div>
         </div>
@@ -214,39 +236,39 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
           <div className="space-y-2 text-xs font-mono">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 w-32">Gross Revenue:</span>
-              <span className="text-emerald-400 tracking-wider flex-1">██████████████████░░</span>
-              <span className="text-slate-200 font-bold w-16 text-right">$60,000</span>
+              <span className="text-emerald-400 tracking-wider flex-1">{totalRevenue6mo > 0 ? '██████████████████░░' : '░░░░░░░░░░░░░░░░░░░░'}</span>
+              <span className="text-slate-200 font-bold w-16 text-right">{formatCurrency(totalRevenue6mo)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 w-32">Operating Costs:</span>
-              <span className="text-rose-400 tracking-wider flex-1">████░░░░░░░░░░░░░░░░</span>
-              <span className="text-slate-200 font-bold w-16 text-right">$12,000</span>
+              <span className="text-rose-400 tracking-wider flex-1">{operatingCosts > 0 ? '████░░░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░'}</span>
+              <span className="text-slate-200 font-bold w-16 text-right">{formatCurrency(operatingCosts)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 w-32">Salaries:</span>
-              <span className="text-blue-400 tracking-wider flex-1">████████░░░░░░░░░░░░</span>
-              <span className="text-slate-200 font-bold w-16 text-right">$18,000</span>
+              <span className="text-blue-400 tracking-wider flex-1">{salariesAllocation > 0 ? '████████░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░'}</span>
+              <span className="text-slate-200 font-bold w-16 text-right">{formatCurrency(salariesAllocation)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 w-32">Growth Fund (20%):</span>
-              <span className="text-amber-400 tracking-wider flex-1">████░░░░░░░░░░░░░░░░</span>
-              <span className="text-slate-200 font-bold w-16 text-right">$12,000</span>
+              <span className="text-amber-400 tracking-wider flex-1">{totalGrowthFund > 0 ? '████░░░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░'}</span>
+              <span className="text-slate-200 font-bold w-16 text-right">{formatCurrency(totalGrowthFund)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 w-32">Cash Reserve:</span>
-              <span className="text-purple-400 tracking-wider flex-1">██████░░░░░░░░░░░░░░</span>
-              <span className="text-slate-200 font-bold w-16 text-right">$8,000</span>
+              <span className="text-purple-400 tracking-wider flex-1">{cashReserve > 0 ? '██████░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░'}</span>
+              <span className="text-slate-200 font-bold w-16 text-right">{formatCurrency(cashReserve)}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-800/80 pt-1.5">
               <span className="text-emerald-300 font-bold w-32">Profit Pool:</span>
-              <span className="text-emerald-400 tracking-wider flex-1">████░░░░░░░░░░░░░░░░</span>
-              <span className="text-emerald-400 font-bold w-16 text-right">$10,000</span>
+              <span className="text-emerald-400 tracking-wider flex-1">{profitPool > 0 ? '████░░░░░░░░░░░░░░░░' : '░░░░░░░░░░░░░░░░░░░░'}</span>
+              <span className="text-emerald-400 font-bold w-16 text-right">{formatCurrency(profitPool)}</span>
             </div>
           </div>
 
           <div className="mt-3 p-2 bg-[#121c2a] rounded text-[11px] text-emerald-300 flex items-center justify-between font-mono">
-            <span>📈 Trend: Revenue Up 15% from last period</span>
-            <span className="text-slate-400">Zero Late Receivables</span>
+            <span>{totalRevenue6mo > 0 ? '📈 Trend: Revenue Active' : '✨ Clean Slate: Ready for First Client Retainer'}</span>
+            <span className="text-slate-400">{totalReceivables === 0 ? 'Zero Late Receivables' : `${formatCurrency(totalReceivables)} Outstanding`}</span>
           </div>
         </div>
 
@@ -400,18 +422,18 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
               <div>
                 <div className="flex justify-between text-[11px] text-slate-400 mb-1">
                   <span>Runway Progress</span>
-                  <span className="text-purple-300 font-bold">53%</span>
+                  <span className="text-purple-300 font-bold">{Math.round((cashReserve / cashReserveTarget) * 100)}%</span>
                 </div>
                 <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 rounded-full" style={{ width: '53%' }}></div>
+                  <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${Math.min(100, Math.round((cashReserve / cashReserveTarget) * 100))}%` }}></div>
                 </div>
               </div>
             </div>
 
             <div className="mt-4 p-2.5 bg-[#121c2a] rounded border border-slate-800 text-[11px] text-slate-300 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-yellow-400">🟡</span>
-                <span>Status: <strong>Building</strong> (Est. 3 months to target)</span>
+                <span className="text-yellow-400">{cashReserve >= cashReserveTarget ? '🟢' : '🟡'}</span>
+                <span>Status: <strong>{cashReserve >= cashReserveTarget ? 'Funded (3-Mo Runway Secured)' : 'Building'}</strong></span>
               </div>
               <div className="flex items-center gap-2 text-slate-400 text-[10px]">
                 <span>✅</span>
@@ -444,46 +466,29 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
             </div>
 
             <div className="space-y-2 text-xs font-mono">
-              <div className="p-1.5 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
-                <span className="text-slate-300">Month 1: $1,500</span>
-                <span className="text-emerald-400">████░░░░░░░░░░░░</span>
-                <span className="text-emerald-400 font-bold">✅ Logged</span>
-              </div>
-              <div className="p-1.5 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
-                <span className="text-slate-300">Month 2: $2,000</span>
-                <span className="text-emerald-400">██████░░░░░░░░░░</span>
-                <span className="text-emerald-400 font-bold">✅ Logged</span>
-              </div>
-              <div className="p-1.5 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
-                <span className="text-slate-300">Month 3: $800</span>
-                <span className="text-emerald-400">██░░░░░░░░░░░░░░</span>
-                <span className="text-emerald-400 font-bold">✅ Logged</span>
-              </div>
-              <div className="p-1.5 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
-                <span className="text-slate-300">Month 4: $1,200</span>
-                <span className="text-emerald-400">████░░░░░░░░░░░░</span>
-                <span className="text-emerald-400 font-bold">✅ Logged</span>
-              </div>
-              <div className="p-1.5 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
-                <span className="text-slate-300">Month 5: $2,500</span>
-                <span className="text-emerald-400">████████░░░░░░░░</span>
-                <span className="text-emerald-400 font-bold">✅ Logged</span>
-              </div>
-              <div className="p-1.5 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
-                <span className="text-slate-300">Month 6: $2,000</span>
-                <span className="text-emerald-400">██████░░░░░░░░░░</span>
-                <span className="text-emerald-400 font-bold">✅ Logged</span>
-              </div>
+              {profitPool === 0 ? (
+                <div className="p-6 bg-[#121c2a] rounded border border-slate-800 text-center text-slate-500">
+                  <span className="text-xl block mb-1">🏦</span>
+                  <span>No profit pool accumulated yet for this 6-month cycle.</span>
+                  <span className="text-[10px] text-slate-600 block mt-1">25% of net client project profits automatically feed into this pool.</span>
+                </div>
+              ) : (
+                <div className="p-3 bg-[#121c2a] rounded border border-slate-800/80 flex justify-between items-center">
+                  <span className="text-slate-300">Active Cycle Accrual</span>
+                  <span className="text-emerald-400">████████████░░░░░░░░</span>
+                  <span className="text-emerald-400 font-bold">{formatCurrency(profitPool)} Logged</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
             <div>
               <span className="text-slate-400 block text-[10px]">Total Accumulated Pool: <strong className="text-emerald-400">{formatCurrency(profitPool)}</strong></span>
-              <span className="text-slate-500 block text-[10px]">Next Distribution: June 30, 2026 (92 days)</span>
+              <span className="text-slate-500 block text-[10px]">6-Month Rolling Distribution Cycle</span>
             </div>
             <button 
-              onClick={() => showToast('📈 Projected distribution for Q3: $14,500!')}
+              onClick={() => showToast(`📈 Projected distribution: ${formatCurrency(profitPool)} accumulated.`)}
               className="px-3 py-1.5 bg-[#121c2a] hover:bg-slate-700 text-slate-300 rounded text-xs font-bold transition border border-slate-700"
             >
               Project Future
@@ -508,56 +513,68 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
               <span className="text-[10px] text-slate-400 font-mono">EQUITY SPLIT (60/20/20)</span>
             </div>
 
-            <div className="p-2.5 bg-[#121c2a] rounded border border-slate-800 text-xs font-mono space-y-1 mb-3">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Total Profit Pool:</span>
-                <span className="text-emerald-400 font-bold">{formatCurrency(profitPool)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Employee Bonus Pool (Rule: Profit only):</span>
-                <span className="text-rose-400 font-bold">-$1,000</span>
-              </div>
-              <div className="flex justify-between border-t border-slate-800/80 pt-1 font-bold">
-                <span className="text-cyan-300">Available for Founder Payout:</span>
-                <span className="text-emerald-400">{formatCurrency(Math.max(0, profitPool - 1000))}</span>
-              </div>
-            </div>
+            {(() => {
+              const bonusPool = profitPool > 0 ? Math.min(profitPool, 1000) : 0;
+              const availablePayout = Math.max(0, profitPool - bonusPool);
+              const founderPayout = Math.round(availablePayout * 0.6);
+              const designerPayout = Math.round(availablePayout * 0.2);
+              const frontendPayout = Math.round(availablePayout * 0.2);
 
-            {/* Founder Equity Table */}
-            <div className="space-y-2 text-xs font-mono">
-              <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-100">You (Founder)</span>
-                  <span className="text-[10px] text-cyan-400 ml-2">60% Equity</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-emerald-400 font-bold text-sm">$5,400</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">🏦 Payout</span>
-                </div>
-              </div>
+              return (
+                <>
+                  <div className="p-2.5 bg-[#121c2a] rounded border border-slate-800 text-xs font-mono space-y-1 mb-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Total Profit Pool:</span>
+                      <span className="text-emerald-400 font-bold">{formatCurrency(profitPool)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Employee Bonus Pool (Rule: Profit only):</span>
+                      <span className="text-rose-400 font-bold">-{formatCurrency(bonusPool)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-800/80 pt-1 font-bold">
+                      <span className="text-cyan-300">Available for Founder Payout:</span>
+                      <span className="text-emerald-400">{formatCurrency(availablePayout)}</span>
+                    </div>
+                  </div>
 
-              <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-100">Designer (Co-Founder)</span>
-                  <span className="text-[10px] text-cyan-400 ml-2">20% Equity</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-emerald-400 font-bold text-sm">$1,800</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">🏦 Payout</span>
-                </div>
-              </div>
+                  {/* Founder Equity Table */}
+                  <div className="space-y-2 text-xs font-mono">
+                    <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-100">You (Founder)</span>
+                        <span className="text-[10px] text-cyan-400 ml-2">60% Equity</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-bold text-sm">{formatCurrency(founderPayout)}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">🏦 Payout</span>
+                      </div>
+                    </div>
 
-              <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-100">Frontend (Co-Founder)</span>
-                  <span className="text-[10px] text-cyan-400 ml-2">20% Equity</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-emerald-400 font-bold text-sm">$1,800</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">🏦 Payout</span>
-                </div>
-              </div>
-            </div>
+                    <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-100">Designer (Co-Founder)</span>
+                        <span className="text-[10px] text-cyan-400 ml-2">20% Equity</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-bold text-sm">{formatCurrency(designerPayout)}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">🏦 Payout</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-100">Frontend (Co-Founder)</span>
+                        <span className="text-[10px] text-cyan-400 ml-2">20% Equity</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-bold text-sm">{formatCurrency(frontendPayout)}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">🏦 Payout</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           <div className="pt-3 border-t border-slate-800 flex items-center justify-between">

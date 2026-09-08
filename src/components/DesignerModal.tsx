@@ -33,9 +33,9 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
   // Employee info
   const designerMember = agency.team.find(m => m.id === 'designer' || m.room === 'design') || {
     name: 'Elena Rostova',
-    level: 8,
-    xp: 280,
-    status: 'working'
+    level: 1,
+    xp: 0,
+    status: 'idle'
   };
 
   // Selected Project for Drill-down View (null = show all projects grid)
@@ -203,11 +203,11 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                   LEAD DESIGNER — <span className="text-amber-400 font-bold">{designerMember.name.toUpperCase()} (CREATIVE SUITE)</span>
                 </h1>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-amber-950 text-amber-400 border border-amber-700/60">
-                  LEVEL {designerMember.level || 8}
+                  LEVEL {designerMember.level || 1}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono mt-0.5">
-                <span>📅 March 15, 2026</span>
+                <span>📅 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 <span className="text-slate-600">•</span>
                 <span className="text-emerald-400 font-bold flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -219,11 +219,11 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
 
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-3 text-xs font-mono bg-[#090d14] px-3.5 py-1.5 rounded-xl border border-amber-900/50 text-slate-300">
-              <span className="text-amber-400 font-bold">🔥 14-Day Streak</span>
+              <span className="text-amber-400 font-bold">🔥 {agency.streaks?.current || 1}-Day Streak</span>
               <span className="text-slate-600">|</span>
               <span className="text-cyan-300 font-bold">⭐ {agency.agency.xp} XP</span>
               <span className="text-slate-600">|</span>
-              <span className="text-amber-400 font-bold">🎨 148 Tokens</span>
+              <span className="text-amber-400 font-bold">🎨 {agency.tasks.filter(t => t.assignedTo === 'designer' && t.status === 'done').length * 12} Tokens</span>
             </div>
 
             <button
@@ -889,19 +889,34 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
 
 
             {/* ════════════ TAB 4: DESIGN BOSSES ════════════ */}
-            {activeTab === 'bosses' && (
-              <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
-                  <span>🏆</span> DESIGN BOSSES DEFEATED
-                </h3>
-                <div className="space-y-2 text-xs">
-                  <div className="p-3 bg-[#080d14] rounded-xl border border-slate-800 flex items-center justify-between">
-                    <span>👾 Complete 200+ Screen Design System Overhaul</span>
-                    <span className="text-emerald-400 font-bold">✅ Defeated</span>
-                  </div>
+            {activeTab === 'bosses' && (() => {
+              const completedBosses = agency.projects.filter(p => p.phase === 'completed' && (p.value >= 5000 || p.package === 'enterprise'));
+              return (
+                <div className="p-4 bg-[#0d1522] border border-slate-800 rounded-2xl space-y-4 font-mono animate-in fade-in">
+                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center gap-1.5">
+                    <span>🏆</span> DESIGN BOSSES DEFEATED
+                  </h3>
+                  {completedBosses.length === 0 ? (
+                    <div className="p-8 text-center bg-[#080d14] rounded-xl border border-dashed border-slate-800">
+                      <div className="text-3xl mb-2">👾</div>
+                      <div className="text-slate-300 font-bold text-sm">No Boss Battles Defeated Yet</div>
+                      <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
+                        Complete enterprise client projects or large design systems to unlock legendary creative badges!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-xs">
+                      {completedBosses.map(boss => (
+                        <div key={boss.id} className="p-3 bg-[#080d14] rounded-xl border border-slate-800 flex items-center justify-between">
+                          <span>👾 {boss.name}</span>
+                          <span className="text-emerald-400 font-bold">✅ Defeated</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ════════════ TAB 4: PUBLISHED DESIGN SYSTEMS (COMPLETED PROJECTS WITH DRILL-DOWN) ════════════ */}
             {activeTab === 'portfolio' && (() => {
@@ -1113,7 +1128,7 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                   </div>
                   <div className="p-3 bg-[#080d14] rounded-xl border border-slate-800">
                     <span className="text-slate-500 text-[10px] block">STREAK</span>
-                    <strong className="text-amber-400 text-lg font-bold">14 Days 🔥</strong>
+                    <strong className="text-amber-400 text-lg font-bold">{agency.streaks?.current || 1} Days 🔥</strong>
                   </div>
                   <div className="p-3 bg-[#080d14] rounded-xl border border-slate-800">
                     <span className="text-slate-500 text-[10px] block">HOURS LOGGED</span>

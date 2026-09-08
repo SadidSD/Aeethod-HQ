@@ -431,7 +431,18 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-200">
-              {filteredProjects.map(p => {
+              {filteredProjects.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center bg-[#0e1622] text-slate-500 font-mono">
+                    <div className="text-3xl mb-2">🚀</div>
+                    <div className="text-slate-300 font-bold text-sm">No Projects in Active Pipeline</div>
+                    <p className="text-slate-500 text-xs mt-1 max-w-sm mx-auto">
+                      Click "+ New Project" above to launch a client project contract and initialize tasks!
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredProjects.map(p => {
                 const projectTasks = agency.tasks.filter(t => t.projectId === p.id);
                 const doneTasks = projectTasks.filter(t => t.status === 'done');
                 const progressPct = projectTasks.length > 0 ? Math.round((doneTasks.length / projectTasks.length) * 100) : 0;
@@ -503,7 +514,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

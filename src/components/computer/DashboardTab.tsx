@@ -108,7 +108,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
   // Calculate annual revenue vs target
   const annualRev = agency.resources.revenue || 0;
   const annualTarget = 45000;
-  const monthlyRev = 12000;
+  const monthlyRev = agency.resources.monthlyRecurring || 0;
 
   // Completed projects value
   const cathedralVal = completedProjects.reduce((sum, p) => sum + (p.value || 0), 0) + (agency.resources.revenue || 0);
@@ -282,7 +282,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
               </div>
               <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-1.5 mt-2 flex justify-between">
                 <span>{discoveryHealth.description}</span>
-                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'discovery').length || 2} tasks</span>
+                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'discovery').length} tasks</span>
               </div>
             </div>
 
@@ -300,7 +300,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
               </div>
               <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-1.5 mt-2 flex justify-between">
                 <span>{designHealth.description}</span>
-                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'design').length || 1} task</span>
+                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'design').length} tasks</span>
               </div>
             </div>
 
@@ -318,7 +318,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
               </div>
               <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-1.5 mt-2 flex justify-between">
                 <span>{devHealth.description}</span>
-                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'development').length || 3} tasks</span>
+                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'development').length} tasks</span>
               </div>
             </div>
 
@@ -336,7 +336,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
               </div>
               <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-1.5 mt-2 flex justify-between">
                 <span>{qaHealth.description}</span>
-                <span className="font-bold text-slate-200 font-mono">4 tasks</span>
+                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'testing').length} tasks</span>
               </div>
             </div>
 
@@ -354,7 +354,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
               </div>
               <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-1.5 mt-2 flex justify-between">
                 <span>{launchHealth.description}</span>
-                <span className="font-bold text-slate-200 font-mono">2 tasks</span>
+                <span className="font-bold text-slate-200 font-mono">{agency.tasks.filter(t => t.phase === 'launch').length} tasks</span>
               </div>
             </div>
 
@@ -427,65 +427,73 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
             </div>
 
             <div className="space-y-3.5 text-xs">
-              {/* Member 1: Founder */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-slate-200">[You] Founder & Architect</span>
-                  <span className="font-mono text-emerald-400 font-bold">85% 🟢 Healthy</span>
-                </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '85%' }}></div>
-                </div>
-              </div>
+              {agency.team.map(member => {
+                const capacity = member.capacityHoursPerWeek || 40;
+                const assigned = member.assignedHours || 0;
+                const workloadPct = capacity > 0 ? Math.min(100, Math.round((assigned / capacity) * 100)) : 0;
+                const isCritical = workloadPct >= 90;
+                const isHeavy = workloadPct >= 70;
+                const statusColor = isCritical ? 'text-rose-400' : isHeavy ? 'text-amber-400' : 'text-emerald-400';
+                const barColor = isCritical ? 'bg-rose-500 animate-pulse' : isHeavy ? 'bg-amber-500' : 'bg-emerald-500';
+                const statusText = isCritical ? `${workloadPct}% 🔴 Critical` : isHeavy ? `${workloadPct}% 🟡 Heavy` : workloadPct > 0 ? `${workloadPct}% 🟢 Optimal` : '0% 🟢 Available';
 
-              {/* Member 2: Designer */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-slate-200">[Designer] Creative Lead</span>
-                  <span className="font-mono text-yellow-400 font-bold">60% 🟡 Available</span>
-                </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-yellow-500 rounded-full" style={{ width: '60%' }}></div>
-                </div>
-              </div>
-
-              {/* Member 3: Frontend (Hello Kitty) */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-slate-200">[Frontend] Hello Kitty Station</span>
-                  <span className="font-mono text-rose-400 font-bold">95% 🔴 Critical</span>
-                </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-rose-500 rounded-full animate-pulse" style={{ width: '95%' }}></div>
-                </div>
-              </div>
-
-              {/* Member 4: Backend (Spider-Man) */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-slate-200">[Backend] Spider-Man Station</span>
-                  <span className="font-mono text-emerald-400 font-bold">75% 🟢 Healthy</span>
-                </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '75%' }}></div>
-                </div>
-              </div>
+                return (
+                  <div key={member.id}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-slate-200">[{member.role || 'Member'}] {member.name}</span>
+                      <span className={`font-mono font-bold ${statusColor}`}>{statusText}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-300 ${barColor}`} style={{ width: `${Math.max(workloadPct, 2)}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Burnout Warning Banner */}
-          <div className="mt-4 p-2.5 bg-rose-950/40 border border-rose-600/50 rounded-lg text-xs text-rose-200 flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <span>⚠️</span>
-              <span className="font-semibold">Frontend at 95% — High Risk of Burnout</span>
-            </span>
-            <button 
-              onClick={() => onNavigateTab?.('team')}
-              className="text-[10px] px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition"
-            >
-              Delegate
-            </button>
-          </div>
+          {/* Burnout / Workload Banner (Dynamic) */}
+          {(() => {
+            const overloadedMember = agency.team.find(m => {
+              const cap = m.capacityHoursPerWeek || 40;
+              const assigned = m.assignedHours || 0;
+              return cap > 0 && (assigned / cap) >= 0.9;
+            });
+
+            if (overloadedMember) {
+              const cap = overloadedMember.capacityHoursPerWeek || 40;
+              const pct = Math.round(((overloadedMember.assignedHours || 0) / cap) * 100);
+              return (
+                <div className="mt-4 p-2.5 bg-rose-950/40 border border-rose-600/50 rounded-lg text-xs text-rose-200 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span className="font-semibold">{overloadedMember.name} at {pct}% — High Risk of Burnout</span>
+                  </span>
+                  <button 
+                    onClick={() => onNavigateTab?.('team')}
+                    className="text-[10px] px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition"
+                  >
+                    Delegate
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="mt-4 p-2.5 bg-emerald-950/30 border border-emerald-600/30 rounded-lg text-xs text-emerald-300 flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span>✅</span>
+                  <span>Workload distribution is balanced across all active workstations.</span>
+                </span>
+                <button 
+                  onClick={() => onNavigateTab?.('team')}
+                  className="text-[10px] px-2 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 rounded font-bold transition"
+                >
+                  Manage
+                </button>
+              </div>
+            );
+          })()}
         </div>
 
       </div>
@@ -598,37 +606,35 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
           </div>
 
           <div className="space-y-2 text-xs">
-            <div className="p-2.5 bg-[#121c2a] border-l-4 border-rose-500 rounded flex items-center justify-between">
-              <div>
-                <span className="font-bold text-rose-300 block">🔴 Today, 5:00 PM: Proposal to Client A</span>
-                <span className="text-[10px] text-slate-400">If missed → Lost client opportunity</span>
+            {activeProjects.length === 0 ? (
+              <div className="p-6 text-center bg-[#121c2a] rounded-lg border border-dashed border-slate-800">
+                <div className="text-2xl mb-1.5">🛬</div>
+                <div className="text-slate-300 font-bold text-xs">Clear Delivery Runway</div>
+                <p className="text-slate-500 text-[11px] mt-0.5 max-w-xs mx-auto">
+                  No impending delivery deadlines. Sign client projects to schedule production milestones.
+                </p>
+                <button
+                  onClick={() => onNavigateTab?.('projects')}
+                  className="mt-3 px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-[10px] font-bold transition"
+                >
+                  + Create New Project
+                </button>
               </div>
-              <span className="text-[10px] px-2 py-0.5 bg-rose-950 text-rose-300 rounded font-mono font-bold">URGENT</span>
-            </div>
-
-            <div className="p-2.5 bg-[#121c2a] border-l-4 border-rose-500 rounded flex items-center justify-between">
-              <div>
-                <span className="font-bold text-rose-300 block">🔴 Tomorrow: TCG Shop Launch (Critical)</span>
-                <span className="text-[10px] text-slate-400">If missed → Delayed client revenue ($12k)</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 bg-rose-950 text-rose-300 rounded font-mono font-bold">SHIP</span>
-            </div>
-
-            <div className="p-2.5 bg-[#121c2a] border-l-4 border-amber-500 rounded flex items-center justify-between">
-              <div>
-                <span className="font-bold text-amber-300 block">🟡 Wednesday: Content Calendar Submission</span>
-                <span className="text-[10px] text-slate-400">If missed → Marketing campaign delay</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 bg-amber-950 text-amber-300 rounded font-mono">UPCOMING</span>
-            </div>
-
-            <div className="p-2.5 bg-[#121c2a] border-l-4 border-emerald-500 rounded flex items-center justify-between">
-              <div>
-                <span className="font-bold text-emerald-300 block">🟢 Friday: Team Retrospective</span>
-                <span className="text-[10px] text-slate-400">Internal culture & velocity sync</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-300 rounded font-mono">ON TRACK</span>
-            </div>
+            ) : (
+              activeProjects.slice(0, 4).map((p, idx) => (
+                <div key={p.id} className={`p-2.5 bg-[#121c2a] border-l-4 ${idx === 0 ? 'border-rose-500' : idx === 1 ? 'border-amber-500' : 'border-emerald-500'} rounded flex items-center justify-between`}>
+                  <div>
+                    <span className={`font-bold block ${idx === 0 ? 'text-rose-300' : idx === 1 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                      {idx === 0 ? '🔴' : idx === 1 ? '🟡' : '🟢'} {p.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400">Client: {p.clientName || 'Direct'} • Phase: {p.phase.toUpperCase()}</span>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${idx === 0 ? 'bg-rose-950 text-rose-300' : idx === 1 ? 'bg-amber-950 text-amber-300' : 'bg-emerald-950 text-emerald-300'}`}>
+                    ${p.value.toLocaleString()}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -644,53 +650,88 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 bg-[#121c2a] rounded-lg border border-slate-800">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-slate-400 text-[11px]">Revenue Target</span>
-                  <span className="font-mono text-emerald-400 font-bold">90% 🟢</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '90%' }}></div>
-                </div>
-                <span className="text-[10px] text-slate-500 font-mono">$45,000 / $50,000 target</span>
+                {(() => {
+                  const revPct = Math.min(100, Math.round((annualRev / annualTarget) * 100));
+                  return (
+                    <>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-slate-400 text-[11px]">Revenue Target</span>
+                        <span className={`font-mono font-bold ${revPct >= 80 ? 'text-emerald-400' : revPct >= 40 ? 'text-amber-400' : 'text-cyan-400'}`}>
+                          {revPct}% {revPct >= 80 ? '🟢' : '⚪'}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
+                        <div className="h-full bg-cyan-500 rounded-full transition-all" style={{ width: `${Math.max(revPct, 2)}%` }}></div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">{formatCurrency(annualRev)} / {formatCurrency(annualTarget)} target</span>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div className="p-3 bg-[#121c2a] rounded-lg border border-slate-800">
+                {(() => {
+                  const compCount = completedProjects.length;
+                  const totalCount = agency.projects.length;
+                  const deliveryPct = totalCount > 0 ? Math.round((compCount / totalCount) * 100) : 100;
+                  return (
+                    <>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-slate-400 text-[11px]">Projects Delivered</span>
+                        <span className="font-mono text-emerald-400 font-bold">{deliveryPct}% 🟢</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.max(deliveryPct, 2)}%` }}></div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {totalCount === 0 ? 'Fresh pipeline (0 active backlog)' : `${compCount} of ${totalCount} shipped`}
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div className="p-3 bg-[#121c2a] rounded-lg border border-slate-800">
+                {(() => {
+                  const totalAssigned = agency.team.reduce((acc, m) => acc + (m.assignedHours || 0), 0);
+                  const totalCap = agency.team.reduce((acc, m) => acc + (m.capacityHoursPerWeek || 40), 0);
+                  const stressPct = totalCap > 0 ? Math.min(100, Math.round((totalAssigned / totalCap) * 100)) : 0;
+                  const stressColor = stressPct >= 85 ? 'text-rose-400' : stressPct >= 60 ? 'text-amber-400' : 'text-emerald-400';
+                  const stressBar = stressPct >= 85 ? 'bg-rose-500' : stressPct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
+                  return (
+                    <>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-slate-400 text-[11px]">Team Workload</span>
+                        <span className={`font-mono font-bold ${stressColor}`}>{stressPct}% {stressPct >= 85 ? '🔴' : '🟢'}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
+                        <div className={`h-full rounded-full transition-all ${stressBar}`} style={{ width: `${Math.max(stressPct, 2)}%` }}></div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {stressPct === 0 ? 'Zero burnout / high bandwidth' : `${totalAssigned}h allocated / ${totalCap}h capacity`}
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="p-3 bg-[#121c2a] rounded-lg border border-slate-800">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-slate-400 text-[11px]">Projects Delivered</span>
-                  <span className="font-mono text-emerald-400 font-bold">80% 🟢</span>
+                  <span className="text-slate-400 text-[11px]">Client Standing</span>
+                  <span className="font-mono text-emerald-400 font-bold">{(agency.resources.reputation / 10).toFixed(1)}/10 🟢</span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '80%' }}></div>
+                  <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, agency.resources.reputation)}%` }}></div>
                 </div>
-                <span className="text-[10px] text-slate-500 font-mono">4 of 5 delivered on-time</span>
-              </div>
-
-              <div className="p-3 bg-[#121c2a] rounded-lg border border-slate-800">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-slate-400 text-[11px]">Team Stress</span>
-                  <span className="font-mono text-yellow-400 font-bold">65% 🟡</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
-                  <div className="h-full bg-yellow-500 rounded-full" style={{ width: '65%' }}></div>
-                </div>
-                <span className="text-[10px] text-slate-500 font-mono">Moderate stress levels</span>
-              </div>
-
-              <div className="p-3 bg-[#121c2a] rounded-lg border border-slate-800">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-slate-400 text-[11px]">Client Satisfaction</span>
-                  <span className="font-mono text-emerald-400 font-bold">8.5/10 🟢</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-1">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '85%' }}></div>
-                </div>
-                <span className="text-[10px] text-slate-500 font-mono">High satisfaction index</span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {agency.resources.reputation >= 90 ? 'Pristine reputation index' : 'Healthy client standing'}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="mt-3 p-2 bg-[#121c2a] rounded text-[11px] text-emerald-300 flex items-center justify-between font-mono">
-            <span>Overall Agency State: VIBRANT & RESILIENT</span>
+            <span>Overall Agency State: VIBRANT & READY</span>
             <span>Level {agency.agency.level} Studio</span>
           </div>
         </div>

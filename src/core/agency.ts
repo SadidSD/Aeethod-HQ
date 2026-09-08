@@ -23,7 +23,7 @@ import {
 } from '../services/dbService';
 
 // Clean slate storage migration check
-const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v2';
+const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v3';
 if (typeof window !== 'undefined') {
   try {
     if (localStorage.getItem('aeethod_clean_version') !== STORAGE_CLEAN_VERSION) {
@@ -33,6 +33,10 @@ if (typeof window !== 'undefined') {
       localStorage.removeItem('factory_content_posts');
       localStorage.removeItem('factory_content_engagement');
       localStorage.removeItem('aeethod_research_entries');
+      localStorage.removeItem('aeethod_crm_clients_v2');
+      localStorage.removeItem('aeethod_crm_invoices_v2');
+      localStorage.removeItem('aeethod_crm_deadlines_v2');
+      localStorage.removeItem('aeethod_crm_comm_v2');
       localStorage.setItem('aeethod_clean_version', STORAGE_CLEAN_VERSION);
     }
   } catch (e) {

@@ -69,113 +69,59 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
     setTimeout(() => setNotification(null), 3500);
   };
 
+  // LocalStorage keys
+  const CLIENTS_STORAGE_KEY = 'aeethod_crm_clients_v2';
+  const INVOICES_STORAGE_KEY = 'aeethod_crm_invoices_v2';
+  const DEADLINES_STORAGE_KEY = 'aeethod_crm_deadlines_v2';
+  const COMM_STORAGE_KEY = 'aeethod_crm_comm_v2';
+
   // Active Client List State
-  const [clients, setClients] = useState<ClientAccount[]>([
-    {
-      id: 'cli-rng',
-      name: 'RNG Gamez',
-      location: 'Newark, CA',
-      website: 'rnggamez.com',
-      email: 'client@rng.com',
-      phone: '+1 (555) 123-4567',
-      contactPerson: 'Owner & Executive Lead',
-      industry: 'TCG (Pokémon, MTG)',
-      status: 'active',
-      revenue: 10000,
-      rating: 5.0,
-      portalStatus: true,
-      projectType: 'TCG Website & Buylist',
-      progressPct: 100,
-      nextMeeting: 'Review Call - Tomorrow 10 AM',
-      lastActivity: '2 hours ago',
-      portalLastLogin: '2 hours ago',
-      projectsViewed: 5,
-      messagesCount: 3,
-      filesDownloaded: 8,
-      invoicesViewed: 4,
-      inviteSentDate: 'Nov 15, 2025',
-      inviteAcceptedDate: 'Nov 16, 2025',
-      notes: ['Client expressed immense satisfaction with the Buylist real-time price indexing engine.'],
-    },
-    {
-      id: 'cli-perf',
-      name: 'Perfume Shop',
-      location: 'Online / New York, NY',
-      website: 'luxeperfumes.com',
-      email: 'info@perfume.com',
-      phone: '+1 (555) 234-5678',
-      contactPerson: 'Marketing Director',
-      industry: 'Luxury Fragrance E-Commerce',
-      status: 'in_progress',
-      revenue: 5000,
-      rating: 4.5,
-      portalStatus: true,
-      projectType: 'E-commerce Storefront',
-      progressPct: 60,
-      nextMeeting: 'Design Review - Wed 2 PM',
-      lastActivity: '1 day ago',
-      portalLastLogin: '1 day ago',
-      projectsViewed: 2,
-      messagesCount: 1,
-      filesDownloaded: 3,
-      invoicesViewed: 2,
-      inviteSentDate: 'Jan 10, 2026',
-      inviteAcceptedDate: 'Jan 11, 2026',
-      notes: ['Awaiting final packaging renders for the product variant carousel.'],
-    },
-    {
-      id: 'cli-tcg',
-      name: 'TCG Shop (New Lead)',
-      location: 'Austin, TX',
-      website: 'tcgvaultaustin.com',
-      email: 'owner@tcgshop.com',
-      phone: '+1 (555) 345-6789',
-      contactPerson: 'Managing Partner',
-      industry: 'Collectibles & Card Grading',
-      status: 'discovery',
-      revenue: 12000,
-      rating: null,
-      portalStatus: false,
-      projectType: 'Custom AI Pricing Site',
-      progressPct: 20,
-      nextMeeting: 'Follow-up - Thu 11 AM',
-      lastActivity: '3 days ago',
-      portalLastLogin: 'Never',
-      projectsViewed: 0,
-      messagesCount: 0,
-      filesDownloaded: 0,
-      invoicesViewed: 0,
-      inviteSentDate: 'Mar 10, 2026',
-      inviteAcceptedDate: 'Pending',
-      notes: ['Sent comprehensive proposal for enterprise tier with multi-store inventory sync.'],
-    },
-    {
-      id: 'cli-saas',
-      name: 'SaaS Client',
-      location: 'San Francisco, CA',
-      website: 'saasoperations.io',
-      email: 'founder@saas.com',
-      phone: '+1 (555) 456-7890',
-      contactPerson: 'Chief Product Officer',
-      industry: 'B2B Workflow Automation',
-      status: 'active',
-      revenue: 18000,
-      rating: 4.0,
-      portalStatus: true,
-      projectType: 'App Dev Platform',
-      progressPct: 80,
-      nextMeeting: 'Status Update - Fri 3 PM',
-      lastActivity: '5 hours ago',
-      portalLastLogin: '5 hours ago',
-      projectsViewed: 3,
-      messagesCount: 2,
-      filesDownloaded: 6,
-      invoicesViewed: 3,
-      inviteSentDate: 'Dec 01, 2025',
-      inviteAcceptedDate: 'Dec 02, 2025',
-      notes: ['API integration in final stages with Backend team.'],
-    },
-  ]);
+  const [clients, setClients] = useState<ClientAccount[]>(() => {
+    try {
+      const saved = localStorage.getItem(CLIENTS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+
+    // If no saved clients, dynamically map from existing agency.projects if any exist
+    if (agency.projects && agency.projects.length > 0) {
+      return agency.projects.map((p, idx) => ({
+        id: `cli-${p.id}`,
+        name: p.clientName || p.name,
+        location: 'Remote / Global',
+        website: `${(p.clientName || p.name).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+        email: `contact@${(p.clientName || p.name).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+        phone: '+1 (555) 010-000' + (idx + 1),
+        contactPerson: 'Lead Stakeholder',
+        industry: p.industry || 'Technology',
+        status: (p.phase === 'completed' ? 'active' : p.phase === 'lead' ? 'discovery' : 'in_progress') as ClientAccount['status'],
+        revenue: p.value || 0,
+        rating: p.phase === 'completed' ? 5.0 : null,
+        portalStatus: true,
+        projectType: p.name,
+        progressPct: p.phase === 'completed' ? 100 : 50,
+        nextMeeting: 'Sprint Review Scheduled',
+        lastActivity: 'Active Sprint',
+        portalLastLogin: 'Recently',
+        projectsViewed: 1,
+        messagesCount: 0,
+        filesDownloaded: 0,
+        invoicesViewed: 0,
+        inviteSentDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        inviteAcceptedDate: 'Accepted',
+        notes: [p.notes || 'Client account imported from active project.'],
+      }));
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(clients));
+    } catch (e) {}
+  }, [clients]);
 
   // Selected client for Deep Detail Page
   const [selectedClient, setSelectedClient] = useState<ClientAccount | null>(null);
@@ -188,30 +134,49 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
   // Invoices State
-  const [invoices, setInvoices] = useState<InvoiceItem[]>([
-    { id: 'inv-1', invoiceNumber: 'INV-001', clientName: 'RNG Gamez', amount: 2000, dueDate: 'Mar 15', status: 'paid' },
-    { id: 'inv-2', invoiceNumber: 'INV-002', clientName: 'Perfume Shop', amount: 2500, dueDate: 'Mar 20', status: 'pending' },
-    { id: 'inv-3', invoiceNumber: 'INV-003', clientName: 'TCG Shop', amount: 4000, dueDate: 'Mar 25', status: 'pending' },
-    { id: 'inv-4', invoiceNumber: 'INV-004', clientName: 'SaaS Client', amount: 6000, dueDate: 'Apr 05', status: 'paid' },
-    { id: 'inv-5', invoiceNumber: 'INV-005', clientName: 'RNG Gamez', amount: 8000, dueDate: 'Feb 15', status: 'paid' },
-    { id: 'inv-6', invoiceNumber: 'INV-006', clientName: 'SaaS Client', amount: 5000, dueDate: 'Apr 20', status: 'draft' },
-  ]);
+  const [invoices, setInvoices] = useState<InvoiceItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(INVOICES_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(INVOICES_STORAGE_KEY, JSON.stringify(invoices));
+    } catch (e) {}
+  }, [invoices]);
 
   // Deadlines & Meetings
-  const [deadlines, setDeadlines] = useState<DeadlineMeetingItem[]>([
-    { id: 'dl-1', priority: 'red', timeLabel: 'Today, 5 PM', title: 'Proposal to TCG Shop', clientName: 'TCG Shop' },
-    { id: 'dl-2', priority: 'red', timeLabel: 'Tomorrow, 10 AM', title: 'RNG Gamez Review Call', clientName: 'RNG Gamez' },
-    { id: 'dl-3', priority: 'yellow', timeLabel: 'Wed, 2 PM', title: 'Perfume Shop Design Approval', clientName: 'Perfume Shop' },
-    { id: 'dl-4', priority: 'yellow', timeLabel: 'Thu, 11 AM', title: 'TCG Shop Follow-up', clientName: 'TCG Shop' },
-    { id: 'dl-5', priority: 'green', timeLabel: 'Fri, 3 PM', title: 'SaaS Client Status Update', clientName: 'SaaS Client' },
-  ]);
+  const [deadlines, setDeadlines] = useState<DeadlineMeetingItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(DEADLINES_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DEADLINES_STORAGE_KEY, JSON.stringify(deadlines));
+    } catch (e) {}
+  }, [deadlines]);
 
   // Communication History (for detail page)
-  const [commHistory, setCommHistory] = useState<CommLogItem[]>([
-    { id: 'comm-1', date: 'Mar 15, 2026', type: 'email', text: 'Client confirmed project launch. "Love the site and fast response times!"' },
-    { id: 'comm-2', date: 'Mar 10, 2026', type: 'call', text: 'Project handover call with engineering lead. All core features accepted.' },
-    { id: 'comm-3', date: 'Feb 25, 2026', type: 'email', text: 'Sent final milestone invoice & SLA contract addendum.' },
-  ]);
+  const [commHistory, setCommHistory] = useState<CommLogItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(COMM_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COMM_STORAGE_KEY, JSON.stringify(commHistory));
+    } catch (e) {}
+  }, [commHistory]);
 
   // Interactive Action Modals
   const [activeModal, setActiveModal] = useState<'addClient' | 'createInvoice' | 'addEvent' | 'sendInvite' | 'openPortal' | 'portalSettings' | 'addCommNote' | null>(null);
@@ -229,7 +194,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
   });
 
   const [newInvoiceForm, setNewInvoiceForm] = useState({
-    clientName: 'RNG Gamez',
+    clientName: clients[0]?.name || 'Client',
     amount: '$3,000',
     dueDate: 'Apr 01',
     status: 'pending' as const
@@ -237,7 +202,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
 
   const [newEventForm, setNewEventForm] = useState({
     title: '',
-    clientName: 'RNG Gamez',
+    clientName: clients[0]?.name || 'Client',
     timeLabel: 'Next Mon, 11 AM',
     priority: 'yellow' as const
   });
@@ -335,9 +300,9 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                 </h1>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono mt-0.5">
-                <span>📅 March 15, 2026</span>
+                <span>📅 {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 <span className="text-slate-600">•</span>
-                <span>⏰ 10:23 AM</span>
+                <span>⏰ {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 <span className="text-slate-600">•</span>
                 <span className="text-emerald-400 font-bold">Live CRM & Invoicing</span>
               </div>
@@ -586,24 +551,22 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                   <span>💳</span> INVOICE HISTORY
                 </h3>
                 <div className="space-y-2 text-xs font-mono">
-                  <div className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
-                    <span className="text-slate-300 font-bold">Invoice #001</span>
-                    <span className="text-amber-400 font-bold">$10,000</span>
-                    <span className="text-slate-400">Feb 2026</span>
-                    <span className="text-emerald-400 font-bold">✅ Paid</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
-                    <span className="text-slate-300 font-bold">Invoice #002</span>
-                    <span className="text-amber-400 font-bold">$2,000</span>
-                    <span className="text-slate-400">Mar 2026</span>
-                    <span className="text-emerald-400 font-bold">✅ Paid</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
-                    <span className="text-slate-300 font-bold">Invoice #003</span>
-                    <span className="text-amber-400 font-bold">$5,000</span>
-                    <span className="text-slate-400">Apr 2026</span>
-                    <span className="text-amber-300 font-bold">📝 Draft</span>
-                  </div>
+                  {invoices.filter(i => i.clientName.toLowerCase() === selectedClient.name.toLowerCase()).length === 0 ? (
+                    <div className="p-4 bg-[#080d14] rounded border border-slate-800 text-center text-slate-500 italic">
+                      No invoices recorded for {selectedClient.name}.
+                    </div>
+                  ) : (
+                    invoices.filter(i => i.clientName.toLowerCase() === selectedClient.name.toLowerCase()).map(inv => (
+                      <div key={inv.id} className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
+                        <span className="text-slate-300 font-bold">{inv.invoiceNumber}</span>
+                        <span className="text-amber-400 font-bold">${inv.amount.toLocaleString()}</span>
+                        <span className="text-slate-400">Due {inv.dueDate}</span>
+                        <span className={`font-bold ${inv.status === 'paid' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                          {inv.status === 'paid' ? '✅ Paid' : '⏳ ' + inv.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -613,18 +576,22 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                   <span>📊</span> PROJECT HISTORY
                 </h3>
                 <div className="space-y-2 text-xs font-mono">
-                  <div className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
-                    <span className="text-slate-300 font-bold">TCG Website</span>
-                    <span className="text-amber-400 font-bold">$10,000</span>
-                    <span className="text-slate-400">Nov-Feb</span>
-                    <span className="text-emerald-400 font-bold">✅ Completed</span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
-                    <span className="text-slate-300 font-bold">Client Portal Engine</span>
-                    <span className="text-amber-400 font-bold">$5,000</span>
-                    <span className="text-slate-400">Mar-May</span>
-                    <span className="text-cyan-300 font-bold">🔄 In Progress</span>
-                  </div>
+                  {agency.projects.filter(p => p.clientName.toLowerCase() === selectedClient.name.toLowerCase()).length === 0 ? (
+                    <div className="p-4 bg-[#080d14] rounded border border-slate-800 text-center text-slate-500 italic">
+                      No active project history found for {selectedClient.name}.
+                    </div>
+                  ) : (
+                    agency.projects.filter(p => p.clientName.toLowerCase() === selectedClient.name.toLowerCase()).map(p => (
+                      <div key={p.id} className="flex justify-between p-2 bg-[#080d14] rounded border border-slate-800">
+                        <span className="text-slate-300 font-bold">{p.name}</span>
+                        <span className="text-amber-400 font-bold">${p.value.toLocaleString()}</span>
+                        <span className="text-slate-400 uppercase">{p.phase}</span>
+                        <span className={`font-bold ${p.phase === 'completed' ? 'text-emerald-400' : 'text-cyan-300'}`}>
+                          {p.phase === 'completed' ? '✅ Shipped' : '⚡ In Progress'}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -705,47 +672,47 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                 SECTION 3: 📊 CLIENT OVERVIEW (6 KPI Cards)
                 ──────────────────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="p-3.5 bg-[#0d1520] border border-slate-800 rounded-2xl">
+              <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl">
                 <span className="text-slate-400 font-mono text-[10px] uppercase font-bold flex items-center gap-1">
                   <span>💰</span> Revenue
                 </span>
                 <div className="text-base font-black text-emerald-400 font-mono mt-1">${totalRevenue.toLocaleString()}</div>
-                <span className="text-[10px] text-emerald-500 font-mono font-bold">▲ 15% this quarter</span>
+                <span className="text-[10px] text-emerald-500 font-mono font-bold">{totalRevenue > 0 ? '▲ Active Accounts' : 'Fresh Slate'}</span>
               </div>
 
-              <div className="p-3.5 bg-[#0d1520] border border-slate-800 rounded-2xl">
+              <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl">
                 <span className="text-slate-400 font-mono text-[10px] uppercase font-bold flex items-center gap-1">
                   <span>📋</span> Active
                 </span>
-                <div className="text-base font-black text-cyan-300 font-mono mt-1">Projects 4</div>
+                <div className="text-base font-black text-cyan-300 font-mono mt-1">Projects {agency.projects.filter(p => p.phase !== 'completed').length}</div>
                 <span className="text-[10px] text-slate-400 font-mono">100% On-Track</span>
               </div>
 
-              <div className="p-3.5 bg-[#0d1520] border border-slate-800 rounded-2xl">
+              <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl">
                 <span className="text-slate-400 font-mono text-[10px] uppercase font-bold flex items-center gap-1">
                   <span>⏳</span> Pending
                 </span>
-                <div className="text-base font-black text-amber-400 font-mono mt-1">Invoices 3</div>
-                <span className="text-[10px] text-amber-500 font-mono font-bold">$8,000 Expected</span>
+                <div className="text-base font-black text-amber-400 font-mono mt-1">Invoices {pendingInvoices.length}</div>
+                <span className="text-[10px] text-amber-500 font-mono font-bold">${pendingTotal.toLocaleString()} Expected</span>
               </div>
 
-              <div className="p-3.5 bg-[#0d1520] border border-slate-800 rounded-2xl">
+              <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl">
                 <span className="text-slate-400 font-mono text-[10px] uppercase font-bold flex items-center gap-1">
                   <span>✅</span> Projects
                 </span>
-                <div className="text-base font-black text-purple-300 font-mono mt-1">Completed 6</div>
+                <div className="text-base font-black text-purple-300 font-mono mt-1">Completed {agency.projects.filter(p => p.phase === 'completed').length}</div>
                 <span className="text-[10px] text-purple-400 font-mono">100% Delivered</span>
               </div>
 
-              <div className="p-3.5 bg-[#0d1520] border border-slate-800 rounded-2xl">
+              <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl">
                 <span className="text-slate-400 font-mono text-[10px] uppercase font-bold flex items-center gap-1">
                   <span>⭐</span> Avg Rating
                 </span>
-                <div className="text-base font-black text-amber-300 font-mono mt-1">Rating {avgRating}</div>
+                <div className="text-base font-black text-amber-300 font-mono mt-1">Rating {clients.filter(c => c.rating !== null).length > 0 ? avgRating : 'N/A'}</div>
                 <span className="text-[10px] text-slate-400 font-mono">/ 5.0 Global NPS</span>
               </div>
 
-              <div className="p-3.5 bg-[#0d1520] border border-slate-800 rounded-2xl">
+              <div className="p-3.5 bg-[#0d1522] border border-slate-800 rounded-2xl">
                 <span className="text-slate-400 font-mono text-[10px] uppercase font-bold flex items-center gap-1">
                   <span>🔄</span> Portal
                 </span>
@@ -757,7 +724,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
             {/* ────────────────────────────────────────────────────────────────
                 SECTION 4: 👥 CLIENT LIST (Main Table / Interactive Cards)
                 ──────────────────────────────────────────────────────────────── */}
-            <div className="bg-[#0d1520] border border-slate-800 rounded-2xl p-4">
+            <div className="bg-[#0d1522] border border-slate-800 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
                 <h3 className="text-xs font-black text-slate-300 font-mono tracking-wider flex items-center gap-1.5">
                   <span>👥</span> CLIENT LIST ({filteredClients.length} Accounts)
@@ -766,61 +733,71 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
               </div>
 
               <div className="space-y-3">
-                {filteredClients.map(client => {
-                  const statusMap = {
-                    active: { label: '🟢 Active', col: 'text-emerald-400 bg-emerald-950/60 border-emerald-700/50' },
-                    in_progress: { label: '🟡 In Progress', col: 'text-amber-300 bg-amber-950/60 border-amber-700/50' },
-                    discovery: { label: '🔵 Discovery', col: 'text-cyan-300 bg-cyan-950/60 border-cyan-700/50' },
-                  };
+                {filteredClients.length === 0 ? (
+                  <div className="p-10 bg-[#080d14] rounded-xl border border-slate-800 text-center space-y-2">
+                    <span className="text-2xl block">🤝</span>
+                    <strong className="text-sm text-slate-200 block">No Client Accounts in Pipeline</strong>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      Your client relationship database is fresh. Click "+ Add New Client" below to register your first client account, or convert an inquiry from the Reception Board!
+                    </p>
+                  </div>
+                ) : (
+                  filteredClients.map(client => {
+                    const statusMap = {
+                      active: { label: '🟢 Active', col: 'text-emerald-400 bg-emerald-950/60 border-emerald-700/50' },
+                      in_progress: { label: '🟡 In Progress', col: 'text-amber-300 bg-amber-950/60 border-amber-700/50' },
+                      discovery: { label: '🔵 Discovery', col: 'text-cyan-300 bg-cyan-950/60 border-cyan-700/50' },
+                    };
 
-                  return (
-                    <div
-                      key={client.id}
-                      className="p-3.5 bg-[#080d14] rounded-xl border border-slate-800 hover:border-emerald-500/50 transition flex flex-col gap-2"
-                    >
-                      {/* Top Row: Name, Status, Revenue, Rating, Portal, View */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2 font-mono">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">🏢</span>
-                          <strong className="text-slate-100 text-sm font-black">{client.name}</strong>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusMap[client.status].col}`}>
-                            {statusMap[client.status].label}
-                          </span>
+                    return (
+                      <div
+                        key={client.id}
+                        className="p-3.5 bg-[#080d14] rounded-xl border border-slate-800 hover:border-emerald-500/50 transition flex flex-col gap-2"
+                      >
+                        {/* Top Row: Name, Status, Revenue, Rating, Portal, View */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-2 font-mono">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🏢</span>
+                            <strong className="text-slate-100 text-sm font-black">{client.name}</strong>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusMap[client.status].col}`}>
+                              {statusMap[client.status].label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className="text-emerald-400 font-black">💰 ${client.revenue.toLocaleString()}</span>
+                            <span className="text-amber-400 font-bold">⭐ {client.rating ? `${client.rating.toFixed(1)}` : 'N/A'}</span>
+                            <span className={`text-[11px] font-bold ${client.portalStatus ? 'text-emerald-400' : 'text-slate-500'}`}>
+                              🔗 Portal {client.portalStatus ? '✅' : '❌'}
+                            </span>
+                            <button
+                              onClick={() => setSelectedClient(client)}
+                              className="px-3 py-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                            >
+                              <span>📋</span> View
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-4 text-xs">
-                          <span className="text-emerald-400 font-black">💰 ${client.revenue.toLocaleString()}</span>
-                          <span className="text-amber-400 font-bold">⭐ {client.rating ? `${client.rating.toFixed(1)}` : 'N/A'}</span>
-                          <span className={`text-[11px] font-bold ${client.portalStatus ? 'text-emerald-400' : 'text-slate-500'}`}>
-                            🔗 Portal {client.portalStatus ? '✅' : '❌'}
+                        {/* Middle Row: Location, Project, Progress, Email */}
+                        <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 gap-2">
+                          <span className="flex items-center gap-1">📍 {client.location}</span>
+                          <span className="flex items-center gap-1 text-cyan-300">📊 {client.projectType}</span>
+                          <span className="text-emerald-300 font-bold">
+                            {client.progressPct === 100 ? '✅ 100% Done' : client.progressPct > 0 ? `⏳ ${client.progressPct}% Done` : '📝 Proposal'}
                           </span>
-                          <button
-                            onClick={() => setSelectedClient(client)}
-                            className="px-3 py-1 bg-emerald-950 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                          >
-                            <span>📋</span> View
-                          </button>
+                          <span className="text-slate-400">📧 {client.email}</span>
+                        </div>
+
+                        {/* Bottom Row: Next Meeting & Last Activity */}
+                        <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-500 pt-1">
+                          <span className="text-amber-300 font-medium">📅 Next: {client.nextMeeting}</span>
+                          <span>🕐 Last Activity: {client.lastActivity}</span>
                         </div>
                       </div>
-
-                      {/* Middle Row: Location, Project, Progress, Email */}
-                      <div className="flex flex-wrap items-center justify-between text-xs font-mono text-slate-400 gap-2">
-                        <span className="flex items-center gap-1">📍 {client.location}</span>
-                        <span className="flex items-center gap-1 text-cyan-300">📊 {client.projectType}</span>
-                        <span className="text-emerald-300 font-bold">
-                          {client.progressPct === 100 ? '✅ 100% Done' : client.progressPct > 0 ? `⏳ ${client.progressPct}% Done` : '📝 Proposal'}
-                        </span>
-                        <span className="text-slate-400">📧 {client.email}</span>
-                      </div>
-
-                      {/* Bottom Row: Next Meeting & Last Activity */}
-                      <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-500 pt-1">
-                        <span className="text-amber-300 font-medium">📅 Next: {client.nextMeeting}</span>
-                        <span>🕐 Last Activity: {client.lastActivity}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -866,18 +843,24 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                   </h3>
 
                   <div className="space-y-2 text-xs font-mono">
-                    {deadlines.map(item => (
-                      <div key={item.id} className="p-2.5 bg-[#080d14] rounded-xl border border-slate-800 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <span>{item.priority === 'red' ? '🔴' : item.priority === 'yellow' ? '🟡' : '🟢'}</span>
-                          <strong className="text-slate-300">{item.timeLabel}</strong>
-                          <span className="text-slate-400">— {item.title}</span>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300">
-                          {item.clientName}
-                        </span>
+                    {deadlines.length === 0 ? (
+                      <div className="p-6 bg-[#080d14] rounded-xl border border-slate-800 text-center text-slate-500 italic">
+                        No upcoming meetings or calls scheduled. Click "+ Add Event" to add a client appointment!
                       </div>
-                    ))}
+                    ) : (
+                      deadlines.map(item => (
+                        <div key={item.id} className="p-2.5 bg-[#080d14] rounded-xl border border-slate-800 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span>{item.priority === 'red' ? '🔴' : item.priority === 'yellow' ? '🟡' : '🟢'}</span>
+                            <strong className="text-slate-300">{item.timeLabel}</strong>
+                            <span className="text-slate-400">— {item.title}</span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300">
+                            {item.clientName}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -898,7 +881,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
               </div>
 
               {/* 📊 CLIENT INSIGHTS (Right 5 cols) */}
-              <div className="lg:col-span-5 bg-[#0d1520] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+              <div className="lg:col-span-5 bg-[#0d1522] border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
                 <div>
                   <h3 className="text-xs font-black text-slate-300 font-mono tracking-wider mb-3 flex items-center gap-1.5 pb-2 border-b border-slate-800">
                     <span>📊</span> CLIENT INSIGHTS
@@ -907,22 +890,23 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                   <div className="space-y-2.5 text-xs font-mono mb-3">
                     <span className="text-slate-400 font-bold block">📈 Revenue by Client:</span>
                     <div className="p-2.5 bg-[#080d14] rounded-xl border border-slate-800 space-y-1.5">
-                      <div className="flex justify-between text-[11px]">
-                        <span>SaaS Client</span>
-                        <span className="text-emerald-400 font-bold">████████░░░░ 40%</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span>TCG Shop</span>
-                        <span className="text-cyan-400 font-bold">██████░░░░░░ 27%</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span>RNG Gamez</span>
-                        <span className="text-amber-400 font-bold">██████░░░░░░ 22%</span>
-                      </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span>Perfume Shop</span>
-                        <span className="text-pink-400 font-bold">████░░░░░░░░ 11%</span>
-                      </div>
+                      {totalRevenue === 0 || clients.length === 0 ? (
+                        <div className="text-center py-3 text-slate-500 italic text-[11px]">
+                          No client revenue recorded yet.
+                        </div>
+                      ) : (
+                        clients.slice(0, 4).map(c => {
+                          const pct = totalRevenue > 0 ? Math.round((c.revenue / totalRevenue) * 100) : 0;
+                          const barCount = Math.round(pct / 10);
+                          const bar = '█'.repeat(barCount) + '░'.repeat(Math.max(0, 10 - barCount));
+                          return (
+                            <div key={c.id} className="flex justify-between text-[11px]">
+                              <span className="truncate max-w-[140px]">{c.name}</span>
+                              <span className="text-emerald-400 font-bold font-mono">{bar} {pct}%</span>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 </div>
@@ -934,11 +918,11 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                   </div>
                   <div className="flex justify-between">
                     <span>📊 Avg Response Time:</span>
-                    <strong className="text-cyan-300 font-bold">4 hours</strong>
+                    <strong className="text-cyan-300 font-bold">Fast (&lt; 2h)</strong>
                   </div>
                   <div className="flex justify-between">
                     <span>🔄 Active Projects:</span>
-                    <strong className="text-purple-300 font-bold">4 in flight</strong>
+                    <strong className="text-purple-300 font-bold">{agency.projects.filter(p => p.phase !== 'completed').length} in flight</strong>
                   </div>
                 </div>
               </div>
@@ -947,7 +931,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
             {/* ────────────────────────────────────────────────────────────────
                 SECTION 7: 💳 INVOICE & PAYMENT STATUS
                 ──────────────────────────────────────────────────────────────── */}
-            <div className="bg-[#0d1520] border border-slate-800 rounded-2xl p-4">
+            <div className="bg-[#0d1522] border border-slate-800 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
                 <h3 className="text-xs font-black text-slate-300 font-mono tracking-wider flex items-center gap-1.5">
                   <span>💳</span> INVOICE & PAYMENT STATUS
@@ -986,7 +970,12 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
 
               {/* Invoices Table */}
               <div className="space-y-1.5 text-xs font-mono">
-                {invoices.slice(0, 4).map(inv => (
+                {invoices.length === 0 ? (
+                  <div className="p-6 bg-[#080d14] rounded-lg border border-slate-800 text-center text-slate-500 italic">
+                    No client invoices created yet. Click "+ Create Invoice" below to issue your first invoice!
+                  </div>
+                ) : (
+                  invoices.slice(0, 4).map(inv => (
                   <div key={inv.id} className="p-2.5 bg-[#080d14] rounded-lg border border-slate-800 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-4">
                       <strong className="text-slate-200 w-28">{inv.clientName}</strong>
@@ -1027,7 +1016,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                       )}
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
 
               {/* Invoice Actions */}
@@ -1072,7 +1061,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                 </div>
                 <div className="p-2.5 bg-[#080d14] rounded-xl border border-amber-600/40">
                   <span className="text-amber-400 font-bold block">📧 Invites</span>
-                  <strong className="text-amber-300 text-sm">Pending: 1</strong>
+                  <strong className="text-amber-300 text-sm">Pending: {clients.filter(c => !c.portalStatus).length}</strong>
                 </div>
                 <div className="p-2.5 bg-[#080d14] rounded-xl border border-blue-600/40">
                   <span className="text-blue-400 font-bold block">🔒 Permissions</span>
@@ -1090,7 +1079,12 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
 
               {/* Portal Access Table */}
               <div className="space-y-1.5 text-xs font-mono">
-                {clients.map(c => (
+                {clients.length === 0 ? (
+                  <div className="p-6 bg-[#080d14] rounded-lg border border-slate-800 text-center text-slate-500 italic">
+                    No client portal accounts registered yet.
+                  </div>
+                ) : (
+                  clients.map(c => (
                   <div key={c.id} className="p-2.5 bg-[#080d14] rounded-lg border border-slate-800 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-4">
                       <strong className="text-slate-200 w-28">{c.name}</strong>
@@ -1129,7 +1123,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                       </button>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
 
               {/* Portal Actions */}
@@ -1421,7 +1415,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                         setDeadlines(prev => [created, ...prev]);
                         showToast(`Event "${created.title}" scheduled!`, '📅');
                         setActiveModal(null);
-                        setNewEventForm({ title: '', clientName: 'RNG Gamez', timeLabel: 'Next Mon, 11 AM', priority: 'yellow' });
+                        setNewEventForm({ title: '', clientName: clients[0]?.name || 'Client', timeLabel: 'Next Mon, 11 AM', priority: 'yellow' });
                       }}
                       className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold"
                     >
@@ -1440,17 +1434,23 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                       <span className="text-[10px] bg-emerald-950 px-2 py-0.5 rounded">AUTHENTICATED</span>
                     </div>
                     <p className="text-slate-400 text-[11px]">
-                      Viewing secure client interface for: <strong className="text-slate-100">{selectedClient?.name || 'RNG Gamez'}</strong>
+                      Viewing secure client interface for: <strong className="text-slate-100">{selectedClient?.name || clients[0]?.name || 'Active Client'}</strong>
                     </p>
                     <div className="grid grid-cols-3 gap-2 text-center text-[10px] pt-1">
                       <div className="p-2 bg-[#0d1520] rounded border border-slate-800">
-                        <strong className="block text-cyan-300">5</strong> Deliverables
+                        <strong className="block text-cyan-300">
+                          {selectedClient ? agency.tasks.filter(t => t.projectId && agency.projects.find(p => p.id === t.projectId)?.clientName.toLowerCase() === selectedClient.name.toLowerCase()).length : 0}
+                        </strong> Deliverables
                       </div>
                       <div className="p-2 bg-[#0d1520] rounded border border-slate-800">
-                        <strong className="block text-emerald-300">$0</strong> Due Balance
+                        <strong className="block text-emerald-300">
+                          ${selectedClient ? invoices.filter(i => i.clientName.toLowerCase() === selectedClient.name.toLowerCase() && i.status === 'pending').reduce((s, i) => s + i.amount, 0).toLocaleString() : '0'}
+                        </strong> Due Balance
                       </div>
                       <div className="p-2 bg-[#0d1520] rounded border border-slate-800">
-                        <strong className="block text-amber-300">100%</strong> Progress
+                        <strong className="block text-amber-300">
+                          {selectedClient ? `${selectedClient.progressPct}%` : '0%'}
+                        </strong> Progress
                       </div>
                     </div>
                   </div>
