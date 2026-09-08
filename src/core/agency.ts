@@ -13,6 +13,14 @@ import {
   DepartmentAlert
 } from './agencyTypes';
 import { supabase } from '../lib/supabaseClient';
+import {
+  fetchAgencyData,
+  upsertTaskCloud,
+  upsertProjectCloud,
+  syncAgencyResourcesCloud,
+  syncAgencyStatsCloud,
+  updateTaskStatusCloud
+} from '../services/dbService';
 
 export class AgencyManager {
   state: AgencyState;
@@ -59,15 +67,27 @@ export class AgencyManager {
 
   async saveToCloud() {
     try {
+      // 1. Relational Sync via dbService
+      syncAgencyResourcesCloud(this.state.resources);
+      syncAgencyStatsCloud(this.state.stats, this.state.streaks.current, this.state.streaks.longest);
+      
+      for (const project of this.state.projects) {
+        upsertProjectCloud(project);
+      }
+      for (const task of this.state.tasks) {
+        upsertTaskCloud(task);
+      }
+
+      // 2. Monolithic Fallback Backup (World Saves)
       const payload = {
-        user_id: '00000000-0000-0000-0000-000000000001', // Default studio workspace slot
+        user_id: '00000000-0000-0000-0000-000000000001',
         username: 'AEETHOD_HQ',
         save_data: this.state,
         buildings_count: this.state.tasks.length,
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('world_saves')
         .upsert(payload, { onConflict: 'username' });
 
@@ -81,7 +101,70 @@ export class AgencyManager {
 
   async loadFromCloud(): Promise<boolean> {
     try {
-      const { data, error } = await supabase
+      // 1. Try relational tables first
+      const relData = await fetchAgencyData('aeethod-hq');
+      if (relData && relData.projects.length > 0) {
+        if (relData.resources) {
+          this.state.resources.revenue = Number(relData.resources.revenue) || this.state.resources.revenue;
+          this.state.resources.monthlyRecurring = Number(relData.resources.monthly_recurring) || this.state.resources.monthlyRecurring;
+          this.state.resources.energy = relData.resources.energy ?? this.state.resources.energy;
+          this.state.resources.reputation = relData.resources.reputation ?? this.state.resources.reputation;
+          this.state.resources.knowledge = relData.resources.knowledge ?? this.state.resources.knowledge;
+        }
+        if (relData.stats) {
+          this.state.stats.totalTasksCompleted = relData.stats.total_tasks_completed ?? this.state.stats.totalTasksCompleted;
+          this.state.stats.totalProjectsShipped = relData.stats.total_projects_shipped ?? this.state.stats.totalProjectsShipped;
+          this.state.stats.totalRevenue = Number(relData.stats.total_revenue) || this.state.stats.totalRevenue;
+          this.state.stats.hoursLogged = Number(relData.stats.hours_logged) || this.state.stats.hoursLogged;
+          this.state.streaks.current = relData.stats.streak_current ?? this.state.streaks.current;
+          this.state.streaks.longest = relData.stats.streak_longest ?? this.state.streaks.longest;
+        }
+        if (relData.projects.length > 0) {
+          this.state.projects = relData.projects.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            clientName: p.client_name,
+            industry: p.industry,
+            package: p.package,
+            value: Number(p.value),
+            phase: p.phase,
+            startDate: p.start_date,
+            deadline: p.deadline || '',
+            completedDate: p.completed_date,
+            health: p.health,
+            taskIds: this.state.tasks.filter(t => t.projectId === p.id).map(t => t.id),
+            notes: p.notes || '',
+            satisfaction: p.satisfaction || 95,
+          }));
+        }
+        if (relData.tasks.length > 0) {
+          this.state.tasks = relData.tasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description || '',
+            projectId: t.project_id,
+            assignedTo: t.assigned_to,
+            phase: t.phase,
+            status: t.status,
+            priority: t.priority,
+            cognitiveLoad: t.cognitive_load || 'medium',
+            xpReward: t.xp_reward || 90,
+            estimatedHours: Number(t.estimated_hours) || 4,
+            actualHours: Number(t.actual_hours) || 0,
+            createdAt: t.created_at,
+            completedAt: t.completed_at,
+            deadline: t.deadline,
+          }));
+        }
+
+        localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+        this.isCloudSynced = true;
+        this.onCloudUpdate?.();
+        return true;
+      }
+
+      // 2. Fallback to monolithic world_saves if relational is empty
+      const { data, error } = await (supabase as any)
         .from('world_saves')
         .select('save_data')
         .eq('username', 'AEETHOD_HQ')
@@ -105,8 +188,9 @@ export class AgencyManager {
 
   subscribeToRealtimeSync() {
     try {
-      const channel = supabase.channel('aeethod-agency-sync');
-      channel
+      // Broadcast channel for instantaneous cross-tab events
+      const broadcastChannel = supabase.channel('aeethod-agency-sync');
+      broadcastChannel
         .on('broadcast', { event: 'agency_state_sync' }, (payload) => {
           if (payload.payload && payload.payload.savedAt !== this.state.savedAt) {
             this.state = payload.payload;
@@ -114,6 +198,27 @@ export class AgencyManager {
             this.onCloudUpdate?.();
           }
         })
+        .subscribe();
+
+      // Postgres CDC changes for collaborative task & project updates
+      supabase
+        .channel('aeethod-db-tasks-cdc')
+        .on(
+          'postgres_changes' as any,
+          { event: '*', schema: 'public', table: 'tasks' },
+          (payload: any) => {
+            if (payload.new && payload.new.id) {
+              const updated = payload.new;
+              const idx = this.state.tasks.findIndex(t => t.id === updated.id);
+              if (idx !== -1) {
+                this.state.tasks[idx].status = updated.status;
+                this.state.tasks[idx].completedAt = updated.completed_at;
+                localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+                this.onCloudUpdate?.();
+              }
+            }
+          }
+        )
         .subscribe();
     } catch (e) {
       console.warn('Realtime subscription error:', e);
@@ -208,6 +313,7 @@ export class AgencyManager {
     } as AgencyTask;
     this.state.tasks.push(newTask);
     this.save();
+    upsertTaskCloud(newTask);
     return newTask;
   }
 
@@ -216,6 +322,9 @@ export class AgencyManager {
     if (index !== -1) {
       this.state.tasks[index] = { ...this.state.tasks[index], ...updates };
       this.save();
+      if (updates.status) {
+        updateTaskStatusCloud(id, updates.status, updates.completedAt || null);
+      }
     }
   }
 
@@ -236,6 +345,7 @@ export class AgencyManager {
       this.checkQuestCompletion();
       this.checkAchievements();
       this.save();
+      updateTaskStatusCloud(id, 'done', task.completedAt);
     }
   }
 

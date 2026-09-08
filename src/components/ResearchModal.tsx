@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import AgencyManager from '../core/agency';
+import { fetchResearchEntriesCloud, upsertResearchEntryCloud } from '../services/dbService';
 import {
   Search,
   Palette,
@@ -511,8 +512,30 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
     return INITIAL_RESEARCH_ENTRIES;
   });
 
+  // Cloud Hydration on mount
+  useEffect(() => {
+    fetchResearchEntriesCloud().then((cloudEntries) => {
+      if (cloudEntries && cloudEntries.length > 0) {
+        setEntries((prev) => {
+          const map = new Map<string, ResearchEntry>();
+          prev.forEach((e) => map.set(e.id, e));
+          cloudEntries.forEach((ce: any) => {
+            if (ce.details && ce.details.id) {
+              map.set(ce.details.id, ce.details as ResearchEntry);
+            }
+          });
+          return Array.from(map.values());
+        });
+      }
+    });
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('aeethod_research_entries', JSON.stringify(entries));
+    // Sync latest entries to Supabase
+    entries.forEach(entry => {
+      upsertResearchEntryCloud(entry);
+    });
   }, [entries]);
 
   // Form State
@@ -970,8 +993,9 @@ const netYear1Savings = annualFees - buildCost; // $137,000 net profit`);
             </button>
           </div>
 
-          <div className="text-[11px] text-slate-500 font-mono">
-            DB Status: LocalStorage + Boardroom Sync Active
+          <div className="text-[11px] text-emerald-400/90 font-mono font-bold flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            DB Status: Supabase Relational + Boardroom Sync Active (Live)
           </div>
         </div>
 

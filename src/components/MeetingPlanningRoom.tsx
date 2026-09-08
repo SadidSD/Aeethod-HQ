@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { fetchBoardMeetingsCloud, upsertBoardMeetingCloud } from '../services/dbService';
 import {
   Plus,
   X,
@@ -298,8 +299,46 @@ export default function MeetingPlanningRoom({ agency, manager, onClose, onRefres
     return () => clearInterval(interval);
   }, []);
 
-  // ── Persist ──
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(meetings)); }, [meetings]);
+  // ── Cloud Hydration on Mount ──
+  useEffect(() => {
+    fetchBoardMeetingsCloud().then((cloudMeetings) => {
+      if (cloudMeetings && cloudMeetings.length > 0) {
+        setMeetings((prev) => {
+          const map = new Map<string, Meeting>();
+          prev.forEach((m) => map.set(m.id, m));
+          cloudMeetings.forEach((cm: any) => {
+            map.set(cm.id, {
+              id: cm.id,
+              title: cm.title,
+              type: 'internal',
+              date: cm.date,
+              time: cm.time,
+              duration: cm.duration_min || 45,
+              location: 'In-Person',
+              attendees: 'Founder & Team',
+              status: cm.status || 'scheduled',
+              agenda: (cm.agenda_items as any) || [],
+              notes: cm.meeting_notes || '',
+              actionItems: (cm.action_items as any) || [],
+              decisions: [],
+              nextMeetingDate: '',
+              nextMeetingNote: '',
+              createdAt: cm.created_at ? new Date(cm.created_at).getTime() : Date.now(),
+            });
+          });
+          return Array.from(map.values());
+        });
+      }
+    });
+  }, []);
+
+  // ── Persist to LocalStorage and Supabase Cloud ──
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(meetings));
+    meetings.forEach((m) => {
+      upsertBoardMeetingCloud(m);
+    });
+  }, [meetings]);
 
   // ── Escape ──
   useEffect(() => {

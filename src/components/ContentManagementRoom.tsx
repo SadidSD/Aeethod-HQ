@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { fetchContentPostsCloud, upsertContentPostCloud } from '../services/dbService';
 import {
   Lightbulb,
   FileEdit,
@@ -327,10 +328,58 @@ export default function ContentManagementRoom({
     };
   }, [multiplayer]);
 
-  // Save changes locally and broadcast to connected office players
+  // Cloud Hydration on mount
+  useEffect(() => {
+    fetchContentPostsCloud().then((cloudPosts) => {
+      if (cloudPosts && cloudPosts.length > 0) {
+        setPosts((prev) => {
+          const map = new Map<string, ContentPost>();
+          prev.forEach((p) => map.set(p.id, p));
+          cloudPosts.forEach((cp: any) => {
+            if (cp.visual_brief) {
+              try {
+                const full = JSON.parse(cp.visual_brief);
+                if (full && full.id) {
+                  map.set(full.id, full as ContentPost);
+                  return;
+                }
+              } catch (e) {}
+            }
+            // Fallback
+            map.set(cp.id, {
+              id: cp.id,
+              title: cp.title,
+              caption: cp.copy || '',
+              format: (cp.format as any) || 'reel',
+              pillar: 'platform_pain',
+              status: (cp.phase as any) || 'idea',
+              hasValue: true,
+              hasVulnerability: true,
+              hasAuthority: true,
+            });
+          });
+          return Array.from(map.values());
+        });
+      }
+    });
+  }, []);
+
+  // Save changes locally, sync to Supabase cloud, and broadcast to connected office players
   useEffect(() => {
     localStorage.setItem('factory_content_posts', JSON.stringify(posts));
     multiplayer.broadcastBoardUpdate('post_sync', posts);
+    posts.forEach((p) => {
+      upsertContentPostCloud({
+        id: p.id,
+        title: p.title,
+        platform: 'linkedin',
+        format: p.format,
+        phase: p.status,
+        scheduledDate: p.scheduledDate,
+        copy: p.caption || p.fullScript || '',
+        visualBrief: JSON.stringify(p),
+      });
+    });
   }, [posts, multiplayer]);
 
   useEffect(() => {
