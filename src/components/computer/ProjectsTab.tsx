@@ -35,9 +35,9 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
   const [formData, setFormData] = useState({
     name: '',
     clientName: '',
-    industry: 'TCG & Collectibles',
-    packageType: 'professional' as 'essential' | 'professional' | 'enterprise',
-    value: 12000,
+    industry: 'Software & Technology',
+    packageType: 'essential' as 'essential' | 'professional' | 'enterprise',
+    value: 5000,
     deadline: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
   });
 
@@ -805,7 +805,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                 <label className="text-slate-400 font-medium">Project Name</label>
                 <input 
                   required 
-                  placeholder="e.g. CardVault Pro Marketplace"
+                  placeholder="e.g. Acme Web Platform"
                   className="bg-[#121c2a] border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-cyan-500" 
                   value={formData.name} 
                   onChange={e => setFormData({ ...formData, name: e.target.value })} 
@@ -817,7 +817,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                   <label className="text-slate-400 font-medium">Client / Company</label>
                   <input 
                     required 
-                    placeholder="e.g. Apex Collectibles Ltd"
+                    placeholder="e.g. Acme Corporation"
                     className="bg-[#121c2a] border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-cyan-500" 
                     value={formData.clientName} 
                     onChange={e => setFormData({ ...formData, clientName: e.target.value })} 
@@ -830,9 +830,9 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                     value={formData.industry}
                     onChange={e => setFormData({ ...formData, industry: e.target.value })}
                   >
-                    <option>TCG & Collectibles</option>
-                    <option>Luxury E-Commerce</option>
+                    <option>Software & Technology</option>
                     <option>SaaS & AI Tooling</option>
+                    <option>E-Commerce Platform</option>
                     <option>Fintech & Web3</option>
                     <option>Media & Creator Studio</option>
                   </select>

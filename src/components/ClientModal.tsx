@@ -1193,7 +1193,7 @@ export default function ClientModal({ agency, manager, onClose, onRefresh }: Cli
                       type="text"
                       value={newClientForm.name}
                       onChange={e => setNewClientForm({ ...newClientForm, name: e.target.value })}
-                      placeholder="e.g. Apex Card Vault Ltd."
+                      placeholder="e.g. Acme Innovations Ltd."
                       className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 focus:border-emerald-500 outline-none"
                     />
                   </div>

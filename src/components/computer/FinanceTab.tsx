@@ -520,6 +520,12 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
               const designerPayout = Math.round(availablePayout * 0.2);
               const frontendPayout = Math.round(availablePayout * 0.2);
 
+              const designerMember = agency.team.find(m => m.id === 'designer' || m.role?.toLowerCase().includes('design'));
+              const frontendMember = agency.team.find(m => m.id === 'frontend' || m.role?.toLowerCase().includes('frontend'));
+              const founderName = founderMember ? `${founderMember.name}` : 'You (Founder)';
+              const designerName = designerMember ? `${designerMember.name}` : 'Designer (Co-Founder)';
+              const frontendName = frontendMember ? `${frontendMember.name}` : 'Frontend Dev (Co-Founder)';
+
               return (
                 <>
                   <div className="p-2.5 bg-[#121c2a] rounded border border-slate-800 text-xs font-mono space-y-1 mb-3">
@@ -541,7 +547,7 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
                   <div className="space-y-2 text-xs font-mono">
                     <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-slate-100">You (Founder)</span>
+                        <span className="font-bold text-slate-100">{founderName}</span>
                         <span className="text-[10px] text-cyan-400 ml-2">60% Equity</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -552,7 +558,7 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
 
                     <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-slate-100">Designer (Co-Founder)</span>
+                        <span className="font-bold text-slate-100">{designerName}</span>
                         <span className="text-[10px] text-cyan-400 ml-2">20% Equity</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -563,7 +569,7 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
 
                     <div className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-slate-100">Frontend (Co-Founder)</span>
+                        <span className="font-bold text-slate-100">{frontendName}</span>
                         <span className="text-[10px] text-cyan-400 ml-2">20% Equity</span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -697,13 +703,21 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
                     ))}
                   </tbody>
                   <tfoot className="border-t border-slate-800 text-xs font-bold text-slate-100">
-                    <tr>
-                      <td className="pt-2">Total</td>
-                      <td className="pt-2 text-right">{formatCurrency(projectProfits.reduce((s, p) => s + p.revenue, 0))}</td>
-                      <td className="pt-2 text-right text-rose-400">{formatCurrency(projectProfits.reduce((s, p) => s + p.cost, 0))}</td>
-                      <td className="pt-2 text-right text-emerald-400">{formatCurrency(projectProfits.reduce((s, p) => s + p.profit, 0))}</td>
-                      <td className="pt-2 text-right text-cyan-300">60%</td>
-                    </tr>
+                    {(() => {
+                      const totalRev = projectProfits.reduce((s, p) => s + p.revenue, 0);
+                      const totalCost = projectProfits.reduce((s, p) => s + p.cost, 0);
+                      const totalProfit = projectProfits.reduce((s, p) => s + p.profit, 0);
+                      const totalMargin = totalRev > 0 ? `${Math.round((totalProfit / totalRev) * 100)}%` : '0%';
+                      return (
+                        <tr>
+                          <td className="pt-2">Total</td>
+                          <td className="pt-2 text-right">{formatCurrency(totalRev)}</td>
+                          <td className="pt-2 text-right text-rose-400">{formatCurrency(totalCost)}</td>
+                          <td className="pt-2 text-right text-emerald-400">{formatCurrency(totalProfit)}</td>
+                          <td className="pt-2 text-right text-cyan-300">{totalMargin}</td>
+                        </tr>
+                      );
+                    })()}
                   </tfoot>
                 </table>
 
