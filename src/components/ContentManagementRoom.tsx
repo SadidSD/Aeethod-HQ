@@ -76,156 +76,7 @@ interface ContentManagementRoomProps {
 
 // ── Default Seed Posts ────────────────────────────────────────────────────────
 
-const DEFAULT_POSTS: ContentPost[] = [
-  {
-    id: 'post-1',
-    title: 'TCGplayer fees are stealing your profit',
-    caption: 'Why paying 10% in platform fees is slowly draining your TCG store margin...',
-    format: 'reel',
-    pillar: 'platform_pain',
-    formula: 'pas',
-    funnel: 'awareness',
-    status: 'published',
-    hookText: 'TCGplayer just took $10,000 from this store last year.',
-    retainText: "You're paying 8.95% fees plus listing fees, but you don't have to.",
-    rewardText: "Build your own website. DM me 'TCG' to see how.",
-    fullScript: 'If you run a TCG store, stop paying 10% in platform fees. Here is how custom inventory sync saves $10K/year.',
-    hasValue: true,
-    hasVulnerability: true,
-    hasAuthority: true,
-    scheduledDate: new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0],
-  },
-  {
-    id: 'post-2',
-    title: 'Build Your Own Website vs TCGplayer',
-    caption: 'Comparing customer ownership between marketplace sellers and direct store brands.',
-    format: 'reel',
-    pillar: 'solution',
-    formula: 'bab',
-    funnel: 'awareness',
-    status: 'published',
-    hookText: 'Who actually owns your customers?',
-    retainText: 'On TCGplayer, they belong to the marketplace. On your own store, they belong to you.',
-    rewardText: 'DM "OWN" to claim your free website architecture guide.',
-    hasValue: true,
-    hasVulnerability: false,
-    hasAuthority: true,
-    scheduledDate: new Date(Date.now() - 4 * 86400000).toISOString().split('T')[0],
-  },
-  {
-    id: 'post-3',
-    title: 'Before & After: How this TCG store saved $30K',
-    caption: 'Full case study teardown of inventory sync & direct checkout.',
-    format: 'reel',
-    pillar: 'case_study',
-    formula: 'bab',
-    funnel: 'trust',
-    status: 'ready',
-    hookText: 'This single change added $30,000 back to an Ohio card shop.',
-    retainText: 'We migrated their high-value inventory from marketplace-only to automated multi-channel.',
-    rewardText: 'DM "CASE" for the full breakdown.',
-    fullScript: 'Case study time: An Ohio store owner was losing $2,500 every single month to marketplace commission...',
-    hasValue: true,
-    hasVulnerability: true,
-    hasAuthority: true,
-    scheduledDate: new Date(Date.now() + 1 * 86400000).toISOString().split('T')[0],
-  },
-  {
-    id: 'post-4',
-    title: 'Shopify vs Custom Architecture for TCG',
-    caption: 'Why generic Shopify stores break down when handling 20,000 card SKUs.',
-    format: 'carousel',
-    pillar: 'comparison',
-    formula: 'list',
-    funnel: 'education',
-    status: 'editing',
-    hookText: 'Why Shopify fails for trading card stores.',
-    retainText: 'Variant limits, buylist friction, and pricing sync latency cause huge overselling risks.',
-    rewardText: 'Swipe to see the custom stack comparison.',
-    hasValue: true,
-    hasVulnerability: false,
-    hasAuthority: true,
-    scheduledDate: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-  },
-  {
-    id: 'post-5',
-    title: 'Watch AI list 100 cards in 30 seconds',
-    caption: 'Live demo of computer vision scanning and condition grading workflow.',
-    format: 'reel',
-    pillar: 'solution',
-    formula: 'pas',
-    funnel: 'education',
-    status: 'shot',
-    hookText: 'Stop typing card titles manually.',
-    retainText: 'Scanning 100 Pokemon cards with camera AI directly into your live storefront.',
-    rewardText: 'DM "SCAN" to test the tool.',
-    brollNotes: '[0-3s] Quick camera pan across graded slabs\n[4-10s] Mobile phone scanning a card\n[10-20s] Live store inventory instantly updating',
-    hasValue: true,
-    hasVulnerability: false,
-    hasAuthority: true,
-    scheduledDate: new Date(Date.now() + 5 * 86400000).toISOString().split('T')[0],
-  },
-  {
-    id: 'post-6',
-    title: 'PAS: TCG Buylist Automation',
-    caption: 'How to accept card trade-ins online without drowning in manual spreadsheets.',
-    format: 'reel',
-    pillar: 'solution',
-    formula: 'pas',
-    funnel: 'education',
-    status: 'scripted',
-    hookText: 'The manual buylist nightmare ends here.',
-    retainText: 'Store owners spend 15 hours a week manually looking up prices for customer collections.',
-    rewardText: 'Automate trade-in quotes directly on your website.',
-    fullScript: 'Problem: Customers bring boxes of cards and your staff takes 2 hours to price them. Solution: Automatic buylist pricing synced to TCG market value.',
-    hasValue: true,
-    hasVulnerability: true,
-    hasAuthority: true,
-    scheduledDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-  },
-  {
-    id: 'post-7',
-    title: 'Is TCGplayer owning your business?',
-    caption: 'Account suspensions happen without warning. Are you protected?',
-    format: 'reel',
-    pillar: 'platform_pain',
-    formula: 'opinion',
-    funnel: 'awareness',
-    status: 'idea',
-    hookText: 'What happens if your seller account gets locked tomorrow?',
-    hasValue: true,
-    hasVulnerability: true,
-    hasAuthority: false,
-  },
-  {
-    id: 'post-8',
-    title: 'SortSwift vs TCG Sync vs Custom Code',
-    caption: 'Full technical comparison of automation software available in 2026.',
-    format: 'carousel',
-    pillar: 'comparison',
-    formula: 'list',
-    funnel: 'trust',
-    status: 'idea',
-    hookText: 'Which inventory sync tool actually prevents double-selling?',
-    hasValue: true,
-    hasVulnerability: false,
-    hasAuthority: true,
-  },
-  {
-    id: 'post-9',
-    title: 'TCG Pricing Automation: Real Results',
-    caption: 'Dynamic repricing algorithms vs manual pricing updates.',
-    format: 'reel',
-    pillar: 'education',
-    formula: 'list',
-    funnel: 'education',
-    status: 'idea',
-    hookText: 'Never leave card prices outdated during market spikes.',
-    hasValue: true,
-    hasVulnerability: false,
-    hasAuthority: true,
-  },
-];
+const DEFAULT_POSTS: ContentPost[] = [];
 
 // ── 90-Day Plan Topics ────────────────────────────────────────────────────────
 
@@ -285,7 +136,10 @@ export default function ContentManagementRoom({
     const saved = localStorage.getItem('factory_content_posts');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(p => !p.id.startsWith('post-'));
+        }
       } catch (e) {
         // fallback
       }
@@ -310,9 +164,9 @@ export default function ContentManagementRoom({
       } catch (e) {}
     }
     return {
-      engagedTcg: true,
-      repliedComments: true,
-      dmedOwners: true,
+      engagedTcg: false,
+      repliedComments: false,
+      dmedOwners: false,
       watchedReels: false,
     };
   });
@@ -336,6 +190,7 @@ export default function ContentManagementRoom({
           const map = new Map<string, ContentPost>();
           prev.forEach((p) => map.set(p.id, p));
           cloudPosts.forEach((cp: any) => {
+            if (cp.id && cp.id.startsWith('post-')) return; // Ignore legacy mock posts
             if (cp.visual_brief) {
               try {
                 const full = JSON.parse(cp.visual_brief);

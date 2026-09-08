@@ -83,171 +83,7 @@ const getTypeConfig = (type: MeetingType) => MEETING_TYPES.find(t => t.value ===
 
 // ── SEED DATA ──────────────────────────────────────────────────────────────
 
-const INITIAL_MEETINGS: Meeting[] = [
-  // ── Upcoming ──
-  {
-    id: 'meet_1',
-    title: 'RNG Gamez — Final Delivery Review',
-    type: 'checkin',
-    date: '2026-03-15',
-    time: '10:00 AM',
-    duration: 30,
-    location: 'Video Call',
-    attendees: 'Founder, Client (John)',
-    status: 'upcoming',
-    agenda: [
-      { id: 'a1', text: 'Demo live tournament bracket system', checked: false },
-      { id: 'a2', text: 'Walk through card grading scanner accuracy', checked: false },
-      { id: 'a3', text: 'Verify Stripe buylist cashout flow', checked: false },
-      { id: 'a4', text: 'Discuss ongoing maintenance retainer', checked: false },
-    ],
-    notes: '',
-    actionItems: [
-      { id: 'act1', text: 'Send final invoice + warranty brief', assignedTo: 'You', dueDate: 'Mar 16', done: false },
-      { id: 'act2', text: 'Verify SSL cert + DNS propagation', assignedTo: 'Dev', dueDate: 'Mar 16', done: false },
-    ],
-    decisions: [],
-    nextMeetingDate: '',
-    nextMeetingNote: '',
-    createdAt: Date.now() - 100000,
-  },
-  {
-    id: 'meet_2',
-    title: 'Perfume Shop — Design Approval',
-    type: 'design_review',
-    date: '2026-03-15',
-    time: '02:00 PM',
-    duration: 45,
-    location: 'In-Person',
-    attendees: 'Founder, Designer, Client (Sarah)',
-    status: 'upcoming',
-    agenda: [
-      { id: 'a5', text: 'Present dark gold design token palette', checked: false },
-      { id: 'a6', text: 'Review typography pairings (Playfair + Inter)', checked: false },
-      { id: 'a7', text: 'Get sign-off on brand identity kit', checked: false },
-      { id: 'a8', text: 'Discuss Phase 2 WebGL bottle simulator scope', checked: false },
-    ],
-    notes: '',
-    actionItems: [],
-    decisions: [],
-    nextMeetingDate: '',
-    nextMeetingNote: '',
-    createdAt: Date.now() - 80000,
-  },
-  {
-    id: 'meet_3',
-    title: 'DragonCard Vault — Discovery Call',
-    type: 'discovery',
-    date: '2026-03-16',
-    time: '11:30 AM',
-    duration: 30,
-    location: 'Video Call',
-    attendees: 'Founder, Backend Dev, Client (Marcus)',
-    status: 'upcoming',
-    agenda: [
-      { id: 'a9', text: 'Learn about their current POS + eBay setup', checked: false },
-      { id: 'a10', text: 'Understand card pricing pain points', checked: false },
-      { id: 'a11', text: 'Discuss real-time market price sync needs', checked: false },
-      { id: 'a12', text: 'Budget and timeline expectations', checked: false },
-      { id: 'a13', text: 'Who makes the final decision?', checked: false },
-    ],
-    notes: '',
-    actionItems: [],
-    decisions: [],
-    nextMeetingDate: '',
-    nextMeetingNote: '',
-    createdAt: Date.now() - 60000,
-  },
-  // ── Past (completed) ──
-  {
-    id: 'meet_past_1',
-    title: 'Weekly Team Standup',
-    type: 'internal',
-    date: '2026-03-14',
-    time: '09:00 AM',
-    duration: 20,
-    location: 'Video Call',
-    attendees: 'Founder, Frontend Dev, Backend Dev, Designer',
-    status: 'completed',
-    agenda: [
-      { id: 'a14', text: 'Frontend status update', checked: true },
-      { id: 'a15', text: 'Backend status update', checked: true },
-      { id: 'a16', text: 'Design status update', checked: true },
-      { id: 'a17', text: 'Blocker review', checked: true },
-    ],
-    notes: `Frontend:\n- Homepage 90% done\n- Product grid responsive issues on iPad\n\nBackend:\n- API rate limiting deployed\n- Webhook retry queue working\n\nDesign:\n- Moodboard v2 sent to Perfume client\n- Icon set finalized (48 custom icons)`,
-    actionItems: [
-      { id: 'act3', text: 'Fix iPad product grid layout', assignedTo: 'Dev', dueDate: 'Mar 15', done: true },
-      { id: 'act4', text: 'Send icon set to Perfume client for approval', assignedTo: 'Designer', dueDate: 'Mar 15', done: false },
-    ],
-    decisions: [
-      'Prioritize iPad responsive fix before RNG launch',
-      'Delay SaaS dashboard redesign to next sprint',
-    ],
-    nextMeetingDate: 'Mar 21',
-    nextMeetingNote: 'Sprint review + retrospective',
-    createdAt: Date.now() - 200000,
-  },
-  {
-    id: 'meet_past_2',
-    title: 'SaaS Client — Architecture Deep Dive',
-    type: 'checkin',
-    date: '2026-03-12',
-    time: '03:00 PM',
-    duration: 60,
-    location: 'Video Call',
-    attendees: 'Founder, Backend Dev, Client (Alex)',
-    status: 'completed',
-    agenda: [
-      { id: 'a18', text: 'Review Redis cluster caching architecture', checked: true },
-      { id: 'a19', text: 'Benchmark node engine performance', checked: true },
-      { id: 'a20', text: 'Discuss webhook observability gaps', checked: true },
-    ],
-    notes: `Validated Redis cluster caching — 4x latency improvement confirmed.\nNode engine benchmarks: 12k req/sec on staging.\n\nAlex wants real-time step debugger for visual automation canvas.\nWebhook failures currently silent — need alerting pipeline.`,
-    actionItems: [
-      { id: 'act5', text: 'Set up webhook failure alerting via PagerDuty', assignedTo: 'Dev', dueDate: 'Mar 18', done: false },
-      { id: 'act6', text: 'Draft step debugger technical spec', assignedTo: 'You', dueDate: 'Mar 20', done: false },
-    ],
-    decisions: [
-      'Migrate to Redis cluster for production caching',
-      'Step debugger scoped as Phase 2 deliverable',
-      'Webhook alerting is P0 priority',
-    ],
-    nextMeetingDate: 'Mar 19',
-    nextMeetingNote: 'Review webhook alerting implementation',
-    createdAt: Date.now() - 400000,
-  },
-  {
-    id: 'meet_past_3',
-    title: 'RNG Gamez — Buylist Sprint Review',
-    type: 'checkin',
-    date: '2026-03-10',
-    time: '11:00 AM',
-    duration: 30,
-    location: 'Video Call',
-    attendees: 'Founder, Client (John)',
-    status: 'completed',
-    agenda: [
-      { id: 'a21', text: 'Demo buylist pricing engine', checked: true },
-      { id: 'a22', text: 'Review card search performance', checked: true },
-      { id: 'a23', text: 'Discuss tournament bracket feature', checked: true },
-    ],
-    notes: `Client loved the buylist pricing engine.\nAgreed on 70% market price for buylist offers.\nCard search returning results in <200ms — approved.\n\nTournament bracket: Swiss round format confirmed.\nClient wants 3D bracket visualization.`,
-    actionItems: [
-      { id: 'act7', text: 'Implement 70% market price formula', assignedTo: 'Dev', dueDate: 'Mar 12', done: true },
-      { id: 'act8', text: 'Build 3D Swiss round bracket display', assignedTo: 'Dev', dueDate: 'Mar 14', done: true },
-      { id: 'act9', text: 'Send updated pricing breakdown to John', assignedTo: 'You', dueDate: 'Mar 11', done: true },
-    ],
-    decisions: [
-      'Buylist at 70% market price',
-      'Swiss round format for all tournaments',
-      'Skip mobile app — web-first approach',
-    ],
-    nextMeetingDate: 'Mar 15',
-    nextMeetingNote: 'Final delivery review + sign-off',
-    createdAt: Date.now() - 600000,
-  },
-];
+const INITIAL_MEETINGS: Meeting[] = [];
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
 
@@ -279,8 +115,18 @@ export default function MeetingPlanningRoom({ agency, manager, onClose, onRefres
 
   // ── State ──
   const [meetings, setMeetings] = useState<Meeting[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_MEETINGS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(m => !['meet_1', 'meet_2', 'meet_3', 'meet_4', 'meet_past_1', 'meet_past_2', 'meet_past_3', 'past_1', 'past_2'].includes(m.id));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return INITIAL_MEETINGS;
   });
 
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
@@ -307,24 +153,26 @@ export default function MeetingPlanningRoom({ agency, manager, onClose, onRefres
           const map = new Map<string, Meeting>();
           prev.forEach((m) => map.set(m.id, m));
           cloudMeetings.forEach((cm: any) => {
-            map.set(cm.id, {
-              id: cm.id,
-              title: cm.title,
-              type: 'internal',
-              date: cm.date,
-              time: cm.time,
-              duration: cm.duration_min || 45,
-              location: 'In-Person',
-              attendees: 'Founder & Team',
-              status: cm.status || 'scheduled',
-              agenda: (cm.agenda_items as any) || [],
-              notes: cm.meeting_notes || '',
-              actionItems: (cm.action_items as any) || [],
-              decisions: [],
-              nextMeetingDate: '',
-              nextMeetingNote: '',
-              createdAt: cm.created_at ? new Date(cm.created_at).getTime() : Date.now(),
-            });
+            if (!['meet_1', 'meet_2', 'meet_3', 'meet_4', 'meet_past_1', 'meet_past_2', 'meet_past_3', 'past_1', 'past_2'].includes(cm.id)) {
+              map.set(cm.id, {
+                id: cm.id,
+                title: cm.title,
+                type: 'internal',
+                date: cm.date,
+                time: cm.time,
+                duration: cm.duration_min || 45,
+                location: 'In-Person',
+                attendees: 'Founder & Team',
+                status: cm.status || 'scheduled',
+                agenda: (cm.agenda_items as any) || [],
+                notes: cm.meeting_notes || '',
+                actionItems: (cm.action_items as any) || [],
+                decisions: [],
+                nextMeetingDate: '',
+                nextMeetingNote: '',
+                createdAt: cm.created_at ? new Date(cm.created_at).getTime() : Date.now(),
+              });
+            }
           });
           return Array.from(map.values());
         });

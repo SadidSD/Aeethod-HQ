@@ -60,11 +60,11 @@ CREATE POLICY "Agencies can be updated by team" ON public.agencies FOR ALL USING
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.agency_resources (
   agency_id UUID PRIMARY KEY REFERENCES public.agencies(id) ON DELETE CASCADE,
-  revenue NUMERIC(14,2) DEFAULT 42500.00,
-  monthly_recurring NUMERIC(14,2) DEFAULT 12000.00,
+  revenue NUMERIC(14,2) DEFAULT 0.00,
+  monthly_recurring NUMERIC(14,2) DEFAULT 0.00,
   energy INTEGER DEFAULT 160,
-  reputation INTEGER DEFAULT 78,
-  knowledge INTEGER DEFAULT 450,
+  reputation INTEGER DEFAULT 50,
+  knowledge INTEGER DEFAULT 0,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -326,13 +326,18 @@ ON CONFLICT (slug) DO NOTHING;
 INSERT INTO public.agency_resources (agency_id, revenue, monthly_recurring, energy, reputation, knowledge)
 VALUES (
   '00000000-0000-0000-0000-000000000001',
-  42500.00,
-  12000.00,
+  0.00,
+  0.00,
   160,
-  78,
-  450
+  50,
+  0
 )
-ON CONFLICT (agency_id) DO NOTHING;
+ON CONFLICT (agency_id) DO UPDATE SET
+  revenue = EXCLUDED.revenue,
+  monthly_recurring = EXCLUDED.monthly_recurring,
+  energy = EXCLUDED.energy,
+  reputation = EXCLUDED.reputation,
+  knowledge = EXCLUDED.knowledge;
 
 INSERT INTO public.agency_stats (agency_id, total_tasks_completed, total_projects_shipped, total_revenue, hours_logged, streak_current, streak_longest)
 VALUES (
@@ -344,7 +349,13 @@ VALUES (
   1,
   1
 )
-ON CONFLICT (agency_id) DO NOTHING;
+ON CONFLICT (agency_id) DO UPDATE SET
+  total_tasks_completed = EXCLUDED.total_tasks_completed,
+  total_projects_shipped = EXCLUDED.total_projects_shipped,
+  total_revenue = EXCLUDED.total_revenue,
+  hours_logged = EXCLUDED.hours_logged,
+  streak_current = EXCLUDED.streak_current,
+  streak_longest = EXCLUDED.streak_longest;
 
 
 -- ------------------------------------------------------------

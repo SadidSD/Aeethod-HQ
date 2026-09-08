@@ -30,9 +30,9 @@ interface ExpenseItem {
 
 export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabProps) {
   // Financial State values based on System Rules
-  const [cashBalance, setCashBalance] = useState(12000);
-  const [profitPool, setProfitPool] = useState(10000);
-  const [cashReserve, setCashReserve] = useState(8000);
+  const [cashBalance, setCashBalance] = useState(() => agency.resources?.revenue || 0);
+  const [profitPool, setProfitPool] = useState(0);
+  const [cashReserve, setCashReserve] = useState(0);
   const cashReserveTarget = 15000;
 
   const [notification, setNotification] = useState<string | null>(null);
@@ -59,33 +59,32 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
   const annualSalaries = totalMonthlySalaries * 12;
 
   // Invoices
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: 'inv-1', client: 'RNG Gamez', amount: 2000, dueDate: '15 Mar', status: 'paid' },
-    { id: 'inv-2', client: 'Perfume Shop', amount: 2500, dueDate: '20 Mar', status: 'pending' },
-    { id: 'inv-3', client: 'TCG Shop', amount: 4000, dueDate: '25 Mar', status: 'pending' },
-    { id: 'inv-4', client: 'New Lead Enterprise', amount: 5000, dueDate: '01 Apr', status: 'draft' },
-  ]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   const totalReceivables = invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount, 0);
 
-  // Growth Fund (20% of 60,000 = 12,000)
-  const totalRevenue6mo = 60000;
-  const totalGrowthFund = 12000;
+  // Growth Fund
+  const totalRevenue6mo = agency.stats?.totalRevenue || 0;
+  const totalGrowthFund = Math.round(totalRevenue6mo * 0.2);
   const growthAllocations = [
-    { category: 'Marketing & Ads', pct: '40%', amount: 4800, bar: '████████░░░░░░' },
-    { category: 'Tools & Software', pct: '30%', amount: 3600, bar: '██████░░░░░░░░' },
-    { category: 'Training & Skillsets', pct: '20%', amount: 2400, bar: '████░░░░░░░░░░' },
-    { category: 'Operational Experiments', pct: '10%', amount: 1200, bar: '██░░░░░░░░░░░░' },
+    { category: 'Marketing & Ads', pct: '40%', amount: Math.round(totalGrowthFund * 0.4), bar: '████████░░░░░░' },
+    { category: 'Tools & Software', pct: '30%', amount: Math.round(totalGrowthFund * 0.3), bar: '██████░░░░░░░░' },
+    { category: 'Training & Skillsets', pct: '20%', amount: Math.round(totalGrowthFund * 0.2), bar: '████░░░░░░░░░░' },
+    { category: 'Operational Experiments', pct: '10%', amount: Math.round(totalGrowthFund * 0.1), bar: '██░░░░░░░░░░░░' },
   ];
 
   // Project Profitability Breakdown
-  const projectProfits = [
-    { name: 'RNG Gamez', revenue: 10000, cost: 4000, profit: 6000, margin: '60%' },
-    { name: 'Perfume Shop', revenue: 5000, cost: 2500, profit: 2500, margin: '50%' },
-    { name: 'TCG Shop', revenue: 8000, cost: 4000, profit: 4000, margin: '50%' },
-    { name: 'SaaS Dev Suite', revenue: 12000, cost: 6000, profit: 6000, margin: '50%' },
-    { name: 'Content Marketing', revenue: 5000, cost: 3000, profit: 2000, margin: '40%' },
-  ];
+  const projectProfits = agency.projects.map(p => {
+    const cost = Math.round(p.value * 0.4);
+    const profit = p.value - cost;
+    return {
+      name: p.name,
+      revenue: p.value,
+      cost,
+      profit,
+      margin: '60%'
+    };
+  });
 
   // Handlers
   const handlePayPayroll = () => {
@@ -652,42 +651,51 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
               <span className="text-[10px] text-slate-400 font-mono">MARGIN ANALYSIS</span>
             </div>
 
-            <table className="w-full text-left text-xs font-mono">
-              <thead>
-                <tr className="text-slate-500 border-b border-slate-800 text-[10px]">
-                  <th className="pb-1.5">Project</th>
-                  <th className="pb-1.5 text-right">Revenue</th>
-                  <th className="pb-1.5 text-right">Cost</th>
-                  <th className="pb-1.5 text-right">Profit</th>
-                  <th className="pb-1.5 text-right">Margin</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-200">
-                {projectProfits.map((p, i) => (
-                  <tr key={i} className="hover:bg-[#121c2a] transition">
-                    <td className="py-2 font-bold text-slate-100">{p.name}</td>
-                    <td className="py-2 text-right">{formatCurrency(p.revenue)}</td>
-                    <td className="py-2 text-right text-rose-400">{formatCurrency(p.cost)}</td>
-                    <td className="py-2 text-right text-emerald-400 font-bold">{formatCurrency(p.profit)}</td>
-                    <td className="py-2 text-right font-bold text-cyan-300">{p.margin}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="border-t border-slate-800 text-xs font-bold text-slate-100">
-                <tr>
-                  <td className="pt-2">Total</td>
-                  <td className="pt-2 text-right">$40,000</td>
-                  <td className="pt-2 text-right text-rose-400">$19,500</td>
-                  <td className="pt-2 text-right text-emerald-400">$20,500</td>
-                  <td className="pt-2 text-right text-cyan-300">51.25%</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+            {projectProfits.length === 0 ? (
+              <div className="p-5 bg-[#121c2a] border border-slate-800 rounded-lg text-center text-slate-500">
+                <span className="text-xl block mb-1">📊</span>
+                <span>No client projects in financial ledger yet.</span>
+              </div>
+            ) : (
+              <>
+                <table className="w-full text-left text-xs font-mono">
+                  <thead>
+                    <tr className="text-slate-500 border-b border-slate-800 text-[10px]">
+                      <th className="pb-1.5">Project</th>
+                      <th className="pb-1.5 text-right">Revenue</th>
+                      <th className="pb-1.5 text-right">Cost</th>
+                      <th className="pb-1.5 text-right">Profit</th>
+                      <th className="pb-1.5 text-right">Margin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-slate-200">
+                    {projectProfits.map((p, i) => (
+                      <tr key={i} className="hover:bg-[#121c2a] transition">
+                        <td className="py-2 font-bold text-slate-100">{p.name}</td>
+                        <td className="py-2 text-right">{formatCurrency(p.revenue)}</td>
+                        <td className="py-2 text-right text-rose-400">{formatCurrency(p.cost)}</td>
+                        <td className="py-2 text-right text-emerald-400 font-bold">{formatCurrency(p.profit)}</td>
+                        <td className="py-2 text-right font-bold text-cyan-300">{p.margin}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t border-slate-800 text-xs font-bold text-slate-100">
+                    <tr>
+                      <td className="pt-2">Total</td>
+                      <td className="pt-2 text-right">{formatCurrency(projectProfits.reduce((s, p) => s + p.revenue, 0))}</td>
+                      <td className="pt-2 text-right text-rose-400">{formatCurrency(projectProfits.reduce((s, p) => s + p.cost, 0))}</td>
+                      <td className="pt-2 text-right text-emerald-400">{formatCurrency(projectProfits.reduce((s, p) => s + p.profit, 0))}</td>
+                      <td className="pt-2 text-right text-cyan-300">60%</td>
+                    </tr>
+                  </tfoot>
+                </table>
 
-          <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono">
-            <span className="text-emerald-400">🏆 Most Profitable: RNG Gamez ($6,000 / 60%)</span>
-            <span className="text-amber-400">⚠️ Least: Content ($2,000 / 40%)</span>
+                <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-emerald-400">🏆 Most Profitable: {projectProfits[0]?.name} ({formatCurrency(projectProfits[0]?.profit)})</span>
+                  <span className="text-cyan-400">Projects Tracked: {projectProfits.length}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -702,40 +710,47 @@ export default function FinanceTab({ agency, manager, onRefresh }: FinanceTabPro
             </div>
 
             <div className="space-y-2 text-xs font-mono">
-              {invoices.map(inv => (
-                <div key={inv.id} className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-slate-200">{inv.client}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">Due {inv.dueDate}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-bold text-slate-100">{formatCurrency(inv.amount)}</span>
-                    {inv.status === 'paid' ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">
-                        ✅ Paid
-                      </span>
-                    ) : inv.status === 'pending' ? (
-                      <button 
-                        onClick={() => handleCollectInvoice(inv.id, inv.client, inv.amount)}
-                        className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/40 hover:bg-emerald-900 hover:text-emerald-200 transition"
-                      >
-                        ⏳ Collect Now
-                      </button>
-                    ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                        📝 Draft
-                      </span>
-                    )}
-                  </div>
+              {invoices.length === 0 ? (
+                <div className="p-5 bg-[#121c2a] border border-slate-800 rounded-lg text-center text-slate-500">
+                  <span className="text-xl block mb-1">💳</span>
+                  <span>No client invoices issued yet.</span>
                 </div>
-              ))}
+              ) : (
+                invoices.map(inv => (
+                  <div key={inv.id} className="p-2 bg-[#121c2a] rounded border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-200">{inv.client}</span>
+                      <span className="text-[10px] text-slate-500 ml-2">Due {inv.dueDate}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-bold text-slate-100">{formatCurrency(inv.amount)}</span>
+                      {inv.status === 'paid' ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/40">
+                          ✅ Paid
+                        </span>
+                      ) : inv.status === 'pending' ? (
+                        <button 
+                          onClick={() => handleCollectInvoice(inv.id, inv.client, inv.amount)}
+                          className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/40 hover:bg-emerald-900 hover:text-emerald-200 transition"
+                        >
+                          ⏳ Collect Now
+                        </button>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                          📝 Draft
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
             <div>
               <span className="text-slate-400 block text-[10px]">Total Receivable: <strong className="text-cyan-300">{formatCurrency(totalReceivables)}</strong></span>
-              <span className="text-amber-400 block text-[10px]">🟡 2 invoices pending collection</span>
+              <span className="text-amber-400 block text-[10px]">🟡 {invoices.filter(i => i.status === 'pending').length} invoices pending collection</span>
             </div>
             <button 
               onClick={() => showToast('🧾 New client invoice created!')}

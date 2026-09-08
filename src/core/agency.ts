@@ -22,6 +22,24 @@ import {
   updateTaskStatusCloud
 } from '../services/dbService';
 
+// Clean slate storage migration check
+const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v2';
+if (typeof window !== 'undefined') {
+  try {
+    if (localStorage.getItem('aeethod_clean_version') !== STORAGE_CLEAN_VERSION) {
+      localStorage.removeItem('aeethod_agency');
+      localStorage.removeItem('aeethod_meeting_board_v3');
+      localStorage.removeItem('aeethod_meeting_agenda');
+      localStorage.removeItem('factory_content_posts');
+      localStorage.removeItem('factory_content_engagement');
+      localStorage.removeItem('aeethod_research_entries');
+      localStorage.setItem('aeethod_clean_version', STORAGE_CLEAN_VERSION);
+    }
+  } catch (e) {
+    console.warn('Storage reset check failed:', e);
+  }
+}
+
 export class AgencyManager {
   state: AgencyState;
   private cloudSyncTimer: any = null;
@@ -103,58 +121,62 @@ export class AgencyManager {
     try {
       // 1. Try relational tables first
       const relData = await fetchAgencyData('aeethod-hq');
-      if (relData && relData.projects.length > 0) {
+      if (relData) {
         if (relData.resources) {
-          this.state.resources.revenue = Number(relData.resources.revenue) || this.state.resources.revenue;
-          this.state.resources.monthlyRecurring = Number(relData.resources.monthly_recurring) || this.state.resources.monthlyRecurring;
-          this.state.resources.energy = relData.resources.energy ?? this.state.resources.energy;
-          this.state.resources.reputation = relData.resources.reputation ?? this.state.resources.reputation;
-          this.state.resources.knowledge = relData.resources.knowledge ?? this.state.resources.knowledge;
+          this.state.resources.revenue = Number(relData.resources.revenue) || 0;
+          this.state.resources.monthlyRecurring = Number(relData.resources.monthly_recurring) || 0;
+          this.state.resources.energy = relData.resources.energy ?? 160;
+          this.state.resources.reputation = relData.resources.reputation ?? 50;
+          this.state.resources.knowledge = relData.resources.knowledge ?? 0;
         }
         if (relData.stats) {
-          this.state.stats.totalTasksCompleted = relData.stats.total_tasks_completed ?? this.state.stats.totalTasksCompleted;
-          this.state.stats.totalProjectsShipped = relData.stats.total_projects_shipped ?? this.state.stats.totalProjectsShipped;
-          this.state.stats.totalRevenue = Number(relData.stats.total_revenue) || this.state.stats.totalRevenue;
-          this.state.stats.hoursLogged = Number(relData.stats.hours_logged) || this.state.stats.hoursLogged;
-          this.state.streaks.current = relData.stats.streak_current ?? this.state.streaks.current;
-          this.state.streaks.longest = relData.stats.streak_longest ?? this.state.streaks.longest;
+          this.state.stats.totalTasksCompleted = relData.stats.total_tasks_completed ?? 0;
+          this.state.stats.totalProjectsShipped = relData.stats.total_projects_shipped ?? 0;
+          this.state.stats.totalRevenue = Number(relData.stats.total_revenue) || 0;
+          this.state.stats.hoursLogged = Number(relData.stats.hours_logged) || 0;
+          this.state.streaks.current = relData.stats.streak_current ?? 1;
+          this.state.streaks.longest = relData.stats.streak_longest ?? 1;
         }
-        if (relData.projects.length > 0) {
-          this.state.projects = relData.projects.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            clientName: p.client_name,
-            industry: p.industry,
-            package: p.package,
-            value: Number(p.value),
-            phase: p.phase,
-            startDate: p.start_date,
-            deadline: p.deadline || '',
-            completedDate: p.completed_date,
-            health: p.health,
-            taskIds: this.state.tasks.filter(t => t.projectId === p.id).map(t => t.id),
-            notes: p.notes || '',
-            satisfaction: p.satisfaction || 95,
-          }));
+        if (Array.isArray(relData.projects)) {
+          this.state.projects = relData.projects
+            .filter((p: any) => p.id !== 'proj_cardvault' && p.id !== 'proj_saas' && p.id !== 'proj_rng' && p.id !== 'proj_perfume')
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              clientName: p.client_name,
+              industry: p.industry,
+              package: p.package,
+              value: Number(p.value),
+              phase: p.phase,
+              startDate: p.start_date,
+              deadline: p.deadline || '',
+              completedDate: p.completed_date,
+              health: p.health,
+              taskIds: (relData.tasks || []).filter((t: any) => t.project_id === p.id).map((t: any) => t.id),
+              notes: p.notes || '',
+              satisfaction: p.satisfaction || 95,
+            }));
         }
-        if (relData.tasks.length > 0) {
-          this.state.tasks = relData.tasks.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            description: t.description || '',
-            projectId: t.project_id,
-            assignedTo: t.assigned_to,
-            phase: t.phase,
-            status: t.status,
-            priority: t.priority,
-            cognitiveLoad: t.cognitive_load || 'medium',
-            xpReward: t.xp_reward || 90,
-            estimatedHours: Number(t.estimated_hours) || 4,
-            actualHours: Number(t.actual_hours) || 0,
-            createdAt: t.created_at,
-            completedAt: t.completed_at,
-            deadline: t.deadline,
-          }));
+        if (Array.isArray(relData.tasks)) {
+          this.state.tasks = relData.tasks
+            .filter((t: any) => !t.id.startsWith('task_cv_') && !t.id.startsWith('task_saas_') && !t.id.startsWith('task_rng_') && !t.id.startsWith('task_pf_'))
+            .map((t: any) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description || '',
+              projectId: t.project_id,
+              assignedTo: t.assigned_to,
+              phase: t.phase,
+              status: t.status,
+              priority: t.priority,
+              cognitiveLoad: t.cognitive_load || 'medium',
+              xpReward: t.xp_reward || 90,
+              estimatedHours: Number(t.estimated_hours) || 4,
+              actualHours: Number(t.actual_hours) || 0,
+              createdAt: t.created_at,
+              completedAt: t.completed_at,
+              deadline: t.deadline,
+            }));
         }
 
         localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
@@ -172,6 +194,11 @@ export class AgencyManager {
 
       if (!error && data && data.save_data) {
         const cloudState = data.save_data as AgencyState;
+        if (cloudState.projects && cloudState.projects.some((p: any) => p.id === 'proj_cardvault')) {
+          // Monolithic save had legacy mock data, overwrite with fresh state
+          this.saveToCloud();
+          return true;
+        }
         if (cloudState.projects && cloudState.tasks) {
           this.state = cloudState;
           localStorage.setItem('aeethod_agency', JSON.stringify(cloudState));
@@ -242,7 +269,12 @@ export class AgencyManager {
     if (data) {
       try {
         const loaded = JSON.parse(data);
-        if (!loaded.projects || !loaded.projects.find((p: any) => p.id === 'proj_cardvault') || !loaded.team?.find((m: any) => m.id === 'backend')) {
+        if (!loaded || !loaded.team || !Array.isArray(loaded.team) || !loaded.team.find((m: any) => m.id === 'backend')) {
+          this.state = this.createSeedState();
+          this.save();
+          return true;
+        }
+        if (loaded.projects && loaded.projects.some((p: any) => p.id === 'proj_cardvault')) {
           this.state = this.createSeedState();
           this.save();
           return true;
@@ -696,483 +728,62 @@ export class AgencyManager {
 
   createSeedState(): AgencyState {
     const seedAchievements: Achievement[] = [
-      { id: 'first_launch', title: 'First Launch', description: 'Ship your first project', category: 'launches' as AchievementCategory, target: 1, current: 2, unlocked: true, unlockedAt: new Date().toISOString(), icon: '🚀' },
-      { id: 'five_launches', title: 'Rising Star', description: 'Ship 5 projects', category: 'launches' as AchievementCategory, target: 5, current: 2, unlocked: false, unlockedAt: null, icon: '⭐' },
-      { id: 'ten_launches', title: 'Veteran', description: 'Ship 10 projects', category: 'launches' as AchievementCategory, target: 10, current: 2, unlocked: false, unlockedAt: null, icon: '🏆' },
-      { id: 'first_5k', title: 'First $5k', description: 'Reach $5,000 in total revenue', category: 'revenue' as AchievementCategory, target: 5000, current: 15000, unlocked: false, unlockedAt: null, icon: '💰' },
+      { id: 'first_launch', title: 'First Launch', description: 'Ship your first project', category: 'launches' as AchievementCategory, target: 1, current: 0, unlocked: false, unlockedAt: null, icon: '🚀' },
+      { id: 'five_launches', title: 'Rising Star', description: 'Ship 5 projects', category: 'launches' as AchievementCategory, target: 5, current: 0, unlocked: false, unlockedAt: null, icon: '⭐' },
+      { id: 'ten_launches', title: 'Veteran', description: 'Ship 10 projects', category: 'launches' as AchievementCategory, target: 10, current: 0, unlocked: false, unlockedAt: null, icon: '🏆' },
+      { id: 'first_5k', title: 'First $5k', description: 'Reach $5,000 in total revenue', category: 'revenue' as AchievementCategory, target: 5000, current: 0, unlocked: false, unlockedAt: null, icon: '💰' },
       { id: 'five_figure_month', title: 'Five Figure Month', description: 'Earn $10,000 in a single month', category: 'revenue' as AchievementCategory, target: 10000, current: 0, unlocked: false, unlockedAt: null, icon: '📈' },
-      { id: 'six_figure_year', title: 'Six Figure Year', description: 'Earn $100,000 in total revenue', category: 'revenue' as AchievementCategory, target: 100000, current: 15000, unlocked: false, unlockedAt: null, icon: '💼' },
+      { id: 'six_figure_year', title: 'Six Figure Year', description: 'Earn $100,000 in total revenue', category: 'revenue' as AchievementCategory, target: 100000, current: 0, unlocked: false, unlockedAt: null, icon: '💼' },
       { id: 'task_machine', title: 'Task Machine', description: 'Complete 100 tasks', category: 'speed' as AchievementCategory, target: 100, current: 0, unlocked: false, unlockedAt: null, icon: '⚙️' },
       { id: 'task_500', title: 'Productivity Master', description: 'Complete 500 tasks', category: 'speed' as AchievementCategory, target: 500, current: 0, unlocked: false, unlockedAt: null, icon: '⚡' },
       { id: 'week_streak', title: 'Consistent', description: 'Maintain a 7-day streak', category: 'streaks' as AchievementCategory, target: 7, current: 0, unlocked: false, unlockedAt: null, icon: '🔥' },
       { id: 'month_streak', title: 'Unstoppable', description: 'Maintain a 30-day streak', category: 'streaks' as AchievementCategory, target: 30, current: 0, unlocked: false, unlockedAt: null, icon: '🌋' },
-      { id: 'team_of_5', title: 'Growing Agency', description: 'Hire 5 team members', category: 'growth' as AchievementCategory, target: 5, current: 3, unlocked: false, unlockedAt: null, icon: '👥' },
+      { id: 'team_of_5', title: 'Growing Agency', description: 'Hire 5 team members', category: 'growth' as AchievementCategory, target: 5, current: 4, unlocked: false, unlockedAt: null, icon: '👥' },
       { id: 'perfect_score', title: 'Perfect Score', description: 'Get a 100% satisfaction rating on a project', category: 'quality' as AchievementCategory, target: 1, current: 0, unlocked: false, unlockedAt: null, icon: '💎' }
     ];
-
-    const demoProjectId = 'proj_cardvault';
-    const now = Date.now();
 
     return {
       savedAt: new Date().toISOString(),
       agency: {
-        name: 'AEETHOD',
-        level: 2,
-        xp: 250,
-        totalXP: 750,
-        founded: '2024',
+        name: 'Aeethod HQ',
+        level: 1,
+        xp: 0,
+        totalXP: 0,
+        founded: '2026',
         motto: 'We build systems, not websites.'
       },
       resources: {
-        revenue: 15000,
-        monthlyRecurring: 1200,
-        energy: 120,
-        reputation: 78,
-        knowledge: 55
+        revenue: 0,
+        monthlyRecurring: 0,
+        energy: 160,
+        reputation: 50,
+        knowledge: 0
       },
       team: [
-        { id: 'founder', name: 'Founder (CEO)', role: 'Project Architect & Executive Lead', room: 'management', xp: 450, level: 2, status: 'working', skills: ['Architecture', 'Strategy', 'Client Relations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 12 },
-        { id: 'designer', name: 'Designer (Creative Lead)', role: 'UI/UX & Visual Design', room: 'design', xp: 250, level: 1, status: 'working', skills: ['UI/UX', 'Branding', 'Figma', 'Design Systems'], currentTaskId: 'task_demo_design', capacityHoursPerWeek: 40, assignedHours: 24 },
-        { id: 'frontend', name: 'Frontend Dev (Hello Kitty)', role: 'Frontend & UI/UX Engineer', room: 'dev', xp: 220, level: 1, status: 'blocked', skills: ['React', 'Next.js', 'TypeScript', 'Tailwind', 'Animations'], currentTaskId: 'task_demo_dev', capacityHoursPerWeek: 40, assignedHours: 28 },
-        { id: 'backend', name: 'Backend Dev (Spider-Man)', role: 'Backend & Systems Architect', room: 'dev', xp: 280, level: 1, status: 'working', skills: ['Node.js', 'PostgreSQL', 'Redis', 'GraphQL', 'APIs'], currentTaskId: 'task_demo_backend', capacityHoursPerWeek: 40, assignedHours: 24 }
+        { id: 'founder', name: 'Founder (CEO)', role: 'Project Architect & Executive Lead', room: 'management', xp: 0, level: 1, status: 'idle', skills: ['Architecture', 'Strategy', 'Client Relations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+        { id: 'designer', name: 'Designer (Creative Lead)', role: 'UI/UX & Visual Design', room: 'design', xp: 0, level: 1, status: 'idle', skills: ['UI/UX', 'Branding', 'Figma', 'Design Systems'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+        { id: 'frontend', name: 'Frontend Dev (Hello Kitty)', role: 'Frontend & UI/UX Engineer', room: 'dev', xp: 0, level: 1, status: 'idle', skills: ['React', 'Next.js', 'TypeScript', 'Tailwind', 'Animations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+        { id: 'backend', name: 'Backend Dev (Spider-Man)', role: 'Backend & Systems Architect', room: 'dev', xp: 0, level: 1, status: 'idle', skills: ['Node.js', 'PostgreSQL', 'Redis', 'GraphQL', 'APIs'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 }
       ],
-      projects: [
-        {
-          id: demoProjectId,
-          clientName: 'CardVault Collectibles (US)',
-          name: 'CardVault AI Platform',
-          package: 'enterprise',
-          value: 12000,
-          phase: 'build',
-          industry: 'TCG & AI',
-          satisfaction: 92,
-          completedDate: null,
-          taskIds: [
-            'task_cv_1', 'task_cv_2', 'task_cv_3', 'task_cv_4', 'task_cv_5',
-            'task_cv_6', 'task_cv_7', 'task_cv_8', 'task_cv_9', 'task_cv_10'
-          ],
-          startDate: new Date(now - 14 * 86400000).toISOString(),
-          deadline: new Date(now + 16 * 86400000).toISOString(),
-          health: 'green',
-          notes: 'Enterprise TCG e-commerce with AI card pricing engine, inventory predictor, and real-time buylist.'
-        } as Project,
-        {
-          id: 'proj_saas',
-          clientName: 'Nexus Automations Inc',
-          name: 'SaaS Workflow Automation OS',
-          package: 'enterprise',
-          value: 18000,
-          phase: 'architecture',
-          industry: 'Enterprise SaaS',
-          satisfaction: 95,
-          completedDate: null,
-          taskIds: ['task_saas_1', 'task_saas_2', 'task_saas_3', 'task_saas_4', 'task_saas_5'],
-          startDate: new Date(now - 7 * 86400000).toISOString(),
-          deadline: new Date(now + 35 * 86400000).toISOString(),
-          health: 'green',
-          notes: 'Low-code workflow builder with DAG execution graph and realtime webhooks.'
-        } as Project,
-        {
-          id: 'proj_rng',
-          clientName: 'RNG Gamez Studio',
-          name: 'RNG Gamez TCG Shop',
-          package: 'enterprise',
-          value: 10000,
-          phase: 'completed',
-          industry: 'Gaming & TCG',
-          satisfaction: 98,
-          completedDate: new Date(now - 20 * 86400000).toISOString(),
-          taskIds: ['task_rng_1', 'task_rng_2', 'task_rng_3', 'task_rng_4'],
-          startDate: '2024-06-01',
-          deadline: '2024-08-01',
-          health: 'green',
-          notes: 'TCG e-commerce platform with live tournament buylist and automated card grading.'
-        } as Project,
-        {
-          id: 'proj_perfume',
-          clientName: 'Atelier Parfums',
-          name: 'Luxury Perfume E-Commerce',
-          package: 'professional',
-          value: 5000,
-          phase: 'completed',
-          industry: 'Luxury Beauty',
-          satisfaction: 96,
-          completedDate: new Date(now - 45 * 86400000).toISOString(),
-          taskIds: ['task_pf_1', 'task_pf_2', 'task_pf_3', 'task_pf_4', 'task_pf_5', 'task_pf_6'],
-          startDate: '2024-09-01',
-          deadline: '2024-11-01',
-          health: 'green',
-          notes: 'Custom sensory quiz, 3D bottle configurator, and dynamic fragrance notes.'
-        } as Project
-      ],
-      tasks: [
-        // --- CardVault AI Platform Tasks ---
-        {
-          id: 'task_cv_1',
-          title: 'Technical Architecture & Card Sync Audit',
-          description: 'Define database relations, indexing strategies, and external API rate limit constraints.',
-          projectId: demoProjectId,
-          assignedTo: 'founder',
-          phase: 'discovery',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 8,
-          actualHours: 8,
-          xpReward: 150,
-          createdAt: new Date(now - 14 * 86400000).toISOString(),
-          completedAt: new Date(now - 11 * 86400000).toISOString(),
-        },
-        {
-          id: 'task_cv_2',
-          title: 'TCG Card Market UI/UX Wireframes & Filter Specs',
-          description: 'Figma high-fidelity prototypes for card condition toggles, foil badges, and price chart popups.',
-          projectId: demoProjectId,
-          assignedTo: 'designer',
-          phase: 'design',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'medium',
-          estimatedHours: 6,
-          actualHours: 6,
-          xpReward: 100,
-          createdAt: new Date(now - 12 * 86400000).toISOString(),
-          completedAt: new Date(now - 9 * 86400000).toISOString(),
-        },
-        {
-          id: 'task_cv_3',
-          title: 'PostgreSQL Schema & Buylist Engine API',
-          description: 'TimescaleDB tables for price history, B-Tree indexes on card rarity and set numbers.',
-          projectId: demoProjectId,
-          assignedTo: 'backend',
-          phase: 'development',
-          status: 'done',
-          priority: 'urgent',
-          cognitiveLoad: 'deep',
-          estimatedHours: 10,
-          actualHours: 9,
-          xpReward: 130,
-          createdAt: new Date(now - 9 * 86400000).toISOString(),
-          completedAt: new Date(now - 5 * 86400000).toISOString(),
-        },
-        {
-          id: 'task_cv_4',
-          title: 'React Realtime Buylist Table & Instant Search',
-          description: 'Virtualized table component handling 50k+ cards with debounced filter and live WebSocket price updates.',
-          projectId: demoProjectId,
-          assignedTo: 'frontend',
-          phase: 'development',
-          status: 'active',
-          priority: 'urgent',
-          cognitiveLoad: 'deep',
-          estimatedHours: 8,
-          actualHours: 4,
-          xpReward: 120,
-          createdAt: new Date(now - 6 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 2 * 86400000).toISOString()
-        },
-        {
-          id: 'task_cv_5',
-          title: 'Redis Buylist Price Sync Worker & Queue',
-          description: 'BullMQ worker checking live TCGPlayer and eBay sold listings every 60 seconds.',
-          projectId: demoProjectId,
-          assignedTo: 'backend',
-          phase: 'development',
-          status: 'active',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 6,
-          actualHours: 3,
-          xpReward: 110,
-          createdAt: new Date(now - 5 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 3 * 86400000).toISOString()
-        },
-        {
-          id: 'task_cv_6',
-          title: 'Stripe Checkout & Escrow Buylist Payouts',
-          description: 'Two-sided payment workflow allowing customers to sell cards and receive instant ACH deposits.',
-          projectId: demoProjectId,
-          assignedTo: 'backend',
-          phase: 'development',
-          status: 'queued',
-          priority: 'medium',
-          cognitiveLoad: 'medium',
-          estimatedHours: 6,
-          actualHours: 0,
-          xpReward: 95,
-          createdAt: new Date(now - 4 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 6 * 86400000).toISOString()
-        },
-        {
-          id: 'task_cv_7',
-          title: 'Mobile Responsive Viewport & Touch Gestures',
-          description: 'Swipe-to-add gestures on card rows, drawer navigation, and camera barcode scanner.',
-          projectId: demoProjectId,
-          assignedTo: 'frontend',
-          phase: 'development',
-          status: 'queued',
-          priority: 'medium',
-          cognitiveLoad: 'medium',
-          estimatedHours: 5,
-          actualHours: 0,
-          xpReward: 80,
-          createdAt: new Date(now - 3 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 8 * 86400000).toISOString()
-        },
-        {
-          id: 'task_cv_8',
-          title: 'End-to-End Stress Test with 5,000 Concurrent Buylists',
-          description: 'k6 load test simulating massive release day booster box drops without dropping database connections.',
-          projectId: demoProjectId,
-          assignedTo: 'backend',
-          phase: 'testing',
-          status: 'queued',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 6,
-          actualHours: 0,
-          xpReward: 110,
-          createdAt: new Date(now - 2 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 12 * 86400000).toISOString()
-        },
-
-        // --- SaaS Automation OS Tasks ---
-        {
-          id: 'task_saas_1',
-          title: 'Enterprise Multi-Tenant Security & RBAC Spec',
-          description: 'JWT validation, organization-scoped tables, and row-level security (RLS) policies.',
-          projectId: 'proj_saas',
-          assignedTo: 'founder',
-          phase: 'discovery',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 8,
-          actualHours: 8,
-          xpReward: 160,
-          createdAt: new Date(now - 7 * 86400000).toISOString(),
-          completedAt: new Date(now - 4 * 86400000).toISOString(),
-        },
-        {
-          id: 'task_saas_2',
-          title: 'Workflow Canvas Drag-and-Drop Node Design Tokens',
-          description: 'Visual system for node connectors, execution badges, error states, and live log viewports.',
-          projectId: 'proj_saas',
-          assignedTo: 'designer',
-          phase: 'design',
-          status: 'active',
-          priority: 'urgent',
-          cognitiveLoad: 'deep',
-          estimatedHours: 8,
-          actualHours: 4,
-          xpReward: 120,
-          createdAt: new Date(now - 4 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 3 * 86400000).toISOString()
-        },
-        {
-          id: 'task_saas_3',
-          title: 'DAG Execution Engine & Node Topology Resolver',
-          description: 'Topological sort algorithm to execute asynchronous steps with fallback and retry strategies.',
-          projectId: 'proj_saas',
-          assignedTo: 'backend',
-          phase: 'development',
-          status: 'active',
-          priority: 'urgent',
-          cognitiveLoad: 'deep',
-          estimatedHours: 10,
-          actualHours: 3,
-          xpReward: 140,
-          createdAt: new Date(now - 3 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 5 * 86400000).toISOString()
-        },
-        {
-          id: 'task_saas_4',
-          title: 'React Flow Canvas Minimap & Zoom Controls',
-          description: 'Infinite canvas rendering with hardware-accelerated pan, zoom, and multi-node selection box.',
-          projectId: 'proj_saas',
-          assignedTo: 'frontend',
-          phase: 'development',
-          status: 'queued',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 8,
-          actualHours: 0,
-          xpReward: 110,
-          createdAt: new Date(now - 2 * 86400000).toISOString(),
-          completedAt: null,
-          deadline: new Date(now + 7 * 86400000).toISOString()
-        },
-
-        // --- RNG Gamez Tasks (Completed) ---
-        {
-          id: 'task_rng_1',
-          title: 'Tournament Registration & Live Bracket Sync',
-          description: 'Realtime WebSocket match pairing and Swiss round bracket calculator.',
-          projectId: 'proj_rng',
-          assignedTo: 'frontend',
-          phase: 'launch',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 12,
-          actualHours: 12,
-          xpReward: 180,
-          createdAt: '2024-07-10T10:00:00Z',
-          completedAt: '2024-07-28T16:00:00Z',
-        },
-        {
-          id: 'task_rng_2',
-          title: 'Automated Card Grading & High-Res Scanner Upload',
-          description: 'Image processing pipeline for surface detection, centering, and corner grade analysis.',
-          projectId: 'proj_rng',
-          assignedTo: 'backend',
-          phase: 'launch',
-          status: 'done',
-          priority: 'urgent',
-          cognitiveLoad: 'deep',
-          estimatedHours: 16,
-          actualHours: 16,
-          xpReward: 220,
-          createdAt: '2024-07-01T10:00:00Z',
-          completedAt: '2024-07-24T18:00:00Z',
-        },
-
-        // --- Luxury Perfume Studio Tasks (Completed) ---
-        {
-          id: 'task_pf_1',
-          title: '3D Bottle Glass Shader & Custom Monogram Engraving',
-          description: 'WebGL shader with refractions, liquid density physics, and dynamic gold foil initials.',
-          projectId: 'proj_perfume',
-          assignedTo: 'designer',
-          phase: 'launch',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 14,
-          actualHours: 14,
-          xpReward: 160,
-          createdAt: '2024-10-01T10:00:00Z',
-          completedAt: '2024-10-25T14:00:00Z',
-        },
-        {
-          id: 'task_pf_2',
-          title: 'Interactive Fragrance Quiz & Scent Note Matching Engine',
-          description: 'Multi-step questionnaire generating customized top, heart, and base note fragrance profiles.',
-          projectId: 'proj_perfume',
-          assignedTo: 'frontend',
-          phase: 'development',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 12,
-          actualHours: 12,
-          xpReward: 150,
-          createdAt: '2024-10-05T10:00:00Z',
-          completedAt: '2024-10-20T16:00:00Z',
-        },
-        {
-          id: 'task_pf_3',
-          title: 'Global Multi-Currency Checkout & Shopify Inventory Sync',
-          description: 'Webhook pipeline syncing stock levels across EU/US warehouses and processing Stripe 3DS payments.',
-          projectId: 'proj_perfume',
-          assignedTo: 'backend',
-          phase: 'development',
-          status: 'done',
-          priority: 'urgent',
-          cognitiveLoad: 'deep',
-          estimatedHours: 16,
-          actualHours: 15,
-          xpReward: 180,
-          createdAt: '2024-10-08T10:00:00Z',
-          completedAt: '2024-10-22T18:00:00Z',
-        },
-        {
-          id: 'task_pf_4',
-          title: 'Luxury Editorial Typography & Dark Gold Design Tokens',
-          description: 'Design system components, variant tokens, and responsive mobile micro-animations in Figma.',
-          projectId: 'proj_perfume',
-          assignedTo: 'designer',
-          phase: 'design',
-          status: 'done',
-          priority: 'medium',
-          cognitiveLoad: 'medium',
-          estimatedHours: 8,
-          actualHours: 8,
-          xpReward: 110,
-          createdAt: '2024-09-15T10:00:00Z',
-          completedAt: '2024-10-02T12:00:00Z',
-        },
-        {
-          id: 'task_pf_5',
-          title: 'WebGL Liquid Particle Simulation & Touch Gestures',
-          description: 'Three.js particle system with gyro sensors for mobile and cursor fluid interaction on desktop.',
-          projectId: 'proj_perfume',
-          assignedTo: 'frontend',
-          phase: 'development',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'deep',
-          estimatedHours: 10,
-          actualHours: 10,
-          xpReward: 130,
-          createdAt: '2024-10-12T10:00:00Z',
-          completedAt: '2024-10-24T15:00:00Z',
-        },
-        {
-          id: 'task_pf_6',
-          title: 'Automated Order Fulfillment & DHL Tracking API Integration',
-          description: 'Background cron job generating customs manifests, shipping labels, and real-time SMS tracking updates.',
-          projectId: 'proj_perfume',
-          assignedTo: 'backend',
-          phase: 'launch',
-          status: 'done',
-          priority: 'high',
-          cognitiveLoad: 'medium',
-          estimatedHours: 10,
-          actualHours: 9,
-          xpReward: 140,
-          createdAt: '2024-10-18T10:00:00Z',
-          completedAt: '2024-10-26T17:00:00Z',
-        }
-      ],
-      leads: [
-        {
-          id: 'lead_demo_1',
-          name: 'Marcus Vance',
-          company: 'DragonCard Vault (Texas)',
-          industry: 'TCG',
-          source: 'website',
-          packageInterest: 'enterprise',
-          estimatedValue: 12000,
-          status: 'new',
-          notes: 'Wants full custom AI buylist sync for 100k+ Magic cards.',
-          createdAt: new Date(now - 86400000).toISOString(),
-          lastContact: new Date(now - 86400000).toISOString()
-        }
-      ],
+      projects: [],
+      tasks: [],
+      leads: [],
       achievements: seedAchievements,
       quests: [
-        { id: 'epic_1', title: 'Launch Next Client Project', description: 'Deliver a brand new AI-powered e-commerce client system.', type: 'epic', target: 3, progress: 2, xpReward: 500, completed: false, deadline: new Date(Date.now() + 30 * 86400000).toISOString(), completedAt: null },
-        { id: 'epic_2', title: 'Reach $50k Agency Milestone', description: 'Grow total agency revenue to $50,000.', type: 'epic', target: 50000, progress: 15000, xpReward: 1000, completed: false, deadline: new Date(Date.now() + 90 * 86400000).toISOString(), completedAt: null },
-        { id: 'epic_3', title: 'Expand Core Team', description: 'Scale the agency workforce to 5 full-time specialists.', type: 'epic', target: 5, progress: 3, xpReward: 600, completed: false, deadline: new Date(Date.now() + 60 * 86400000).toISOString(), completedAt: null }
+        { id: 'epic_1', title: 'Launch First Client Project', description: 'Close, build, and deliver your first client system.', type: 'epic', target: 1, progress: 0, xpReward: 500, completed: false, deadline: new Date(Date.now() + 30 * 86400000).toISOString(), completedAt: null },
+        { id: 'epic_2', title: 'Reach $10k Agency Milestone', description: 'Grow total agency revenue to $10,000.', type: 'epic', target: 10000, progress: 0, xpReward: 1000, completed: false, deadline: new Date(Date.now() + 90 * 86400000).toISOString(), completedAt: null },
+        { id: 'epic_3', title: 'Expand Core Team', description: 'Scale the agency workforce with a new specialist.', type: 'epic', target: 5, progress: 4, xpReward: 600, completed: false, deadline: new Date(Date.now() + 60 * 86400000).toISOString(), completedAt: null }
       ],
       streaks: {
-        current: 3,
-        longest: 5,
+        current: 1,
+        longest: 1,
         lastActiveDate: new Date().toISOString()
       },
       stats: {
-        totalTasksCompleted: 1,
-        totalProjectsShipped: 2,
-        totalRevenue: 15000,
-        hoursLogged: 10
+        totalTasksCompleted: 0,
+        totalProjectsShipped: 0,
+        totalRevenue: 0,
+        hoursLogged: 0
       }
     };
   }

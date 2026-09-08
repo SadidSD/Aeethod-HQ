@@ -28,11 +28,10 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
 
   // Interactive Next Actions state
   const [todoList, setTodoList] = useState<ToDoItem[]>([
-    { id: '1', text: 'Unblock CardVault AI (urgent client secret)', priority: 'red', completed: false, why: 'Stops development progress' },
-    { id: '2', text: "Check Designer's backlog & token specs", priority: 'yellow', completed: false, why: 'Prevent future bottlenecks' },
-    { id: '3', text: 'Review RNG Gamez proposal & contract', priority: 'green', completed: false, why: 'Low urgency, high value' },
-    { id: '4', text: "Review this week's content calendar plan", priority: 'white', completed: false, why: 'Marketing alignment' },
-    { id: '5', text: "Prepare for tomorrow's team sync", priority: 'white', completed: false, why: 'Internal communication' },
+    { id: '1', text: 'Onboard your first client project or lead', priority: 'green', completed: false, why: 'Kick off agency pipeline' },
+    { id: '2', text: "Assign initial tasks to team workstations", priority: 'white', completed: false, why: 'Activate designer & dev desks' },
+    { id: '3', text: "Review content strategy in Content Studio", priority: 'white', completed: false, why: 'Build organic client inbound' },
+    { id: '4', text: "Host discovery alignment in Meeting Room", priority: 'white', completed: false, why: 'Executive planning cadence' },
   ]);
 
   const [quickNotification, setQuickNotification] = useState<string | null>(null);
@@ -190,7 +189,8 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
           </button>
           <button
             onClick={() => {
-              setQuickNotification('📧 Client Update Email dispatched to CardVault!');
+              const targetName = activeProjects[0]?.clientName || 'Client';
+              setQuickNotification(`📧 Client Update Email dispatched to ${targetName}!`);
               setTimeout(() => setQuickNotification(null), 3500);
             }}
             className="flex-1 min-w-[130px] px-3.5 py-2 bg-[#152336] hover:bg-cyan-900/60 border border-cyan-500/40 rounded-lg text-xs font-bold text-cyan-300 transition flex items-center justify-center gap-2 shadow-sm"
@@ -238,7 +238,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800/80">
               <span className="text-slate-400 text-[11px] block">✅ Tasks Done Today</span>
-              <span className="text-sm font-bold text-purple-300 font-mono">{agency.stats?.totalTasksCompleted || 3} Tasks</span>
+              <span className="text-sm font-bold text-purple-300 font-mono">{agency.stats?.totalTasksCompleted ?? 0} Tasks</span>
             </div>
             <div className="bg-[#121c2a] p-2.5 rounded-lg border border-slate-800/80">
               <span className="text-slate-400 text-[11px] block">⚠️ Bottlenecks</span>
@@ -252,7 +252,7 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
 
           <div className="mt-3 p-2 bg-gradient-to-r from-amber-950/40 to-transparent border-l-2 border-amber-500 rounded text-xs flex items-center justify-between">
             <span className="text-slate-400 text-[11px]">🎯 Next Milestone:</span>
-            <span className="font-bold text-amber-300 font-mono">CardVault TCG Launch</span>
+            <span className="font-bold text-amber-300 font-mono">{activeProjects[0]?.name || 'Launch First Client Project'}</span>
           </div>
         </div>
 
@@ -388,63 +388,31 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
           </div>
 
           <div className="space-y-2.5 text-xs">
-            {/* Critical Blocker */}
-            <div className="p-3 bg-rose-950/30 border border-rose-600/50 rounded-lg flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <span className="text-base mt-0.5">🔴</span>
-                <div>
-                  <div className="font-bold text-rose-200">CRITICAL: CardVault AI Platform — Blocked (Dev Schema)</div>
-                  <div className="text-[11px] text-slate-300 mt-0.5">Waiting on TCG API client secret key · Stalled 3 days</div>
-                </div>
+            {alerts.length === 0 ? (
+              <div className="p-5 bg-[#121c2a] border border-slate-800/80 rounded-lg text-center">
+                <span className="text-2xl block mb-1">🟢</span>
+                <span className="font-bold text-emerald-400 block text-xs">Clear Runway — Zero Blockers</span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">All workstations and project pipelines operating smoothly.</span>
               </div>
-              <button 
-                onClick={() => handleResolveAlert('dev')}
-                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold shrink-0 transition"
-              >
-                Fix Now
-              </button>
-            </div>
-
-            {/* High Warning */}
-            <div className="p-3 bg-amber-950/25 border border-amber-600/40 rounded-lg flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <span className="text-base mt-0.5">⚠️</span>
-                <div>
-                  <div className="font-bold text-amber-200">HIGH: Frontend Utilization — 95% (Overloaded)</div>
-                  <div className="text-[11px] text-slate-300 mt-0.5">Hello Kitty station is carrying 28h backlog · Rebalance to Backend</div>
+            ) : (
+              alerts.map((alert, idx) => (
+                <div key={idx} className="p-3 bg-rose-950/30 border border-rose-600/50 rounded-lg flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-base mt-0.5">{alert.severity === 'red' ? '🔴' : '⚠️'}</span>
+                    <div>
+                      <div className="font-bold text-rose-200 uppercase">{alert.room} Alert</div>
+                      <div className="text-[11px] text-slate-300 mt-0.5">{alert.reason}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleResolveAlert(alert.room)}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold shrink-0 transition"
+                  >
+                    Fix Now
+                  </button>
                 </div>
-              </div>
-              <button 
-                onClick={() => onNavigateTab?.('team')}
-                className="px-2.5 py-1 bg-amber-600/80 hover:bg-amber-500 text-white rounded text-[10px] font-bold shrink-0 transition"
-              >
-                Rebalance
-              </button>
-            </div>
-
-            {/* Medium Warning */}
-            <div className="p-3 bg-yellow-950/20 border border-yellow-700/30 rounded-lg flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <span className="text-base mt-0.5">🟡</span>
-                <div>
-                  <div className="font-bold text-yellow-200">MEDIUM: Content Marketing — 3 Drafts Pending</div>
-                  <div className="text-[11px] text-slate-300 mt-0.5">Awaiting founder review on weekly SEO articles</div>
-                </div>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono shrink-0">In Review</span>
-            </div>
-
-            {/* Low Notification */}
-            <div className="p-3 bg-emerald-950/20 border border-emerald-800/30 rounded-lg flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <span className="text-base mt-0.5">🟢</span>
-                <div>
-                  <div className="font-bold text-emerald-200">LOW: Minor Component Dependency Stuck</div>
-                  <div className="text-[11px] text-slate-300 mt-0.5">Icon pack v2.4 upgrade queued for next sprint</div>
-                </div>
-              </div>
-              <span className="text-[10px] text-emerald-400 font-mono shrink-0">Monitored</span>
-            </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -538,42 +506,29 @@ export default function DashboardTab({ agency, manager, onNavigateTab, onRefresh
             </div>
 
             {/* Visual Monuments Grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 my-2">
-              <div className="bg-[#141f2e] border border-amber-500/40 rounded p-2 text-center hover:border-amber-400 transition cursor-pointer">
-                <span className="text-lg block">🎲</span>
-                <span className="font-bold text-[11px] text-amber-300 block truncate">RNG Gamez</span>
-                <span className="text-[9px] text-slate-400 font-mono">$10,000</span>
+            {completedProjects.length === 0 ? (
+              <div className="p-5 bg-[#121c2a] border border-slate-800/80 rounded-lg text-center my-2">
+                <span className="text-2xl block mb-1">🏛️</span>
+                <span className="font-bold text-slate-300 block text-xs">No Projects Shipped Yet</span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">
+                  Complete and ship your first client system to mount it permanently on the Cathedral Wall!
+                </span>
               </div>
-              <div className="bg-[#141f2e] border border-amber-500/40 rounded p-2 text-center hover:border-amber-400 transition cursor-pointer">
-                <span className="text-lg block">🌸</span>
-                <span className="font-bold text-[11px] text-amber-300 block truncate">Perfume</span>
-                <span className="text-[9px] text-slate-400 font-mono">$5,000</span>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 my-2">
+                {completedProjects.map(p => (
+                  <div key={p.id} className="bg-[#141f2e] border border-amber-500/40 rounded p-2 text-center hover:border-amber-400 transition cursor-pointer">
+                    <span className="text-lg block">🏆</span>
+                    <span className="font-bold text-[11px] text-amber-300 block truncate">{p.name}</span>
+                    <span className="text-[9px] text-slate-400 font-mono">{formatCurrency(p.value)}</span>
+                  </div>
+                ))}
               </div>
-              <div className="bg-[#141f2e] border border-cyan-500/40 rounded p-2 text-center hover:border-cyan-400 transition cursor-pointer">
-                <span className="text-lg block">🃏</span>
-                <span className="font-bold text-[11px] text-cyan-300 block truncate">TCG Shop</span>
-                <span className="text-[9px] text-slate-400 font-mono">$12,000</span>
-              </div>
-              <div className="bg-[#141f2e] border border-cyan-500/40 rounded p-2 text-center hover:border-cyan-400 transition cursor-pointer">
-                <span className="text-lg block">⚡</span>
-                <span className="font-bold text-[11px] text-cyan-300 block truncate">SaaS Dev</span>
-                <span className="text-[9px] text-slate-400 font-mono">$8,000</span>
-              </div>
-              <div className="bg-[#141f2e] border border-purple-500/40 rounded p-2 text-center hover:border-purple-400 transition cursor-pointer">
-                <span className="text-lg block">📰</span>
-                <span className="font-bold text-[11px] text-purple-300 block truncate">Blog Dev</span>
-                <span className="text-[9px] text-slate-400 font-mono">$4,000</span>
-              </div>
-              <div className="bg-[#141f2e] border border-emerald-500/40 rounded p-2 text-center hover:border-emerald-400 transition cursor-pointer">
-                <span className="text-lg block">💎</span>
-                <span className="font-bold text-[11px] text-emerald-300 block truncate">CardVault</span>
-                <span className="text-[9px] text-slate-400 font-mono">$12,000</span>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span className="font-bold text-slate-300">6 Projects Completed</span>
+            <span className="font-bold text-slate-300">{completedProjects.length} Projects Completed</span>
             <span className="font-mono text-emerald-400 font-bold">Total Value: {formatCurrency(cathedralVal)}</span>
           </div>
         </div>

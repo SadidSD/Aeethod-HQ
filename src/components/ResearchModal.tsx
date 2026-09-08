@@ -142,7 +142,7 @@ export interface ResearchEntry {
 
 // ── SEED RESEARCH KNOWLEDGE BASE ──────────────────────────────────────────
 
-const INITIAL_RESEARCH_ENTRIES: ResearchEntry[] = [
+const REFERENCE_STANDARDS: ResearchEntry[] = [
   // ── 5. MARKET DISCOVERY & ICP STRATEGY (Stripe / Reforge Model) ──
   {
     id: 'res_m01',
@@ -398,6 +398,8 @@ FOR ALL USING (auth.uid() = user_id);`,
   }
 ];
 
+const INITIAL_RESEARCH_ENTRIES: ResearchEntry[] = [];
+
 // ── 5 BLUEPRINT TEMPLATES CATALOG ──────────────────────────────────────────
 
 export interface TemplateBlueprint {
@@ -504,7 +506,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
       const saved = localStorage.getItem('aeethod_research_entries');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {
       // Fallback
@@ -521,7 +523,10 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
           prev.forEach((e) => map.set(e.id, e));
           cloudEntries.forEach((ce: any) => {
             if (ce.details && ce.details.id) {
-              map.set(ce.details.id, ce.details as ResearchEntry);
+              // Ignore legacy mock research
+              if (!['res_m01', 'res_d01', 'res_c01', 'res_f01', 'res_b01'].includes(ce.details.id)) {
+                map.set(ce.details.id, ce.details as ResearchEntry);
+              }
             }
           });
           return Array.from(map.values());
@@ -587,7 +592,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
   const [springTestActive, setSpringTestActive] = useState(false);
   const [simulatorMonthlyGmv, setSimulatorMonthlyGmv] = useState(90000);
   const [knowledgePoints, setKnowledgePoints] = useState(() => {
-    return agencyManager?.state.resources.knowledge || 1450;
+    return agencyManager?.state.resources.knowledge || 0;
   });
 
   // Cloud Calculator State
@@ -631,9 +636,11 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
   };
 
   const handleResetToFactoryStandards = () => {
-    setEntries(INITIAL_RESEARCH_ENTRIES);
-    localStorage.setItem('aeethod_research_entries', JSON.stringify(INITIAL_RESEARCH_ENTRIES));
-    setSelectedEntryId(INITIAL_RESEARCH_ENTRIES[0].id);
+    setEntries(REFERENCE_STANDARDS);
+    localStorage.setItem('aeethod_research_entries', JSON.stringify(REFERENCE_STANDARDS));
+    if (REFERENCE_STANDARDS.length > 0) {
+      setSelectedEntryId(REFERENCE_STANDARDS[0].id);
+    }
     triggerToast('🔄 Re-seeded Knowledge Base with Big Tech Reference Standards!');
   };
 

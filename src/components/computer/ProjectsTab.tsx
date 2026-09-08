@@ -207,7 +207,11 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
         <div className="bg-[#0e1622] border border-slate-800 p-3 rounded-xl flex items-center justify-between shadow-sm">
           <div>
             <span className="text-[11px] text-slate-400 block font-mono">DELIVERY REPUTATION</span>
-            <span className="text-lg font-black text-purple-400 font-mono">98% Satisfaction</span>
+            <span className="text-lg font-black text-purple-400 font-mono">
+              {agency.projects.length > 0 
+                ? `${Math.round(agency.projects.reduce((acc, p) => acc + (p.satisfaction || 100), 0) / agency.projects.length)}% Satisfaction`
+                : '100% Satisfaction'}
+            </span>
           </div>
           <span className="text-xl opacity-75">⭐</span>
         </div>
