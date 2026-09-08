@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AgencyManager from '../core/agency';
 import {
   Search,
@@ -19,7 +19,17 @@ import {
   ArrowRight,
   Database,
   Flame,
-  Award
+  Award,
+  Plus,
+  Trash2,
+  Check,
+  Filter,
+  Tag,
+  FileText,
+  ChevronRight,
+  Code2,
+  Terminal,
+  Bookmark
 } from 'lucide-react';
 
 interface ResearchModalProps {
@@ -28,179 +38,541 @@ interface ResearchModalProps {
   agencyManager: AgencyManager | null;
 }
 
-type TabType = 'lead_intel' | 'competitor_radar' | 'tech_lab' | 'creative_trends' | 'knowledge_vault';
+// ── TYPES ──────────────────────────────────────────────────────────────────
 
-interface ClientPreset {
-  domain: string;
-  name: string;
-  industry: string;
-  funding: string;
-  headcount: string;
-  estRevenue: string;
-  currentStack: string[];
-  recommendedStack: string[];
-  scores: { perf: number; a11y: number; seo: number; best: number };
-  insights: string[];
+export type Discipline = 'all' | 'design' | 'content' | 'frontend' | 'backend';
+export type ResearchType = 'adr' | 'spike' | 'teardown' | 'benchmark' | 'template';
+export type ResearchStatus = 'validated' | 'evaluating' | 'archived';
+
+export interface ResearchBenchmark {
+  metric: string;
+  value: string;
+  comparison?: string;
 }
 
-const PRESET_CLIENTS: Record<string, ClientPreset> = {
-  'rnggamez.com': {
-    domain: 'rnggamez.com',
-    name: 'RNG Gamez TCG Ecosystem',
-    industry: 'Gaming & Collectibles E-Commerce',
-    funding: 'Series A ($4.2M)',
-    headcount: '18 employees',
-    estRevenue: '$2.8M ARR',
-    currentStack: ['Monolithic Shopify Liquid', 'jQuery', 'Custom Ruby API', 'Legacy Mailchimp'],
-    recommendedStack: ['Next.js 15 App Router', 'Supabase (PostgreSQL)', 'Tailwind CSS v4', 'Stripe Connect Buylist'],
-    scores: { perf: 94, a11y: 98, seo: 96, best: 100 },
-    insights: [
-      'High mobile bounce rate (~42%) on live tournament brackets due to un-cached Shopify liquid scripts.',
-      'Instant buylist debit payouts via Stripe Connect will increase seller retention by ~38% against TCGPlayer.',
-      'AI-powered Card Condition Scanner (Gemini Vision) reduces grading labor by 85%.'
-    ]
+export interface ResearchEntry {
+  id: string;
+  title: string;
+  discipline: 'design' | 'content' | 'frontend' | 'backend';
+  type: ResearchType;
+  status: ResearchStatus;
+  tags: string[];
+  summary: string;
+  problemStatement?: string;
+  optionsEvaluated?: string[];
+  decisionRationale?: string;
+  consequences?: string;
+  keyFindings: string[];
+  benchmarks?: ResearchBenchmark[];
+  codeOrTokens?: string;
+  sourceUrls?: string[];
+  author: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── SEED RESEARCH KNOWLEDGE BASE ──────────────────────────────────────────
+
+const INITIAL_RESEARCH_ENTRIES: ResearchEntry[] = [
+  // ── DESIGN ──
+  {
+    id: 'res_d01',
+    title: 'ADR-D01: Bento Grid & 12px Glassmorphism Layout for High-Density Portals',
+    discipline: 'design',
+    type: 'adr',
+    status: 'validated',
+    tags: ['UI/UX', 'Bento', 'Glassmorphism', 'Apple-Style', 'Layout'],
+    summary: 'Standardized Bento Grid layout with backdrop-blur-md for complex client dashboards to balance data density with visual calm.',
+    problemStatement: 'Client portals (RNG Gamez, Fintech dashboards) displayed high metric density that overwhelmed users in traditional 3-column layouts.',
+    optionsEvaluated: [
+      'Strict 12-column flat card dashboard (High clutter, boring visual hierarchy)',
+      'Tab-heavy segmented views (Hides critical analytics behind unnecessary clicks)',
+      'Bento Grid with asymmetrical 1x1, 2x1, and 2x2 modular blocks (Chosen)'
+    ],
+    decisionRationale: 'Bento grids allow visual storytelling where North Star metrics get 2x2 prominence while ancillary stats occupy compact 1x1 widgets.',
+    consequences: 'Requires strict responsive breakpoints to fold smoothly onto mobile without losing grouping logic.',
+    keyFindings: [
+      'Reduces dashboard scan time by 34% compared to uniform tables.',
+      '1px subtle border highlights (#ffffff15) provide contrast without heavy shadows.',
+      '12px rounded corners match iOS/macOS human interface guidelines.'
+    ],
+    benchmarks: [
+      { metric: 'Dashboard Scan Time', value: '-34%', comparison: 'vs Uniform Grid' },
+      { metric: 'Mobile Breakpoint Fidelity', value: '100%', comparison: 'Tailwind grid-cols-1 md:grid-cols-4' }
+    ],
+    codeOrTokens: `/* Aeethod Signature Dark Glass Token */
+bg-slate-900/70 backdrop-blur-md 
+border border-slate-700/60 
+shadow-xl shadow-black/40 
+rounded-2xl`,
+    author: 'Elena Rostova (Lead Designer)',
+    createdAt: '2026-03-01',
+    updatedAt: '2026-03-04'
   },
-  'aurora-atelier.com': {
-    domain: 'aurora-atelier.com',
-    name: 'Aurora Atelier Paris',
-    industry: 'Luxury Fashion & Haute Horlogerie',
-    funding: 'Self-Funded / Private Family Office',
-    headcount: '42 employees',
-    estRevenue: '$8.5M Annual',
-    currentStack: ['WooCommerce on AWS EC2', 'Elementor', 'MySQL', 'Braintree'],
-    recommendedStack: ['Next.js 15', 'Sanity CMS', 'Medusa.js Headless Engine', 'Three.js 3D Showroom'],
-    scores: { perf: 91, a11y: 95, seo: 97, best: 96 },
-    insights: [
-      'Site load time is 4.1s in North America due to un-CDN cached 4K lookbook imagery.',
-      'Interactive 3D WebGL watch customizer will double time-on-site and VIP consultation bookings.',
-      'Headless architecture allows private client portals with bespoke tier pricing.'
-    ]
-  },
-  'zenith-fintech.io': {
-    domain: 'zenith-fintech.io',
-    name: 'Zenith B2B Treasury',
-    industry: 'Institutional FinTech & Cross-Border FX',
-    funding: 'Series B ($24M)',
-    headcount: '85 employees',
-    estRevenue: '$14.2M ARR',
-    currentStack: ['Angular 14', 'Java Spring Boot', 'Oracle DB', 'Cloudflare DNS'],
-    recommendedStack: ['React 19 / Vite SPA', 'Rust WebAssembly Calc Engine', 'Tailwind CSS', 'Pusher WebSockets'],
-    scores: { perf: 96, a11y: 99, seo: 92, best: 100 },
-    insights: [
-      'Sub-millisecond FX ticker updates require WebSockets replacing their current 2-second HTTP polling.',
-      'Compliance dashboard lacks WCAG 2.1 AA keyboard accessibility for European institutional clients.',
-      'Modern dark-mode Bento grid layout will match Stripe/Linear standards.'
-    ]
-  }
+  {
+    id: 'res_d02',
+    title: 'Design Teardown: Linear vs Stripe — Spatial Depth & Spring Physics',
+    discipline: 'design',
+    type: 'teardown',
+    status: 'validated',
+    tags: ['Micro-Interactions', 'Spring-Physics', 'Framer-Motion', 'Tactile'],
+    summary: 'Reverse-engineered the micro-interaction curves of Linear.app and Stripe to achieve crisp, sub-100ms tactile feedback on click events.',
+    problemStatement: 'Standard ease-in-out CSS transitions feel sluggish and robotic in web apps compared to native macOS applications.',
+    optionsEvaluated: [
+      'Standard CSS ease-in-out (Feels synthetic and laggy on buttons)',
+      'Linear CSS bezier curves (Better, but lacks dynamic velocity)',
+      'Framer Motion spring physics (stiffness: 400, damping: 30) (Chosen)'
+    ],
+    decisionRationale: 'Springs respond immediately to user input without an unnatural deceleration curve, mimicking physical matter.',
+    keyFindings: [
+      'Spring stiffness 400 with damping 28 eliminates rebound wobble while keeping responsiveness.',
+      'Active tap scale should never drop below 0.97 (0.95 feels broken or squishy).'
+    ],
+    benchmarks: [
+      { metric: 'Button Response Latency', value: '16ms', comparison: 'Sub-frame tactile feel' },
+      { metric: 'User Delight Score', value: '4.9 / 5', comparison: 'Internal review' }
+    ],
+    codeOrTokens: `// Framer Motion Spring Config
+const springConfig = {
+  type: "spring",
+  stiffness: 400,
+  damping: 28,
+  mass: 0.8
 };
+// Button tap style: whileTap={{ scale: 0.98 }}`,
+    author: 'Elena Rostova (Lead Designer)',
+    createdAt: '2026-03-02',
+    updatedAt: '2026-03-02'
+  },
+
+  // ── CONTENT ──
+  {
+    id: 'res_c01',
+    title: 'Framework: Problem-Agitate-Solution (PAS) for High-Ticket Agency Proposals',
+    discipline: 'content',
+    type: 'template',
+    status: 'validated',
+    tags: ['Copywriting', 'Pitch-Deck', 'Conversion', 'Discovery'],
+    summary: 'A proven 3-stage copywriting architecture used to draft winning client proposals and landing page hero sections with 40%+ conversion.',
+    problemStatement: 'Most agency proposals list technical features before clients emotionally connect with the cost of their current technical debt.',
+    optionsEvaluated: [
+      'Feature-Led Proposal (Leads with Next.js/Supabase specs; clients compare prices)',
+      'AIDA Framework (Good for consumer ads, too generic for B2B engineering)',
+      'PAS Architecture with Quantified Financial Debt (Chosen)'
+    ],
+    decisionRationale: 'Quantifying what the client loses today (e.g. $42k/mo to slow checkout) establishes massive ROI before presenting our fee.',
+    keyFindings: [
+      'Stage 1 (Problem): State the exact friction point (e.g. 4.2s mobile load time).',
+      'Stage 2 (Agitate): Calculate the annualized revenue loss from that problem.',
+      'Stage 3 (Solution): Position Aeethod architecture as the irreversible fix.'
+    ],
+    benchmarks: [
+      { metric: 'Proposal Close Rate', value: '62%', comparison: 'Up from 38%' },
+      { metric: 'Avg Deal Size', value: '+$14,500', comparison: 'Value-based pricing' }
+    ],
+    codeOrTokens: `## [PAS Client Hook Formula]
+1. PROBLEM: "Your current Shopify checkout drops 38% of mobile collectors on step 2."
+2. AGITATE: "At your current traffic, this leaks ~$24,000 every month directly to TCGPlayer."
+3. SOLUTION: "Aeethod's Next.js 15 Sub-Second Buylist recovers those orders with 1-tap Apple Pay."`,
+    author: 'Marcus Vance (Growth & Content)',
+    createdAt: '2026-02-28',
+    updatedAt: '2026-03-03'
+  },
+  {
+    id: 'res_c02',
+    title: 'SEO Keyword Intent Cluster: High-Ticket Collectibles & Card Buylists',
+    discipline: 'content',
+    type: 'benchmark',
+    status: 'validated',
+    tags: ['SEO', 'Search-Intent', 'Keywords', 'Organic-Growth'],
+    summary: 'Identified 18 high-volume commercial keywords with low difficulty for TCG and luxury collectibles platforms.',
+    problemStatement: 'Client needed organic search acquisition that avoided fighting TCGPlayer on generic "pokemon cards" head-terms.',
+    keyFindings: [
+      '"Sell trading cards instant payout" has 14,200/mo volume and only KD 22.',
+      '"Bulk card scanner app" has high intent with zero dominating search results.',
+      'Programmatic SEO landing pages for each card set (e.g. /sell/lorcana-first-chapter) capture 8x more longtail traffic.'
+    ],
+    benchmarks: [
+      { metric: 'Target Keyword Volume', value: '185,000 / mo', comparison: 'Combined cluster' },
+      { metric: 'Avg Keyword Difficulty', value: 'KD 24', comparison: 'Low competition' }
+    ],
+    author: 'Marcus Vance (Growth & Content)',
+    createdAt: '2026-03-04',
+    updatedAt: '2026-03-05'
+  },
+
+  // ── FRONTEND ──
+  {
+    id: 'res_f01',
+    title: 'ADR-F01: Next.js 15 App Router & React Server Components (RSC) Standard',
+    discipline: 'frontend',
+    type: 'adr',
+    status: 'validated',
+    tags: ['Next.js', 'React-19', 'RSC', 'Performance', 'Architecture'],
+    summary: 'Mandated Next.js 15 with App Router as default frontend stack for all Aeethod production client builds.',
+    problemStatement: 'Legacy Client-Side Rendered (CSR) SPAs suffer from large JavaScript bundles (500KB+), slow mobile FCP, and poor SEO indexing.',
+    optionsEvaluated: [
+      'Vite SPA + React 19 (Blazing dev server, but client-only rendering hurts SEO)',
+      'Remix / React Router v7 (Great form loaders, smaller ecosystem than Vercel)',
+      'Next.js 15 App Router with Turbopack & RSC (Chosen)'
+    ],
+    decisionRationale: 'Server Components keep database access and heavy Markdown/date libraries on the server, sending near-zero client JS for content pages.',
+    consequences: 'Team must be disciplined about separating "use client" interactive widgets from Server Components.',
+    keyFindings: [
+      'Reduces initial client JS payload by 65% compared to Pages router.',
+      'Streaming SSR with Suspense allows instant skeleton rendering while slow queries resolve.',
+      'Server Actions eliminate the need for boilerplate /api route handlers.'
+    ],
+    benchmarks: [
+      { metric: 'Client JS Payload', value: '-65%', comparison: '48KB vs 142KB baseline' },
+      { metric: 'First Contentful Paint', value: '0.65s', comparison: 'Sub-second mobile FCP' }
+    ],
+    codeOrTokens: `// Server Component with Direct DB Query & Suspense
+import { Suspense } from 'react';
+import { db } from '@/lib/db';
+
+export default async function BuylistPage() {
+  const cards = await db.cards.findMany({ take: 50 });
+  return (
+    <main>
+      <Suspense fallback={<CardSkeletonGrid />}>
+        <LivePriceFeed initialData={cards} />
+      </Suspense>
+    </main>
+  );
+}`,
+    author: 'Chloe Lin (Frontend Lead)',
+    createdAt: '2026-02-26',
+    updatedAt: '2026-03-01'
+  },
+  {
+    id: 'res_f02',
+    title: 'Spike: Zustand vs Redux Toolkit — Bundle Overhead & Performance Benchmark',
+    discipline: 'frontend',
+    type: 'spike',
+    status: 'validated',
+    tags: ['Zustand', 'State-Management', 'Redux', 'Bundle-Size'],
+    summary: 'Timeboxed benchmark comparing Zustand and Redux Toolkit across bundle size impact, TypeScript DX, and re-render frequency.',
+    problemStatement: 'Need a lightweight, scalable global state manager for complex multi-step checkout and buylist carts.',
+    optionsEvaluated: [
+      'Redux Toolkit + React-Redux (11.8 KB min+gzip, heavy boilerplate)',
+      'Jotai Atomic State (3.4 KB, great for primitives, complex object stores get messy)',
+      'Zustand (1.18 KB min+gzip, zero boilerplate, transient updates) (Chosen)'
+    ],
+    decisionRationale: 'Zustand is 10x smaller than Redux Toolkit, requires zero Context Provider wrapping, and supports subscriber selector memoization out of the box.',
+    keyFindings: [
+      'Zustand adds only 1.18 KB to the final bundle.',
+      'Selectors prevent full component tree re-renders during high-frequency cart changes.'
+    ],
+    benchmarks: [
+      { metric: 'Minified Bundle Size', value: '1.18 KB', comparison: 'vs Redux 11.8 KB (-90%)' },
+      { metric: 'Setup Boilerplate Lines', value: '12 lines', comparison: 'vs Redux 84 lines' }
+    ],
+    codeOrTokens: `import { create } from 'zustand';
+
+interface CartStore {
+  items: Array<{ id: string; price: number }>;
+  addItem: (item: { id: string; price: number }) => void;
+}
+
+export const useCart = create<CartStore>((set) => ({
+  items: [],
+  addItem: (item) => set((s) => ({ items: [...s.items, item] })),
+}));`,
+    author: 'Chloe Lin (Frontend Lead)',
+    createdAt: '2026-03-02',
+    updatedAt: '2026-03-02'
+  },
+
+  // ── BACKEND ──
+  {
+    id: 'res_b01',
+    title: 'ADR-B01: Supabase Managed Postgres with Row-Level Security (RLS)',
+    discipline: 'backend',
+    type: 'adr',
+    status: 'validated',
+    tags: ['Supabase', 'PostgreSQL', 'RLS', 'Auth', 'Security'],
+    summary: 'Selected Supabase as default relational database, authentication, and real-time backend engine for agency client projects.',
+    problemStatement: 'Managing self-hosted PostgreSQL EC2 instances created high DevOps maintenance overhead and security patch burdens.',
+    optionsEvaluated: [
+      'Self-Hosted PostgreSQL on AWS RDS (High operational burden, manual auth setup)',
+      'Google Firebase Firestore (NoSQL limits relational reporting, proprietary vendor lock-in)',
+      'Supabase Cloud (PostgreSQL 16, built-in GoTrue Auth, pgvector, automated backups) (Chosen)'
+    ],
+    decisionRationale: 'Provides genuine open-source PostgreSQL with zero DevOps friction, instant GraphQL/REST reflection, and bulletproof Row Level Security.',
+    consequences: 'Complex custom RPC logic must be written as PostgreSQL functions/triggers or Edge functions.',
+    keyFindings: [
+      'RLS policies enforce multi-tenant isolation at the database kernel level.',
+      'Integrated Auth handles Google/GitHub OAuth, Magic Links, and JWT verification seamlessly.'
+    ],
+    benchmarks: [
+      { metric: 'Dev Setup Velocity', value: '15 mins', comparison: 'vs 4 days manual RDS setup' },
+      { metric: 'Database Latency', value: '14ms', comparison: 'Edge connection pooling' }
+    ],
+    codeOrTokens: `-- Secure Tenant RLS Policy
+ALTER TABLE client_projects ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can only read own workspace data"
+ON client_projects FOR SELECT
+USING (auth.uid() = owner_id);`,
+    author: 'Devon Miles (Backend Lead)',
+    createdAt: '2026-02-25',
+    updatedAt: '2026-03-01'
+  },
+  {
+    id: 'res_b02',
+    title: 'Spike: Stripe Connect Custom vs Express for 60-Second Instant Payouts',
+    discipline: 'backend',
+    type: 'spike',
+    status: 'validated',
+    tags: ['Stripe', 'Fintech', 'Payouts', 'Webhooks', 'Idempotency'],
+    summary: 'Evaluated Stripe Connect Custom Accounts vs Express to facilitate instant debit card cashouts for card buylist sellers.',
+    problemStatement: 'Sellers demand instant cashouts (<60s) to their debit cards instead of waiting 2-3 business days for ACH bank transfers.',
+    keyFindings: [
+      'Stripe Instant Payouts push funds to debit cards in ~45 seconds via Visa Direct / Mastercard Send.',
+      'Stripe fees are 1% (min $0.50) per instant payout, which can be passed to the seller or absorbed as a marketing perk.',
+      'Webhook processing requires Redis distributed locks with idempotency keys to prevent double-spending.'
+    ],
+    benchmarks: [
+      { metric: 'Payout Arrival Time', value: '45 seconds', comparison: 'vs 3-5 days ACH' },
+      { metric: 'Seller Retention Lift', value: '+38%', comparison: 'Survey response' }
+    ],
+    author: 'Devon Miles (Backend Lead)',
+    createdAt: '2026-03-04',
+    updatedAt: '2026-03-05'
+  }
+];
 
 export default function ResearchModal({ isOpen, onClose, agencyManager }: ResearchModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('lead_intel');
-  const [targetUrl, setTargetUrl] = useState('rnggamez.com');
-  const [isAuditing, setIsAuditing] = useState(false);
-  const [isCasting, setIsCasting] = useState(false);
+  // Navigation & View State
+  const [activeTab, setActiveTab] = useState<'knowledge_base' | 'new_entry' | 'lead_audit' | 'cloud_calc'>('knowledge_base');
+  const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+
+  // Persistence State
+  const [entries, setEntries] = useState<ResearchEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('aeethod_research_entries');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // Fallback to initial
+    }
+    return INITIAL_RESEARCH_ENTRIES;
+  });
+
+  // Save to localStorage whenever entries change
+  useEffect(() => {
+    localStorage.setItem('aeethod_research_entries', JSON.stringify(entries));
+  }, [entries]);
+
+  // Form State for New Research Entry
+  const [formDiscipline, setFormDiscipline] = useState<'design' | 'content' | 'frontend' | 'backend'>('frontend');
+  const [formType, setFormType] = useState<ResearchType>('adr');
+  const [formStatus, setFormStatus] = useState<ResearchStatus>('validated');
+  const [formTitle, setFormTitle] = useState('');
+  const [formTags, setFormTags] = useState('');
+  const [formSummary, setFormSummary] = useState('');
+  const [formProblem, setFormProblem] = useState('');
+  const [formOptions, setFormOptions] = useState('');
+  const [formDecision, setFormDecision] = useState('');
+  const [formFindings, setFormFindings] = useState('');
+  const [formCode, setFormCode] = useState('');
+
+  // UI State
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isCasting, setIsCasting] = useState(false);
+  const [knowledgePoints, setKnowledgePoints] = useState(() => {
+    return agencyManager?.state.resources.knowledge || 1450;
+  });
 
   // Cloud Calculator State
   const [monthlyUsers, setMonthlyUsers] = useState(150000);
   const [dbReadsPerDay, setDbReadsPerDay] = useState(500000);
 
-  // Package Comparison State
-  const [selectedComparison, setSelectedComparison] = useState<'state' | 'backend' | 'framework'>('backend');
-
-  // Claimed KP tracker
-  const [claimedKP, setClaimedKP] = useState(false);
-  const [knowledgePoints, setKnowledgePoints] = useState(1450);
-
   if (!isOpen) return null;
-
-  const currentClient = PRESET_CLIENTS[targetUrl] || PRESET_CLIENTS['rnggamez.com'];
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    setTimeout(() => setToastMsg(null), 3200);
   };
 
-  const handleRunAudit = (url: string) => {
-    setIsAuditing(true);
-    setTimeout(() => {
-      setTargetUrl(url);
-      setIsAuditing(false);
-      triggerToast(`⚡ Intel refreshed for ${url}!`);
-    }, 600);
-  };
-
-  const handleCastToScreen = () => {
+  const handleCastToScreen = (title?: string) => {
     setIsCasting(!isCasting);
     triggerToast(
       !isCasting
-        ? '📺 Casted live research dossier to Boardroom 85" Smart Display!'
+        ? `📺 Casting "${title || 'Research Dossier'}" to Boardroom 85" Smart Display!`
         : '📺 Boardroom presentation cast disconnected.'
     );
   };
 
-  const handleExportToAgenda = () => {
+  const handleExportToAgenda = (entry: ResearchEntry) => {
     try {
       const existing = localStorage.getItem('aeethod_meeting_agenda');
       const agenda = existing ? JSON.parse(existing) : [];
-      const newItems = currentClient.insights.map(ins => ({
+      const newItems = entry.keyFindings.map(ins => ({
         id: 'res_' + Math.random().toString(36).substring(2, 7),
-        text: `[Research Intel] ${ins}`,
+        text: `[${entry.discipline.toUpperCase()} Intel] ${ins}`,
         checked: false
       }));
       localStorage.setItem('aeethod_meeting_agenda', JSON.stringify([...agenda, ...newItems]));
-      triggerToast('📋 Discovery points exported into Meeting Room Agenda!');
+      triggerToast(`📋 "${entry.title}" exported into Meeting Room Agenda!`);
     } catch {
       triggerToast('📋 Agenda updated for next boardroom session!');
     }
   };
 
-  const handleClaimKP = () => {
-    if (claimedKP) return;
-    setClaimedKP(true);
-    setKnowledgePoints(prev => prev + 150);
-    if (agencyManager) {
-      agencyManager.state.resources.knowledge = (agencyManager.state.resources.knowledge || 0) + 150;
-      agencyManager.save();
-    }
-    triggerToast('🎉 +150 Knowledge Points (KP) claimed for Aeethod HQ!');
+  const handleCopy = (text: string, label = 'Copied to clipboard!') => {
+    navigator.clipboard?.writeText(text);
+    triggerToast(`📋 ${label}`);
   };
 
-  // Cloud Cost Calculation
+  const handleCreateEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) {
+      triggerToast('⚠️ Please provide an entry title.');
+      return;
+    }
+
+    const newEntry: ResearchEntry = {
+      id: 'res_' + Date.now().toString(36),
+      title: formTitle.trim(),
+      discipline: formDiscipline,
+      type: formType,
+      status: formStatus,
+      tags: formTags.split(',').map(t => t.trim()).filter(Boolean),
+      summary: formSummary.trim() || 'No summary provided.',
+      problemStatement: formProblem.trim() || undefined,
+      optionsEvaluated: formOptions ? formOptions.split('\n').map(o => o.trim()).filter(Boolean) : undefined,
+      decisionRationale: formDecision.trim() || undefined,
+      keyFindings: formFindings ? formFindings.split('\n').map(f => f.trim()).filter(Boolean) : ['Initial research spike completed.'],
+      codeOrTokens: formCode.trim() || undefined,
+      author: 'You (Founder & Strategy)',
+      createdAt: new Date().toISOString().split('T')[0],
+      updatedAt: new Date().toISOString().split('T')[0],
+    };
+
+    const updated = [newEntry, ...entries];
+    setEntries(updated);
+    setSelectedEntryId(newEntry.id);
+    setActiveTab('knowledge_base');
+
+    // Reward Knowledge Points
+    const newKP = knowledgePoints + 100;
+    setKnowledgePoints(newKP);
+    if (agencyManager) {
+      agencyManager.state.resources.knowledge = newKP;
+      agencyManager.save();
+    }
+
+    // Reset Form
+    setFormTitle('');
+    setFormTags('');
+    setFormSummary('');
+    setFormProblem('');
+    setFormOptions('');
+    setFormDecision('');
+    setFormFindings('');
+    setFormCode('');
+
+    triggerToast('🎉 New Research Entry logged to Knowledge Base! (+100 KP)');
+  };
+
+  const handleDeleteEntry = (id: string) => {
+    const updated = entries.filter(e => e.id !== id);
+    setEntries(updated);
+    if (selectedEntryId === id) setSelectedEntryId(null);
+    triggerToast('🗑️ Research entry archived.');
+  };
+
+  const handleLoadTemplate = (t: 'adr' | 'spike' | 'design' | 'content') => {
+    if (t === 'adr') {
+      setFormType('adr');
+      setFormTitle('ADR-00X: Title of Architectural Decision');
+      setFormProblem('What technical constraint or business challenge forced this research?');
+      setFormOptions('Option A: Description and trade-offs\nOption B: Description and trade-offs\nOption C: Recommended winner');
+      setFormDecision('Why was the winning option selected over alternatives?');
+      setFormFindings('Metric or latency improvement\nDeveloper velocity gain\nMaintenance cost impact');
+      setFormSummary('Executive 2-sentence summary of the decision and consequences.');
+    } else if (t === 'spike') {
+      setFormType('spike');
+      setFormTitle('Spike: Proof-of-Concept & Benchmark Experiment');
+      setFormProblem('What specific technical hypothesis were we evaluating under a timebox?');
+      setFormFindings('Quantitative finding 1\nQuantitative finding 2\nEdge-case or failure mode discovered');
+      setFormSummary('Timeboxed technical spike evaluating feasibility and throughput.');
+      setFormCode(`// Spike Benchmark Snippet\nconsole.time("execution");\n// Test payload\nconsole.timeEnd("execution");`);
+    } else if (t === 'design') {
+      setFormDiscipline('design');
+      setFormType('teardown');
+      setFormTitle('Design Spec: Component Pattern & Spatial Physics');
+      setFormProblem('User experience friction or design system inconsistency being addressed.');
+      setFormFindings('Figma frame reference\nWCAG AAA color contrast ratio: 8.4:1\nSpring physics configuration');
+      setFormCode(`/* Design Tokens */\n--color-accent: #06b6d4;\n--radius-card: 16px;\n--blur-glass: 12px;`);
+    } else if (t === 'content') {
+      setFormDiscipline('content');
+      setFormType('template');
+      setFormTitle('Content Architecture: Value Proposition & Hooks');
+      setFormProblem('Client acquisition bottleneck or messaging misalignment.');
+      setFormFindings('Target persona pain points\nHigh-volume commercial keyword search volume\nObjection rebuttal formula');
+    }
+    triggerToast(`⚡ Loaded ${t.toUpperCase()} Big Tech Template!`);
+  };
+
+  // Filtered Entries
+  const filteredEntries = useMemo(() => {
+    return entries.filter(e => {
+      const matchDiscipline = selectedDiscipline === 'all' || e.discipline === selectedDiscipline;
+      const matchType = selectedType === 'all' || e.type === selectedType;
+      const matchQuery =
+        !searchQuery.trim() ||
+        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchDiscipline && matchType && matchQuery;
+    });
+  }, [entries, selectedDiscipline, selectedType, searchQuery]);
+
+  const selectedEntry = entries.find(e => e.id === selectedEntryId) || filteredEntries[0] || null;
+
+  // Cloud Calculator Bill
   const vercelCost = monthlyUsers < 50000 ? 20 : Math.round(20 + ((monthlyUsers - 50000) / 10000) * 4);
   const supabaseCost = monthlyUsers < 100000 ? 25 : Math.round(25 + ((monthlyUsers - 100000) / 25000) * 10);
   const cloudflareCost = Math.round(5 + (monthlyUsers / 50000) * 3);
   const totalCloudCost = vercelCost + supabaseCost + cloudflareCost;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl h-[88vh] flex flex-col rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-black border border-slate-700/80 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-6xl h-[90vh] flex flex-col rounded-2xl bg-gradient-to-b from-slate-900 via-slate-950 to-black border border-slate-700/80 shadow-2xl overflow-hidden font-sans">
         
-        {/* Ambient Top Glow */}
-        <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-80" />
+        {/* Top Radiant Specular Glow */}
+        <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-90" />
 
-        {/* ── HEADER ────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/60">
+        {/* ── HEADER BAR ────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-800 bg-slate-900/70">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 border border-cyan-500/40 text-cyan-400 shadow-inner">
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold tracking-wide text-white uppercase flex items-center gap-2">
-                  Aeethod Research & Intelligence Terminal
+                <h2 className="text-sm font-bold tracking-wide text-white uppercase flex items-center gap-2">
+                  Aeethod Research & Intelligence System
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800">
-                  LIVE INTEL STREAM
+                <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800">
+                  BIG TECH TAXONOMY
                 </span>
                 {isCasting && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-950/80 text-amber-300 border border-amber-600 animate-pulse">
-                    <Cast className="w-3 h-3" /> CASTING TO BOARDROOM
+                  <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-950 text-amber-300 border border-amber-600 animate-pulse">
+                    <Cast className="w-3 h-3" /> CASTING TO 85" SCREEN
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">
-                Agency intelligence nerve center • Plan & Meeting Room Workstation
+              <p className="text-[11px] text-slate-400">
+                Plan & Meeting Room Terminal • Design, Content, Frontend & Backend Knowledge Base
               </p>
             </div>
           </div>
@@ -216,7 +588,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
 
             {/* Cast to Screen Button */}
             <button
-              onClick={handleCastToScreen}
+              onClick={() => handleCastToScreen(selectedEntry?.title)}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
                 isCasting
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-lg shadow-amber-500/20'
@@ -224,7 +596,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
               }`}
             >
               <Cast className="w-3.5 h-3.5" />
-              {isCasting ? 'Stop Casting' : 'Cast to TV'}
+              {isCasting ? 'Stop Cast' : 'Cast to TV'}
             </button>
 
             {/* Close Button */}
@@ -237,66 +609,50 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
           </div>
         </div>
 
-        {/* ── NAVIGATION TABS ───────────────────────────────────── */}
-        <div className="flex items-center gap-1 px-6 border-b border-slate-800/80 bg-slate-950/80 overflow-x-auto text-xs font-medium">
-          <button
-            onClick={() => setActiveTab('lead_intel')}
-            className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
-              activeTab === 'lead_intel'
-                ? 'border-cyan-400 text-cyan-300 font-semibold bg-cyan-950/20'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-            }`}
-          >
-            <Search className="w-4 h-4 text-cyan-400" />
-            1. Client Due Diligence & Audit
-          </button>
-          <button
-            onClick={() => setActiveTab('competitor_radar')}
-            className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
-              activeTab === 'competitor_radar'
-                ? 'border-purple-400 text-purple-300 font-semibold bg-purple-950/20'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4 text-purple-400" />
-            2. Competitor & Market Radar
-          </button>
-          <button
-            onClick={() => setActiveTab('tech_lab')}
-            className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
-              activeTab === 'tech_lab'
-                ? 'border-emerald-400 text-emerald-300 font-semibold bg-emerald-950/20'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-            }`}
-          >
-            <Cpu className="w-4 h-4 text-emerald-400" />
-            3. Tech Stack & Cost Lab
-          </button>
-          <button
-            onClick={() => setActiveTab('creative_trends')}
-            className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
-              activeTab === 'creative_trends'
-                ? 'border-pink-400 text-pink-300 font-semibold bg-pink-950/20'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-            }`}
-          >
-            <Palette className="w-4 h-4 text-pink-400" />
-            4. Creative Trend Radar
-          </button>
-          <button
-            onClick={() => setActiveTab('knowledge_vault')}
-            className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
-              activeTab === 'knowledge_vault'
-                ? 'border-amber-400 text-amber-300 font-semibold bg-amber-950/20'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
-            }`}
-          >
-            <BookOpen className="w-4 h-4 text-amber-400" />
-            5. Agency IP & Knowledge Vault
-          </button>
+        {/* ── PRIMARY MODULE NAVIGATION ─────────────────────────── */}
+        <div className="flex items-center justify-between px-6 border-b border-slate-800/80 bg-slate-950 text-xs font-medium">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('knowledge_base')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
+                activeTab === 'knowledge_base'
+                  ? 'border-cyan-400 text-cyan-300 font-bold bg-cyan-950/20'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-cyan-400" />
+              Intelligence Repository ({entries.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('new_entry')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
+                activeTab === 'new_entry'
+                  ? 'border-emerald-400 text-emerald-300 font-bold bg-emerald-950/20'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Plus className="w-4 h-4 text-emerald-400" />
+              + Create Research Entry (RFC / ADR)
+            </button>
+            <button
+              onClick={() => setActiveTab('cloud_calc')}
+              className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
+                activeTab === 'cloud_calc'
+                  ? 'border-purple-400 text-purple-300 font-bold bg-purple-950/20'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sliders className="w-4 h-4 text-purple-400" />
+              Cloud Architecture & Unit Economics
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-500 font-mono">
+            DB Status: Connected to Local + Cloud Sync
+          </div>
         </div>
 
-        {/* ── TOAST NOTIFICATION ─────────────────────────────────── */}
+        {/* ── TOAST ALERT ───────────────────────────────────────── */}
         {toastMsg && (
           <div className="absolute top-20 right-8 z-50 flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900/95 text-cyan-300 border border-cyan-500/50 shadow-xl shadow-cyan-950/50 animate-in slide-in-from-top-2 duration-150">
             <Sparkles className="w-4 h-4 text-cyan-400" />
@@ -304,677 +660,712 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
           </div>
         )}
 
-        {/* ── TAB CONTENT ────────────────────────────────────────── */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6">
+        {/* ── BODY VIEWPORT ─────────────────────────────────────── */}
+        <div className="flex-1 flex overflow-hidden">
 
-          {/* ════ TAB 1: CLIENT DUE DILIGENCE & AUDIT ════ */}
-          {activeTab === 'lead_intel' && (
-            <div className="space-y-6">
-              {/* URL Input Bar & Quick Presets */}
-              <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Globe className="w-4 h-4 text-cyan-400" /> Target Prospect or Client URL
-                  </span>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    Quick Presets:
-                    {Object.keys(PRESET_CLIENTS).map(k => (
-                      <button
-                        key={k}
-                        onClick={() => handleRunAudit(k)}
-                        className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                          targetUrl === k ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        {k}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
+          {/* ════ VIEW 1: KNOWLEDGE BASE REPOSITORY ════ */}
+          {activeTab === 'knowledge_base' && (
+            <div className="flex-1 flex overflow-hidden">
+              
+              {/* LEFT SIDEBAR: Filters & Research Entry Cards */}
+              <div className="w-[420px] shrink-0 border-r border-slate-800 flex flex-col bg-slate-950/60">
+                
+                {/* Search & Filter Header */}
+                <div className="p-4 border-b border-slate-800/80 space-y-3">
+                  <div className="relative">
                     <input
                       type="text"
-                      value={targetUrl}
-                      onChange={e => setTargetUrl(e.target.value)}
-                      placeholder="https://client-domain.com"
-                      className="w-full pl-9 pr-4 py-2 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors font-mono"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search ADRs, spikes, tags, tech..."
+                      className="w-full pl-9 pr-4 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
                     />
-                    <Globe className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-white">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleRunAudit(targetUrl)}
-                    disabled={isAuditing}
-                    className="flex items-center gap-2 px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-md shadow-cyan-900/30 disabled:opacity-50"
-                  >
-                    {isAuditing ? <Sparkles className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                    {isAuditing ? 'Running Deep Scrape...' : 'Scan Target Site'}
-                  </button>
+
+                  {/* 4 Core Disciplines Pill Filter */}
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-medium">
+                    <button
+                      onClick={() => setSelectedDiscipline('all')}
+                      className={`px-2.5 py-1 rounded-full transition-colors shrink-0 ${
+                        selectedDiscipline === 'all'
+                          ? 'bg-white text-slate-950 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      All ({entries.length})
+                    </button>
+                    <button
+                      onClick={() => setSelectedDiscipline('design')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors shrink-0 ${
+                        selectedDiscipline === 'design'
+                          ? 'bg-pink-500/20 text-pink-300 border border-pink-500/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Palette className="w-3 h-3 text-pink-400" />
+                      Design
+                    </button>
+                    <button
+                      onClick={() => setSelectedDiscipline('content')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors shrink-0 ${
+                        selectedDiscipline === 'content'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <FileText className="w-3 h-3 text-amber-400" />
+                      Content
+                    </button>
+                    <button
+                      onClick={() => setSelectedDiscipline('frontend')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors shrink-0 ${
+                        selectedDiscipline === 'frontend'
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Code2 className="w-3 h-3 text-cyan-400" />
+                      Frontend
+                    </button>
+                    <button
+                      onClick={() => setSelectedDiscipline('backend')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors shrink-0 ${
+                        selectedDiscipline === 'backend'
+                          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Database className="w-3 h-3 text-purple-400" />
+                      Backend
+                    </button>
+                  </div>
+
+                  {/* Format Filter */}
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                    <span className="flex items-center gap-1">
+                      <Filter className="w-3 h-3 text-slate-500" /> Type:
+                    </span>
+                    <div className="flex gap-1">
+                      {['all', 'adr', 'spike', 'teardown', 'benchmark'].map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setSelectedType(t)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-mono transition-colors ${
+                            selectedType === t
+                              ? 'bg-slate-700 text-white font-bold'
+                              : 'text-slate-500 hover:text-slate-300'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Entry List Scrollable */}
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60 p-2 space-y-1">
+                  {filteredEntries.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 text-xs">
+                      No research entries match the filter.
+                    </div>
+                  ) : (
+                    filteredEntries.map(entry => {
+                      const isSelected = selectedEntry?.id === entry.id;
+                      const discColor =
+                        entry.discipline === 'design' ? 'text-pink-400' :
+                        entry.discipline === 'content' ? 'text-amber-400' :
+                        entry.discipline === 'frontend' ? 'text-cyan-400' : 'text-purple-400';
+
+                      return (
+                        <button
+                          key={entry.id}
+                          onClick={() => setSelectedEntryId(entry.id)}
+                          className={`w-full text-left p-3 rounded-xl transition-all border ${
+                            isSelected
+                              ? 'bg-slate-900 border-cyan-500/50 shadow-md shadow-cyan-950/40'
+                              : 'border-transparent hover:bg-slate-900/50 hover:border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] font-black uppercase tracking-wider ${discColor}`}>
+                                {entry.discipline}
+                              </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 uppercase">
+                                {entry.type}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">{entry.updatedAt}</span>
+                          </div>
+
+                          <div className="text-xs font-bold text-white line-clamp-1 group-hover:text-cyan-300">
+                            {entry.title}
+                          </div>
+
+                          <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                            {entry.summary}
+                          </p>
+
+                          {/* Tag Chips */}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {entry.tags.slice(0, 3).map(tg => (
+                              <span key={tg} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
+                                #{tg}
+                              </span>
+                            ))}
+                            {entry.tags.length > 3 && (
+                              <span className="text-[9px] text-slate-500">+{entry.tags.length - 3}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
-              {/* Dossier Header Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                  <div className="text-[11px] text-slate-400 uppercase font-semibold">Client Company</div>
-                  <div className="text-sm font-bold text-white mt-1">{currentClient.name}</div>
-                  <div className="text-xs text-cyan-400 font-mono mt-0.5">{currentClient.industry}</div>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                  <div className="text-[11px] text-slate-400 uppercase font-semibold">Funding Stage</div>
-                  <div className="text-sm font-bold text-emerald-400 mt-1">{currentClient.funding}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Headcount: {currentClient.headcount}</div>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-                  <div className="text-[11px] text-slate-400 uppercase font-semibold">Est. Annual Revenue</div>
-                  <div className="text-sm font-bold text-amber-400 mt-1">{currentClient.estRevenue}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">Enterprise Client Tier</div>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
-                  <div>
-                    <div className="text-[11px] text-slate-400 uppercase font-semibold">Meeting Sync</div>
-                    <div className="text-xs text-slate-300 mt-1">Export findings to Boardroom</div>
+              {/* RIGHT MAIN PANEL: Document Reader / Deep Inspection */}
+              <div className="flex-1 flex flex-col overflow-y-auto bg-slate-900/30 p-6 space-y-6">
+                {selectedEntry ? (
+                  <div className="space-y-6 max-w-3xl">
+                    
+                    {/* Header Details */}
+                    <div className="space-y-2 border-b border-slate-800 pb-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                            selectedEntry.discipline === 'design' ? 'bg-pink-950/60 text-pink-300 border-pink-800' :
+                            selectedEntry.discipline === 'content' ? 'bg-amber-950/60 text-amber-300 border-amber-800' :
+                            selectedEntry.discipline === 'frontend' ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800' :
+                            'bg-purple-950/60 text-purple-300 border-purple-800'
+                          }`}>
+                            {selectedEntry.discipline}
+                          </span>
+                          <span className="text-xs font-mono font-bold uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                            {selectedEntry.type}
+                          </span>
+                          <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> {selectedEntry.status.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleExportToAgenda(selectedEntry)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-md"
+                          >
+                            <Bookmark className="w-3.5 h-3.5" /> Push to Agenda
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEntry(selectedEntry.id)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 transition-colors"
+                            title="Delete entry"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h1 className="text-lg font-black text-white tracking-wide">
+                        {selectedEntry.title}
+                      </h1>
+
+                      <div className="flex items-center gap-4 text-xs text-slate-400 pt-1">
+                        <span>Author: <strong className="text-slate-200">{selectedEntry.author}</strong></span>
+                        <span>•</span>
+                        <span>Logged: <strong className="text-slate-200">{selectedEntry.createdAt}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Executive Summary */}
+                    <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                      <div className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
+                        Executive Takeaway
+                      </div>
+                      <p className="text-xs text-slate-200 leading-relaxed">
+                        {selectedEntry.summary}
+                      </p>
+                    </div>
+
+                    {/* Problem Statement (Context) */}
+                    {selectedEntry.problemStatement && (
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Terminal className="w-4 h-4 text-amber-400" /> Context & Problem Statement
+                        </h3>
+                        <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 text-xs text-slate-300 leading-relaxed">
+                          {selectedEntry.problemStatement}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Options Evaluated Matrix */}
+                    {selectedEntry.optionsEvaluated && selectedEntry.optionsEvaluated.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Layers className="w-4 h-4 text-purple-400" /> Options Evaluated & Trade-offs
+                        </h3>
+                        <div className="space-y-1.5">
+                          {selectedEntry.optionsEvaluated.map((opt, i) => (
+                            <div key={i} className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-300 flex items-start gap-2">
+                              <ChevronRight className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
+                              <span>{opt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Decision Rationale */}
+                    {selectedEntry.decisionRationale && (
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <Check className="w-4 h-4 text-emerald-400" /> Decision & Technical Conviction
+                        </h3>
+                        <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-xs text-slate-200 leading-relaxed font-medium">
+                          {selectedEntry.decisionRationale}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Key Findings */}
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-cyan-400" /> Core Research Findings & Actionable Insights
+                      </h3>
+                      <div className="space-y-1.5">
+                        {selectedEntry.keyFindings.map((finding, idx) => (
+                          <div key={idx} className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-300 flex items-start gap-2">
+                            <span className="w-4 h-4 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 flex items-center justify-center text-[10px] shrink-0 font-bold">
+                              {idx + 1}
+                            </span>
+                            <span className="leading-relaxed">{finding}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Benchmarks Grid (if any) */}
+                    {selectedEntry.benchmarks && selectedEntry.benchmarks.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <BarChart3 className="w-4 h-4 text-emerald-400" /> Empirical Benchmarks
+                        </h3>
+                        <div className="grid grid-cols-2 gap-3">
+                          {selectedEntry.benchmarks.map((bm, bIdx) => (
+                            <div key={bIdx} className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                              <div className="text-lg font-black text-emerald-400">{bm.value}</div>
+                              <div className="text-xs font-semibold text-slate-300 mt-0.5">{bm.metric}</div>
+                              {bm.comparison && <div className="text-[10px] text-slate-500 mt-0.5">{bm.comparison}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Code Snippet / Tokens (if any) */}
+                    {selectedEntry.codeOrTokens && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                            <Code2 className="w-4 h-4 text-cyan-400" /> Starter Code / Tokens / Schema
+                          </h3>
+                          <button
+                            onClick={() => handleCopy(selectedEntry.codeOrTokens!, 'Code snippet copied!')}
+                            className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                          >
+                            <Copy className="w-3.5 h-3.5" /> Copy Code
+                          </button>
+                        </div>
+                        <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-cyan-300 overflow-x-auto leading-relaxed">
+                          {selectedEntry.codeOrTokens}
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Tags Footer */}
+                    <div className="pt-4 border-t border-slate-800/80 flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 text-slate-500" />
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedEntry.tags.map(tag => (
+                          <span key={tag} className="text-xs px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700 font-mono">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
                   </div>
-                  <button
-                    onClick={handleExportToAgenda}
-                    className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md"
-                  >
-                    Export
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">
+                    Select a research entry from the left to view documentation.
+                  </div>
+                )}
               </div>
 
-              {/* Lighthouse Scores + Tech Stacks */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            </div>
+          )}
+
+          {/* ════ VIEW 2: CREATE NEW RESEARCH ENTRY (BIG TECH TEMPLATES) ════ */}
+          {activeTab === 'new_entry' && (
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-900/20">
+              <div className="max-w-3xl mx-auto space-y-6">
                 
-                {/* Lighthouse Radar Gauges */}
-                <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
+                {/* Header & Quick Template Select */}
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-emerald-400" /> Automated Lighthouse Health Audit
-                    </h3>
-                    <span className="text-[11px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                      Overall: 96 / 100
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-3 text-center">
-                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                      <div className="text-2xl font-black text-emerald-400">{currentClient.scores.perf}</div>
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase mt-1">Performance</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">FCP: 0.9s</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                      <div className="text-2xl font-black text-emerald-400">{currentClient.scores.a11y}</div>
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase mt-1">Accessibility</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">WCAG AAA</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                      <div className="text-2xl font-black text-cyan-400">{currentClient.scores.best}</div>
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase mt-1">Best Practices</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">Modern DOM</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                      <div className="text-2xl font-black text-emerald-400">{currentClient.scores.seo}</div>
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase mt-1">SEO Health</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">Schema.org</div>
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-slate-400 leading-relaxed bg-slate-950/50 p-3 rounded-lg border border-slate-800/80">
-                    💡 <strong className="text-slate-200">Pitch Angle:</strong> Client is currently losing ~28% of mobile conversions on checkout because of third-party script bloat. Upgrading to Aeethod Next.js 15 Server Components will cut TBT (Total Blocking Time) from 640ms down to 45ms.
-                  </div>
-                </div>
-
-                {/* Tech Stack Sniffer & Migration Opportunity */}
-                <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-purple-400" /> Tech Stack Sniffer & Transformation Pitch
-                  </h3>
-
-                  <div className="space-y-3">
                     <div>
-                      <div className="text-[11px] font-semibold text-rose-400 uppercase flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-rose-500" /> Current Legacy Stack (Bottlenecks)
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {currentClient.currentStack.map(s => (
-                          <span key={s} className="px-2.5 py-1 rounded text-xs bg-rose-950/30 text-rose-300 border border-rose-900/50 font-mono">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
+                      <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                        <Plus className="w-4 h-4 text-emerald-400" /> Log New Research Document
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Use Big Tech templates (ADR, Spike, Design Spec, Content Strategy)
+                      </p>
                     </div>
 
-                    <div className="pt-2">
-                      <div className="text-[11px] font-semibold text-cyan-400 uppercase flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400" /> Recommended Modern Stack (Aeethod Standard)
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {currentClient.recommendedStack.map(s => (
-                          <span key={s} className="px-2.5 py-1 rounded text-xs bg-cyan-950/40 text-cyan-300 border border-cyan-800 font-mono font-semibold">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleLoadTemplate('adr')}
+                        className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-800/50"
+                      >
+                        Load ADR Template
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadTemplate('spike')}
+                        className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-800/50"
+                      >
+                        Load Spike Template
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadTemplate('design')}
+                        className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-800 hover:bg-slate-700 text-pink-300 border border-pink-800/50"
+                      >
+                        Load Design Spec
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadTemplate('content')}
+                        className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-800/50"
+                      >
+                        Load Content Doc
+                      </button>
                     </div>
                   </div>
+                </div>
 
-                  {/* Strategic Insights */}
-                  <div className="space-y-1.5 pt-2">
-                    <div className="text-[11px] font-semibold text-slate-300 uppercase">Pre-Discovery Agenda Items:</div>
-                    {currentClient.insights.map((ins, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-slate-300 bg-slate-950/60 p-2 rounded border border-slate-800">
-                        <ArrowRight className="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
-                        <span>{ins}</span>
-                      </div>
-                    ))}
+                {/* The Form */}
+                <form onSubmit={handleCreateEntry} className="space-y-4">
+                  
+                  {/* Row 1: Title */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Research Document Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={formTitle}
+                      onChange={e => setFormTitle(e.target.value)}
+                      placeholder="e.g. ADR-012: Adoption of Cloudflare R2 for Zero-Egress Lookbook Images"
+                      className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                    />
                   </div>
-                </div>
 
-              </div>
-            </div>
-          )}
-
-          {/* ════ TAB 2: COMPETITOR & MARKET RADAR ════ */}
-          {activeTab === 'competitor_radar' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-purple-400" /> Card Game & E-Commerce Competitor Matrix
-                  </h3>
-                  <p className="text-xs text-slate-400">Competitive benchmarking for client proposal differentiation</p>
-                </div>
-                <span className="text-xs text-purple-300 font-semibold px-2.5 py-1 rounded-full bg-purple-950/60 border border-purple-800">
-                  Target Niche: TCG Trading & Buylist Engines
-                </span>
-              </div>
-
-              {/* Competitor Benchmark Grid */}
-              <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="p-3">Platform</th>
-                      <th className="p-3">Est. Traffic</th>
-                      <th className="p-3">Buylist Payout</th>
-                      <th className="p-3">Mobile Grading</th>
-                      <th className="p-3">Seller Fees</th>
-                      <th className="p-3">Tech Architecture</th>
-                      <th className="p-3">Aeethod Advantage</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800 text-slate-300">
-                    <tr className="bg-cyan-950/20 font-semibold text-cyan-300">
-                      <td className="p-3 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> RNG Gamez (Our Client)
-                      </td>
-                      <td className="p-3">140k MAU</td>
-                      <td className="p-3 text-emerald-400">Instant (Stripe Debit)</td>
-                      <td className="p-3 text-emerald-400">AI Vision Scanner</td>
-                      <td className="p-3 text-emerald-400">4.5% + 30¢</td>
-                      <td className="p-3 font-mono text-[11px]">Next.js 15 + Supabase</td>
-                      <td className="p-3 text-emerald-400">Sub-100ms real-time pricing sync</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/40">
-                      <td className="p-3 font-semibold text-white">TCGPlayer Market</td>
-                      <td className="p-3">4.8M MAU</td>
-                      <td className="p-3 text-rose-400">4-6 Business Days</td>
-                      <td className="p-3 text-rose-400">Manual / None</td>
-                      <td className="p-3 text-rose-400">10.25% + fees</td>
-                      <td className="p-3 font-mono text-[11px]">Legacy .NET / React 16</td>
-                      <td className="p-3 text-slate-400">High seller fees, slow checkout</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/40">
-                      <td className="p-3 font-semibold text-white">Troll and Toad</td>
-                      <td className="p-3">920k MAU</td>
-                      <td className="p-3 text-rose-400">Check via Mail / PayPal</td>
-                      <td className="p-3 text-rose-400">None</td>
-                      <td className="p-3 text-amber-400">8.0% Flat</td>
-                      <td className="p-3 font-mono text-[11px]">PHP / Apache Monolith</td>
-                      <td className="p-3 text-slate-400">Clunky 2012 UI, non-responsive</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/40">
-                      <td className="p-3 font-semibold text-white">Cardmarket EU</td>
-                      <td className="p-3">2.1M MAU</td>
-                      <td className="p-3 text-amber-400">SEPA Bank (2-3 Days)</td>
-                      <td className="p-3 text-rose-400">None</td>
-                      <td className="p-3 text-emerald-400">5.0%</td>
-                      <td className="p-3 font-mono text-[11px]">Symfony PHP / MySQL</td>
-                      <td className="p-3 text-slate-400">EU-only focus, lacks US payment rails</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Market Gaps & Opportunities */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-800/50 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-purple-300 uppercase">
-                    <Flame className="w-4 h-4 text-purple-400" /> 1. Instant Liquidity Moat
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Card collectors hate waiting 5 business days for store credit or ACH cashouts. Offering instant 60-second Stripe Debit card transfers will attract high-volume collectors.
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-cyan-950/20 border border-cyan-800/50 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-cyan-300 uppercase">
-                    <Zap className="w-4 h-4 text-cyan-400" /> 2. Camera Card Scanner
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Competitors force users to type card numbers and sets manually. Aeethod's webcam/mobile OpenCV card grader recognizes raw foils in &lt;300ms.
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/50 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-300 uppercase">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> 3. Live Tournament Sync
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Integrating live Swiss-bracket tournament matchmaking directly with player inventories drives 4x daily active engagement.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ════ TAB 3: TECH STACK & COST LAB ════ */}
-          {activeTab === 'tech_lab' && (
-            <div className="space-y-6">
-              {/* Cloud Cost Estimator */}
-              <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-emerald-400" /> Client Infrastructure & Unit Economics Calculator
-                  </h3>
-                  <div className="text-xs text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800">
-                    Est. Cloud Budget: ${totalCloudCost} / mo
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                  {/* Slider Controls */}
-                  <div className="space-y-4">
+                  {/* Row 2: Discipline, Type, Status */}
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <div className="flex justify-between text-xs text-slate-300 mb-1">
-                        <span>Monthly Active Users (MAU)</span>
-                        <span className="font-mono font-bold text-cyan-400">{monthlyUsers.toLocaleString()} MAU</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10000"
-                        max="1000000"
-                        step="10000"
-                        value={monthlyUsers}
-                        onChange={e => setMonthlyUsers(Number(e.target.value))}
-                        className="w-full accent-cyan-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Discipline</label>
+                      <select
+                        value={formDiscipline}
+                        onChange={e => setFormDiscipline(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                      >
+                        <option value="design">🎨 Design (UI/UX, Tokens)</option>
+                        <option value="content">✍️ Content (Copy, SEO, Strategy)</option>
+                        <option value="frontend">⚡ Frontend (Next.js, React, WebGL)</option>
+                        <option value="backend">🛡️ Backend (DB, APIs, Stripe)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Document Format</label>
+                      <select
+                        value={formType}
+                        onChange={e => setFormType(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                      >
+                        <option value="adr">ADR (Architecture Decision Record)</option>
+                        <option value="spike">Spike / Technical POC</option>
+                        <option value="teardown">Competitor / Product Teardown</option>
+                        <option value="benchmark">Empirical Benchmark Log</option>
+                        <option value="template">Reusable Starter Template</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Lifecycle Status</label>
+                      <select
+                        value={formStatus}
+                        onChange={e => setFormStatus(e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                      >
+                        <option value="validated">✅ Validated (Production Standard)</option>
+                        <option value="evaluating">⏳ Evaluating (In Progress)</option>
+                        <option value="archived">📦 Archived</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Tags & Summary */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Tags (Comma separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={formTags}
+                      onChange={e => setFormTags(e.target.value)}
+                      placeholder="e.g. Next.js, Stripe, Performance, Buylist"
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Executive Summary (2-sentence takeaway)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formSummary}
+                      onChange={e => setFormSummary(e.target.value)}
+                      placeholder="Briefly state what decision was made and the primary business/engineering benefit."
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
+                    />
+                  </div>
+
+                  {/* Row 4: Problem Statement & Options Evaluated */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Context & Problem Statement
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={formProblem}
+                        onChange={e => setFormProblem(e.target.value)}
+                        placeholder="What bottleneck or constraint required this investigation?"
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
                       />
                     </div>
-
                     <div>
-                      <div className="flex justify-between text-xs text-slate-300 mb-1">
-                        <span>Database Operations / Day</span>
-                        <span className="font-mono font-bold text-purple-400">{dbReadsPerDay.toLocaleString()} ops</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="50000"
-                        max="2000000"
-                        step="50000"
-                        value={dbReadsPerDay}
-                        onChange={e => setDbReadsPerDay(Number(e.target.value))}
-                        className="w-full accent-purple-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Options Evaluated (1 per line)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={formOptions}
+                        onChange={e => setFormOptions(e.target.value)}
+                        placeholder="Option A: Details&#10;Option B: Details&#10;Option C: Winner"
+                        className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
                       />
                     </div>
                   </div>
 
-                  {/* Projected Bills */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-center">
-                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Vercel Pro</div>
-                      <div className="text-lg font-bold text-cyan-400 mt-1">${vercelCost}</div>
-                      <div className="text-[10px] text-slate-500">Edge compute & SSR</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-center">
-                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Supabase Pro</div>
-                      <div className="text-lg font-bold text-emerald-400 mt-1">${supabaseCost}</div>
-                      <div className="text-[10px] text-slate-500">Postgres + Auth</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-center">
-                      <div className="text-[10px] text-slate-400 uppercase font-semibold">Cloudflare R2</div>
-                      <div className="text-lg font-bold text-amber-400 mt-1">${cloudflareCost}</div>
-                      <div className="text-[10px] text-slate-500">Zero egress fees</div>
-                    </div>
+                  {/* Row 5: Decision Rationale & Core Findings */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Decision Rationale & Technical Conviction
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formDecision}
+                      onChange={e => setFormDecision(e.target.value)}
+                      placeholder="Why did we select this option? What was the non-obvious engineering insight?"
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
+                    />
                   </div>
-                </div>
-              </div>
 
-              {/* Package Comparison Matrix */}
-              <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                    <Database className="w-4 h-4 text-cyan-400" /> Framework & Dependency Comparison Matrix
-                  </h3>
-                  <div className="flex gap-1.5 text-xs">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Key Findings / Empirical Metrics (1 per line)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formFindings}
+                      onChange={e => setFormFindings(e.target.value)}
+                      placeholder="e.g. Cuts initial JS bundle by 65%&#10;Sub-second FCP on mobile Safari&#10;Zero vendor lock-in"
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
+                    />
+                  </div>
+
+                  {/* Row 6: Code Snippet / Tokens */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Starter Code / CSS Tokens / SQL Schema (Optional)
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={formCode}
+                      onChange={e => setFormCode(e.target.value)}
+                      placeholder="Paste copyable code, SQL migrations, or CSS tokens..."
+                      className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-cyan-300 font-mono"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="pt-2 flex justify-end gap-3">
                     <button
-                      onClick={() => setSelectedComparison('backend')}
-                      className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                        selectedComparison === 'backend' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50' : 'bg-slate-800 text-slate-400'
-                      }`}
+                      type="button"
+                      onClick={() => setActiveTab('knowledge_base')}
+                      className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                     >
-                      Supabase vs Firebase
+                      Cancel
                     </button>
                     <button
-                      onClick={() => setSelectedComparison('state')}
-                      className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                        selectedComparison === 'state' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50' : 'bg-slate-800 text-slate-400'
-                      }`}
+                      type="submit"
+                      className="flex items-center gap-2 px-6 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 text-xs font-bold shadow-lg shadow-cyan-900/30"
                     >
-                      Zustand vs Redux
-                    </button>
-                    <button
-                      onClick={() => setSelectedComparison('framework')}
-                      className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                        selectedComparison === 'framework' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50' : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      Next.js vs Remix
+                      <Sparkles className="w-4 h-4" /> Save Entry & Claim +100 KP
                     </button>
                   </div>
-                </div>
 
-                {selectedComparison === 'backend' && (
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-800/50 space-y-2">
-                      <div className="font-bold text-emerald-400 text-sm flex items-center justify-between">
-                        <span>Supabase (Aeethod Pick)</span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-900 text-emerald-200">Recommended</span>
-                      </div>
-                      <div className="text-slate-300">✓ Full PostgreSQL ACID compliance + pgvector for AI</div>
-                      <div className="text-slate-300">✓ Built-in Row Level Security (RLS) policies</div>
-                      <div className="text-slate-300">✓ Open source, no proprietary vendor lock-in</div>
-                      <div className="text-slate-400 text-[11px] pt-1">Best for: Relational data, financial ledgers, buylists.</div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800 space-y-2">
-                      <div className="font-bold text-slate-300 text-sm">Google Firebase</div>
-                      <div className="text-slate-400">✗ NoSQL Firestore queries struggle with complex joins</div>
-                      <div className="text-slate-400">✗ Expensive indexing and bandwidth scaling</div>
-                      <div className="text-slate-400">✓ Fast real-time listeners for micro-apps</div>
-                      <div className="text-slate-500 text-[11px] pt-1">Best for: Rapid non-relational mobile prototypes.</div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedComparison === 'state' && (
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-800/50 space-y-2">
-                      <div className="font-bold text-emerald-400 text-sm flex items-center justify-between">
-                        <span>Zustand (Aeethod Pick)</span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-900 text-emerald-200">1.2 KB</span>
-                      </div>
-                      <div className="text-slate-300">✓ Tiny 1.2 KB bundle size with zero boilerplate</div>
-                      <div className="text-slate-300">✓ Transient updates (renders without re-rendering tree)</div>
-                      <div className="text-slate-300">✓ TypeScript first-class inference</div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800 space-y-2">
-                      <div className="font-bold text-slate-300 text-sm">Redux Toolkit</div>
-                      <div className="text-slate-400">✗ Heavy 11.4 KB bundle overhead</div>
-                      <div className="text-slate-400">✗ Boilerplate actions and selectors</div>
-                      <div className="text-slate-400">✓ Time-travel debugging tools</div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedComparison === 'framework' && (
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-800/50 space-y-2">
-                      <div className="font-bold text-emerald-400 text-sm flex items-center justify-between">
-                        <span>Next.js 15 App Router</span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-900 text-emerald-200">Standard</span>
-                      </div>
-                      <div className="text-slate-300">✓ React Server Components (RSC) for near-zero JS payloads</div>
-                      <div className="text-slate-300">✓ Server Actions for seamless mutations</div>
-                      <div className="text-slate-300">✓ Built-in image and font optimization pipeline</div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800 space-y-2">
-                      <div className="font-bold text-slate-300 text-sm">Remix / React Router v7</div>
-                      <div className="text-slate-400">✓ Excellent nested route loaders and forms</div>
-                      <div className="text-slate-400">✗ Smaller ecosystem and hosting ecosystem vs Vercel Next.js</div>
-                    </div>
-                  </div>
-                )}
+                </form>
               </div>
             </div>
           )}
 
-          {/* ════ TAB 4: CREATIVE TREND RADAR ════ */}
-          {activeTab === 'creative_trends' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-pink-400" /> Curated Design & UI/UX Trend Radar
-                  </h3>
-                  <p className="text-xs text-slate-400">Award-winning interaction patterns, typography pairings, and palettes</p>
-                </div>
-                <span className="text-xs text-pink-300 font-semibold px-2.5 py-1 rounded-full bg-pink-950/60 border border-pink-800">
-                  Awwwards & Mobbin Live Feed
-                </span>
-              </div>
-
-              {/* Design Showcase Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
-                  <div className="h-28 rounded-lg bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-950 flex items-center justify-center text-center p-3 border border-indigo-700/40">
+          {/* ════ VIEW 3: CLOUD COST & ARCHITECTURE LAB ════ */}
+          {activeTab === 'cloud_calc' && (
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                
+                {/* Cloud Cost Calculator Card */}
+                <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-5">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-black text-white tracking-widest uppercase">Dark Glass & Bento</div>
-                      <div className="text-[10px] text-cyan-300 mt-1">Linear / Apple Style</div>
+                      <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-emerald-400" /> Client Infrastructure & Unit Economics Calculator
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Forecast monthly cloud hosting and database bills for client proposals across Vercel, Supabase, and Cloudflare.
+                      </p>
+                    </div>
+                    <div className="text-xs text-emerald-400 font-bold bg-emerald-950/80 px-3 py-1.5 rounded-xl border border-emerald-800">
+                      Est. Monthly Cloud Spend: ${totalCloudCost} / mo
                     </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Bento Grid Dashboard</div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Asymmetrical grid with high-contrast subtle 1px border highlights, 12px blur backdrops, and muted neon badges.
-                    </p>
-                  </div>
-                </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
-                  <div className="h-28 rounded-lg bg-gradient-to-br from-amber-900/60 via-stone-900 to-black flex items-center justify-center text-center p-3 border border-amber-600/40">
-                    <div>
-                      <div className="text-xs font-black text-amber-200 tracking-widest uppercase font-serif">Quiet Luxury</div>
-                      <div className="text-[10px] text-amber-400 mt-1">Editorial Serif + Gold</div>
+                  <div className="grid grid-cols-2 gap-8 pt-4">
+                    {/* Sliders */}
+                    <div className="space-y-5">
+                      <div>
+                        <div className="flex justify-between text-xs text-slate-300 mb-1.5">
+                          <span className="font-semibold">Monthly Active Users (MAU)</span>
+                          <span className="font-mono font-bold text-cyan-400 text-sm">{monthlyUsers.toLocaleString()} MAU</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10000"
+                          max="1500000"
+                          step="10000"
+                          value={monthlyUsers}
+                          onChange={e => setMonthlyUsers(Number(e.target.value))}
+                          className="w-full accent-cyan-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-xs text-slate-300 mb-1.5">
+                          <span className="font-semibold">Database Operations / Day</span>
+                          <span className="font-mono font-bold text-purple-400 text-sm">{dbReadsPerDay.toLocaleString()} ops</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50000"
+                          max="3000000"
+                          step="50000"
+                          value={dbReadsPerDay}
+                          onChange={e => setDbReadsPerDay(Number(e.target.value))}
+                          className="w-full accent-purple-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Breakdown Cards */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center flex flex-col justify-center">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Vercel Pro</div>
+                        <div className="text-xl font-bold text-cyan-400 mt-1">${vercelCost}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Edge SSR Compute</div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center flex flex-col justify-center">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Supabase Pro</div>
+                        <div className="text-xl font-bold text-emerald-400 mt-1">${supabaseCost}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Postgres + Auth</div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center flex flex-col justify-center">
+                        <div className="text-[10px] text-slate-400 uppercase font-semibold">Cloudflare R2</div>
+                        <div className="text-xl font-bold text-amber-400 mt-1">${cloudflareCost}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Zero-Egress Images</div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Editorial Luxury Portfolio</div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      High-end serif headers (Playfair / Cormorant), Calacatta marble accents, and smooth momentum page inertia.
-                    </p>
-                  </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
-                  <div className="h-28 rounded-lg bg-gradient-to-br from-cyan-950 via-slate-900 to-blue-950 flex items-center justify-center text-center p-3 border border-cyan-700/40">
-                    <div>
-                      <div className="text-xs font-black text-cyan-300 tracking-widest uppercase">Spring Physics</div>
-                      <div className="text-[10px] text-emerald-400 mt-1">60fps Micro-Interactions</div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Tactile Web Interactions</div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Framer Motion spring physics for buttons, card tilts with cursor gyro tracking, and satisfying audio haptic clicks.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Color Palette & WCAG AAA Accessibility Checker */}
-              <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Aeethod Studio Signature Palette & Contrast Matrix
+                {/* Big Tech Research Philosophy Guide */}
+                <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-cyan-400" /> Big Tech Research Playbook: How to Conduct & Store Research
                   </h4>
-                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                    100% WCAG 2.1 AAA Compliant
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-5 gap-3 pt-2 text-center text-xs">
-                  <div className="p-3 rounded-lg bg-[#06b6d4] text-slate-950 font-bold">
-                    <div>#06b6d4</div>
-                    <div className="text-[10px] opacity-80 mt-1">Cyan Accent</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#d4af37] text-slate-950 font-bold">
-                    <div>#d4af37</div>
-                    <div className="text-[10px] opacity-80 mt-1">Champagne Gold</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#8b5cf6] text-white font-bold">
-                    <div>#8b5cf6</div>
-                    <div className="text-[10px] opacity-80 mt-1">Royal Violet</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#10b981] text-slate-950 font-bold">
-                    <div>#10b981</div>
-                    <div className="text-[10px] opacity-80 mt-1">Active Jade</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#0f172a] text-white font-bold border border-slate-700">
-                    <div>#0f172a</div>
-                    <div className="text-[10px] text-slate-400 mt-1">Midnight Slate</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ════ TAB 5: AGENCY IP & KNOWLEDGE VAULT ════ */}
-          {activeTab === 'knowledge_vault' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-amber-400" /> Aeethod IP Vault & Scoping Accuracy
-                  </h3>
-                  <p className="text-xs text-slate-400">Internal proprietary boilerplates, blueprints, and scoping historical benchmarks</p>
-                </div>
-                <button
-                  onClick={handleClaimKP}
-                  disabled={claimedKP}
-                  className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                    claimedKP
-                      ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
-                  }`}
-                >
-                  <Award className="w-4 h-4" />
-                  {claimedKP ? 'Research XP Claimed' : 'Claim +150 KP'}
-                </button>
-              </div>
-
-              {/* Ready-to-Use Agency Starter Kits */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Zap className="w-4 h-4 text-amber-400" /> Fullstack Starter
-                    </span>
-                    <span className="text-[10px] text-cyan-300 font-mono">v4.2</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Next.js 15 App Router + Supabase Auth + Stripe Webhook handlers + Tailwind tokens.
-                  </p>
-                  <button
-                    onClick={() => triggerToast('📋 Boilerplate command copied to clipboard!')}
-                    className="w-full mt-2 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-slate-400" /> Copy CLI Starter
-                  </button>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-cyan-400" /> 3D WebGL Canvas
-                    </span>
-                    <span className="text-[10px] text-cyan-300 font-mono">v2.0</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Three.js card inspection showroom with real-time reflections, foil holos, and gyroscope tilting.
-                  </p>
-                  <button
-                    onClick={() => triggerToast('📋 Three.js package manifest copied!')}
-                    className="w-full mt-2 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-slate-400" /> Copy Component
-                  </button>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" /> Stripe Buylist Rail
-                    </span>
-                    <span className="text-[10px] text-cyan-300 font-mono">v1.8</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Instant seller debit card payouts, KYC verification flow, and escrow payment holds.
-                  </p>
-                  <button
-                    onClick={() => triggerToast('📋 Stripe integration template copied!')}
-                    className="w-full mt-2 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-slate-400" /> Copy Architecture
-                  </button>
-                </div>
-              </div>
-
-              {/* Historical Scoping Accuracy Benchmark */}
-              <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-emerald-400" /> Historical Project Scoping Accuracy
-                </h4>
-                <p className="text-xs text-slate-400">
-                  Data-driven variance analysis between estimated client proposal hours and actual engineering hours delivered.
-                </p>
-
-                <div className="grid grid-cols-3 gap-4 pt-2">
-                  <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-                    <div className="text-xs font-bold text-white">Essential Package</div>
-                    <div className="flex justify-between text-[11px] text-slate-400 mt-1">
-                      <span>Est: 40 hrs</span>
-                      <span className="text-emerald-400">Actual: 38 hrs</span>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+                      <div className="font-bold text-cyan-300">1. Architecture Decision Records (ADRs)</div>
+                      <p className="text-slate-400 leading-relaxed">
+                        Never make architecture choices without documenting why. Format: <em>Title, Status, Context, Options, Decision, Consequences</em>. Stripe and Google keep ADRs immutable in git.
+                      </p>
                     </div>
-                    <div className="text-[10px] text-emerald-400 font-semibold mt-1">95.0% Accuracy</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-                    <div className="text-xs font-bold text-white">Professional Package</div>
-                    <div className="flex justify-between text-[11px] text-slate-400 mt-1">
-                      <span>Est: 120 hrs</span>
-                      <span className="text-emerald-400">Actual: 114 hrs</span>
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+                      <div className="font-bold text-purple-300">2. Timeboxed Engineering Spikes</div>
+                      <p className="text-slate-400 leading-relaxed">
+                        Timebox exploration to 2–4 hours with a specific question (e.g. <em>Can Three.js render 50 foil cards at 60fps on iOS?</em>). Deliverable must be code + empirical benchmark.
+                      </p>
                     </div>
-                    <div className="text-[10px] text-emerald-400 font-semibold mt-1">95.2% Accuracy</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
-                    <div className="text-xs font-bold text-white">Enterprise Tier</div>
-                    <div className="flex justify-between text-[11px] text-slate-400 mt-1">
-                      <span>Est: 320 hrs</span>
-                      <span className="text-amber-400">Actual: 334 hrs</span>
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+                      <div className="font-bold text-pink-300">3. Deconstructed Design Tokens</div>
+                      <p className="text-slate-400 leading-relaxed">
+                        Extract and document concrete tokens (hex, spring physics, contrast ratios) rather than saving static screenshots.
+                      </p>
                     </div>
-                    <div className="text-[10px] text-amber-400 font-semibold mt-1">95.6% Accuracy</div>
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+                      <div className="font-bold text-amber-300">4. Content & Messaging Hierarchy</div>
+                      <p className="text-slate-400 leading-relaxed">
+                        Structure copywriting into Problem-Agitate-Solution frameworks mapped to commercial search volume clusters.
+                      </p>
+                    </div>
                   </div>
                 </div>
+
               </div>
             </div>
           )}
 
         </div>
 
-        {/* ── FOOTER ────────────────────────────────────────────── */}
+        {/* ── FOOTER BAR ────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-slate-800/80 bg-slate-950 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Aeethod Intel Node: connected to plan & meeting room bus</span>
+            <span>Aeethod Research Bus: Plan & Meeting Room Node Online</span>
           </div>
           <div className="flex items-center gap-4">
             <span>Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">ESC</kbd> to exit</span>
