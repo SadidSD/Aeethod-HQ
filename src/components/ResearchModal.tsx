@@ -26,7 +26,11 @@ import {
   Bookmark,
   Activity,
   RotateCcw,
-  MousePointerClick
+  MousePointerClick,
+  Target,
+  DollarSign,
+  AlertTriangle,
+  Ban
 } from 'lucide-react';
 
 interface ResearchModalProps {
@@ -37,7 +41,7 @@ interface ResearchModalProps {
 
 // ── TYPES ──────────────────────────────────────────────────────────────────
 
-export type Discipline = 'all' | 'design' | 'content' | 'frontend' | 'backend';
+export type Discipline = 'all' | 'design' | 'content' | 'frontend' | 'backend' | 'market';
 export type ResearchType = 'adr' | 'spike' | 'teardown' | 'benchmark' | 'template';
 export type ResearchStatus = 'validated' | 'evaluating' | 'archived';
 
@@ -47,7 +51,7 @@ export interface ResearchBenchmark {
   comparison?: string;
 }
 
-// Design-Specific Rich Fields
+// 1. Design-Specific Metadata
 export interface DesignMetadata {
   colorPalette?: Array<{ name: string; hex: string; role: string }>;
   springPhysics?: { stiffness: number; damping: number; mass: number; latencyMs?: string };
@@ -55,7 +59,7 @@ export interface DesignMetadata {
   componentAnatomy?: string[];
 }
 
-// Content-Specific Rich Fields
+// 2. Content-Specific Metadata
 export interface ContentMetadata {
   targetPersona?: string;
   pasFunnel?: { problem: string; agitate: string; solution: string };
@@ -64,14 +68,14 @@ export interface ContentMetadata {
   callToAction?: string;
 }
 
-// Frontend-Specific Rich Fields
+// 3. Frontend-Specific Metadata
 export interface FrontendMetadata {
   coreWebVitals?: { fcp: string; lcp: string; cls: string; inp: string };
   bundleSize?: { size: string; savingsPercent?: string; baseline?: string };
   frameworksCompared?: Array<{ name: string; bundle: string; dxScore: string; verdict: string }>;
 }
 
-// Backend-Specific Rich Fields
+// 4. Backend-Specific Metadata
 export interface BackendMetadata {
   architectureTopology?: string;
   databaseSchemaSql?: string;
@@ -80,10 +84,37 @@ export interface BackendMetadata {
   tradeoffsEvaluated?: Array<{ option: string; pros: string; cons: string; status: 'Chosen' | 'Rejected' }>;
 }
 
+// 5. Market Discovery & ICP Metadata (Stripe / Amazon / Reforge / McKinsey Model)
+export interface MarketMaturityTier {
+  tier: string;
+  name: string;
+  gmvRange: string;
+  inventoryProfile: string;
+  verdict: 'Disqualified' | 'SaaS Off-The-Shelf' | 'Ideal Agency ICP' | 'Enterprise Custom';
+  verdictColor: string;
+  symptoms: string;
+}
+
+export interface MarketMetadata {
+  niche?: string;
+  maturityTiers?: MarketMaturityTier[];
+  economicFormula?: {
+    monthlyGmv: number;
+    marketplaceTakeRatePercent: number; // e.g. 13.5%
+    annualFeeBleed: number;
+    agencyBuildCost: number; // e.g. $25,000
+    paybackMonths: number;
+    yearOneRoiMultiple: string;
+  };
+  operationalTriggers?: string[];
+  disqualificationFilters?: string[];
+  costOfInactionSalesHook?: string;
+}
+
 export interface ResearchEntry {
   id: string;
   title: string;
-  discipline: 'design' | 'content' | 'frontend' | 'backend';
+  discipline: 'design' | 'content' | 'frontend' | 'backend' | 'market';
   type: ResearchType;
   status: ResearchStatus;
   tags: string[];
@@ -100,16 +131,106 @@ export interface ResearchEntry {
   createdAt: string;
   updatedAt: string;
 
-  // Differentiated Discipline Metadata
+  // Differentiated Discipline Extensions
   designMeta?: DesignMetadata;
   contentMeta?: ContentMetadata;
   frontendMeta?: FrontendMetadata;
   backendMeta?: BackendMetadata;
+  marketMeta?: MarketMetadata;
 }
 
-// ── SEED RESEARCH KNOWLEDGE BASE (RICH & DIFFERENTIATED) ──────────────────
+// ── SEED RESEARCH KNOWLEDGE BASE ──────────────────────────────────────────
 
 const INITIAL_RESEARCH_ENTRIES: ResearchEntry[] = [
+  // ── 5. MARKET DISCOVERY & ICP STRATEGY (Stripe / Reforge Model) ──
+  {
+    id: 'res_m01',
+    title: 'Market Opportunity Teardown: TCG Store Maturity & The Custom Website Tipping Point',
+    discipline: 'market',
+    type: 'teardown',
+    status: 'validated',
+    tags: ['Market-Discovery', 'ICP-Strategy', 'TCG-Ecosystem', 'Unit-Economics', 'Stripe', 'Reforge', 'McKinsey'],
+    summary: 'Stripe & Reforge customer readiness analysis identifying the exact GMV, inventory, and operational thresholds where a trading card store transitions from marketplace seller to high-ticket custom headless buylist.',
+    problemStatement: 'Agency sales teams waste 60%+ of prospecting cycles pitching custom platforms to Tier 1 hobby stores who lack inventory velocity, while missing Tier 3 stores bleeding $12k+/mo to TCGPlayer commission.',
+    keyFindings: [
+      'Stripe Take-Rate Arbitrage: At $100k/mo sales, stores bleed $162,000/yr in marketplace fees. A $25k Aeethod build achieves break-even in 56 days.',
+      'Amazon Disqualification Rule: Stores under $15k/mo or selling only sealed booster packs are strictly disqualified from custom builds.',
+      'Reforge Tipping Point: Operational friction peaks when buylist lines exceed 20 minutes on tournament nights and inventory desync causes overselling.'
+    ],
+    marketMeta: {
+      niche: 'Trading Card Games (Pokemon, Magic: The Gathering, Lorcana, One Piece)',
+      maturityTiers: [
+        {
+          tier: 'Tier 1: DIY Hobbyist',
+          name: 'Local Binder & Tabletop Shop',
+          gmvRange: '< $15,000 / mo',
+          inventoryProfile: '< 2,000 singles in glass binders',
+          verdict: 'Disqualified',
+          verdictColor: 'text-rose-400 bg-rose-950/60 border-rose-800',
+          symptoms: 'Uses pen & paper or basic Square POS. Cannot support shipping logistics or $25k build cost.'
+        },
+        {
+          tier: 'Tier 2: Standard SaaS',
+          name: 'Marketplace Scaling Merchant',
+          gmvRange: '$15,000 – $50,000 / mo',
+          inventoryProfile: '5,000 – 15,000 singles on TCGPlayer/eBay',
+          verdict: 'SaaS Off-The-Shelf',
+          verdictColor: 'text-amber-400 bg-amber-950/60 border-amber-800',
+          symptoms: 'Standard Shopify ($29/mo) or TCGPlayer Pro is adequate. Fee bleed is annoying ($3k/mo) but sustainable.'
+        },
+        {
+          tier: 'Tier 3: The Tipping Point',
+          name: 'Regional Singles Powerhouse',
+          gmvRange: '$50,000 – $250,000 / mo',
+          inventoryProfile: '50,000+ singles across 4 conditions (NM/LP/MP/DMG)',
+          verdict: 'Ideal Agency ICP',
+          verdictColor: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
+          symptoms: 'Bleeding $8,000–$33,000/mo to marketplace fees. Buylist queue backed up 45 mins. Urgent need for Aeethod Headless Buylist + Instant Stripe Payouts.'
+        },
+        {
+          tier: 'Tier 4: Enterprise Scale',
+          name: 'Omnichannel National Distributor',
+          gmvRange: '$250,000+ / mo',
+          inventoryProfile: '250,000+ card multi-warehouse repository',
+          verdict: 'Enterprise Custom',
+          verdictColor: 'text-purple-400 bg-purple-950/60 border-purple-800',
+          symptoms: 'Card Kingdom / Star City Games level. Requires custom ERP, AI camera grading scanners, and warehouse robotics.'
+        }
+      ],
+      economicFormula: {
+        monthlyGmv: 100000,
+        marketplaceTakeRatePercent: 13.5,
+        annualFeeBleed: 162000,
+        agencyBuildCost: 25000,
+        paybackMonths: 1.9,
+        yearOneRoiMultiple: '6.5x Net Capital Return'
+      },
+      operationalTriggers: [
+        'Friday Night Buylist Congestion: Players wait 30+ mins in line while clerks look up card prices one-by-one on smartphones.',
+        'Inventory Desync Penalties: A $350 serialized card sells in the physical display case while simultaneously bought on TCGPlayer, incurring marketplace order cancellation strikes.',
+        'Cash Flow Payout Delay: TCGPlayer/eBay hold funds for 7–14 days, preventing store owners from buying hot collections on weekends.',
+        'Zero Collector Retention: Marketplaces own the customer email; the store cannot re-target buyers with VIP drops.'
+      ],
+      disqualificationFilters: [
+        'Monthly Gross Revenue < $15,000 (Store cash flow cannot absorb custom software).',
+        'Sealed Product Only: Stores that refuse to buy/sell singles (sealed margins are 10–14%, singles margins are 50–65%).',
+        'Solo Operator with No Shipping Team: Cannot fulfill 40+ daily direct-to-consumer online shipments.',
+        'Owner unwilling to market buylist locally.'
+      ],
+      costOfInactionSalesHook: '"Last year you paid TCGPlayer approximately $145,000 in transaction commissions. For a one-time $25,000 investment, Aeethod deploys your own sub-second headless buylist with 1-tap Apple Pay and instant Stripe debit payouts—putting over $120,000 back into your inventory budget in year one alone."'
+    },
+    codeOrTokens: `/* Stripe Take-Rate Arbitrage Formula */
+const monthlyGMV = 100000;
+const marketplaceTakeRate = 0.135; // 13.5% TCGPlayer/eBay blended
+const annualFeeBleed = monthlyGMV * marketplaceTakeRate * 12; // $162,000/yr
+const aeethodBuildCost = 25000; // One-time custom platform
+const paybackDays = (aeethodBuildCost / (annualFeeBleed / 365)).toFixed(0); // ~56 days
+const netYearOneSavings = annualFeeBleed - aeethodBuildCost; // $137,000 net profit`,
+    author: 'Sadid (Founder & Strategy)',
+    createdAt: '2026-03-05',
+    updatedAt: '2026-03-08'
+  },
+
   // ── 1. DESIGN SPEC (Apple / Stripe Model) ──
   {
     id: 'res_d01',
@@ -153,41 +274,6 @@ const INITIAL_RESEARCH_ENTRIES: ResearchEntry[] = [
     createdAt: '2026-03-01',
     updatedAt: '2026-03-05'
   },
-  {
-    id: 'res_d02',
-    title: 'Micro-Interaction Teardown: Sub-100ms Spring Physics Curve (Linear vs Stripe)',
-    discipline: 'design',
-    type: 'benchmark',
-    status: 'validated',
-    tags: ['Motion', 'Framer-Motion', 'Tactile', 'Springs', 'UX'],
-    summary: 'Reverse-engineered the micro-interaction curves of Linear.app and Stripe to achieve sub-frame tactile feedback on active clicks.',
-    problemStatement: 'Default CSS ease-in-out transitions feel synthetic and sluggish on interactive buttons, lowering perceived app speed.',
-    keyFindings: [
-      'Spring stiffness 420 with damping 26 eliminates rebound wobble while preserving instantaneous responsiveness.',
-      'Active tap scale should never depress below 0.975 (0.95 feels broken or squishy to fingers).'
-    ],
-    designMeta: {
-      springPhysics: { stiffness: 420, damping: 26, mass: 0.75, latencyMs: '12ms' },
-      wcagContrast: { ratio: '11.4 : 1', level: 'AAA', notes: 'Button focus rings maintain 3px double offset' },
-      componentAnatomy: [
-        'Rest State: scale 1.0, shadow-sm',
-        'Hover State: scale 1.015, translateY -1px, shadow-cyan-500/20',
-        'Active Press: scale 0.98, translateY +0.5px'
-      ]
-    },
-    codeOrTokens: `// Framer Motion Spring Configuration
-export const tactileSpring = {
-  type: "spring",
-  stiffness: 420,
-  damping: 26,
-  mass: 0.75
-};
-
-// Component JSX: <motion.button whileTap={{ scale: 0.98 }} transition={tactileSpring} />`,
-    author: 'Elena Rostova (Lead Designer)',
-    createdAt: '2026-03-03',
-    updatedAt: '2026-03-04'
-  },
 
   // ── 2. CONTENT STRATEGY & COPY DECK (Reforge / Copyhackers Model) ──
   {
@@ -229,33 +315,6 @@ export const tactileSpring = {
     createdAt: '2026-03-02',
     updatedAt: '2026-03-05'
   },
-  {
-    id: 'res_c02',
-    title: 'SEO Cluster Teardown: High-Ticket Collectibles Programmatic Landing Pages',
-    discipline: 'content',
-    type: 'benchmark',
-    status: 'validated',
-    tags: ['SEO', 'Search-Intent', 'Keywords', 'Organic-Growth', 'pSEO'],
-    summary: 'Identified 18 high-volume commercial keywords with low difficulty for TCG and luxury collectibles platforms.',
-    problemStatement: 'Client needed organic search acquisition that bypassed bidding wars on generic "pokemon cards" head-terms.',
-    keyFindings: [
-      'Longtail "instant cashout" keywords have 14x higher transaction intent than general information queries.',
-      'Programmatic SEO landing pages for each card set (e.g. /sell/lorcana-first-chapter) capture 8x more longtail traffic.'
-    ],
-    contentMeta: {
-      targetPersona: 'Collectors holding $10k+ in card inventory seeking immediate liquidity.',
-      seoKeywords: [
-        { keyword: 'instant cash for trading cards near me', volume: '18,500 / mo', kd: 'KD 24', intent: 'Transactional' },
-        { keyword: 'sell magic the gathering collection fast', volume: '12,100 / mo', kd: 'KD 21', intent: 'Transactional' },
-        { keyword: 'tcg player buylist alternatives', volume: '6,400 / mo', kd: 'KD 15', intent: 'Commercial' }
-      ],
-      headlineSnippet: '"Cash Out Your Entire Card Binder in 60 Seconds Flat."',
-      callToAction: 'Scan Your Binder with AI Camera'
-    },
-    author: 'Marcus Vance (Growth & Content)',
-    createdAt: '2026-03-04',
-    updatedAt: '2026-03-05'
-  },
 
   // ── 3. FRONTEND ARCHITECTURE & SPIKE (Meta / Vercel Model) ──
   {
@@ -267,12 +326,6 @@ export const tactileSpring = {
     tags: ['Next.js', 'React-19', 'RSC', 'Performance', 'Architecture'],
     summary: 'Mandated Next.js 15 with App Router as default frontend stack for all Aeethod production client builds.',
     problemStatement: 'Legacy Client-Side Rendered (CSR) SPAs suffer from large JavaScript bundles (500KB+), slow mobile FCP, and poor SEO indexing.',
-    optionsEvaluated: [
-      'Vite SPA + React 19 (Blazing dev server, but client-only rendering hurts SEO)',
-      'Remix / React Router v7 (Great form loaders, smaller ecosystem than Vercel)',
-      'Next.js 15 App Router with Turbopack & RSC (Chosen)'
-    ],
-    decisionRationale: 'Server Components keep database access and heavy Markdown/date libraries on the server, sending near-zero client JS for content pages.',
     keyFindings: [
       'Reduces initial client JS payload by 65% compared to Pages router.',
       'Streaming SSR with Suspense allows instant skeleton rendering while slow queries resolve.',
@@ -305,43 +358,6 @@ export default async function BuylistPage() {
     createdAt: '2026-02-26',
     updatedAt: '2026-03-01'
   },
-  {
-    id: 'res_f02',
-    title: 'Spike: Zustand vs Redux Toolkit — Bundle Overhead & Performance Benchmark',
-    discipline: 'frontend',
-    type: 'spike',
-    status: 'validated',
-    tags: ['Zustand', 'State-Management', 'Redux', 'Bundle-Size'],
-    summary: 'Timeboxed benchmark comparing Zustand and Redux Toolkit across bundle size impact, TypeScript DX, and re-render frequency.',
-    problemStatement: 'Need a lightweight, scalable global state manager for complex multi-step checkout and buylist carts.',
-    keyFindings: [
-      'Zustand adds only 1.18 KB to the final bundle compared to Redux Toolkit\'s 11.8 KB (90% lighter).',
-      'Selectors prevent full component tree re-renders during high-frequency live cart modifications.'
-    ],
-    frontendMeta: {
-      coreWebVitals: { fcp: '0.58s', lcp: '0.92s', cls: '0.001', inp: '16ms' },
-      bundleSize: { size: '1.18 KB', savingsPercent: '-90%', baseline: '11.8 KB' },
-      frameworksCompared: [
-        { name: 'Zustand', bundle: '1.18 KB', dxScore: '9.9 / 10', verdict: 'Winner' },
-        { name: 'Jotai', bundle: '3.40 KB', dxScore: '8.8 / 10', verdict: 'Good for atoms' },
-        { name: 'Redux Toolkit', bundle: '11.8 KB', dxScore: '7.5 / 10', verdict: 'Too bloated' }
-      ]
-    },
-    codeOrTokens: `import { create } from 'zustand';
-
-interface CartStore {
-  items: Array<{ id: string; price: number }>;
-  addItem: (item: { id: string; price: number }) => void;
-}
-
-export const useCart = create<CartStore>((set) => ({
-  items: [],
-  addItem: (item) => set((s) => ({ items: [...s.items, item] })),
-}));`,
-    author: 'Chloe Lin (Frontend Lead)',
-    createdAt: '2026-03-02',
-    updatedAt: '2026-03-02'
-  },
 
   // ── 4. BACKEND ARCHITECTURE & ADR (AWS / Google / Supabase Model) ──
   {
@@ -353,12 +369,6 @@ export const useCart = create<CartStore>((set) => ({
     tags: ['Supabase', 'PostgreSQL', 'RLS', 'Auth', 'Security'],
     summary: 'Selected Supabase as default relational database, authentication, and real-time backend engine for agency client projects.',
     problemStatement: 'Managing self-hosted PostgreSQL EC2 instances created high DevOps maintenance overhead and security patch burdens.',
-    optionsEvaluated: [
-      'Self-Hosted PostgreSQL on AWS RDS (High operational burden, manual auth setup)',
-      'Google Firebase Firestore (NoSQL limits relational reporting, proprietary vendor lock-in)',
-      'Supabase Cloud (PostgreSQL 16, built-in GoTrue Auth, pgvector, automated backups) (Chosen)'
-    ],
-    decisionRationale: 'Provides genuine open-source PostgreSQL with zero DevOps friction, instant GraphQL/REST reflection, and bulletproof Row Level Security.',
     keyFindings: [
       'RLS policies enforce multi-tenant isolation at the database kernel level, eliminating app-level authorization leakage.',
       'Dev setup drops from 4 days to 15 minutes.'
@@ -370,20 +380,11 @@ ALTER TABLE client_buylists ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can only view their own buylists"
 ON client_buylists FOR SELECT
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Admins have full access"
-ON client_buylists FOR ALL
-USING (auth.jwt() ->> 'role' = 'agency_admin');`,
+USING (auth.uid() = user_id);`,
       rlsSecurityPolicy: 'Active: Strict Kernel-Level Tenant Isolation via auth.uid()',
       apiEndpoints: [
         { method: 'POST', path: '/api/v1/buylist/submit', latency: '24ms', auth: 'Bearer JWT' },
         { method: 'GET', path: '/api/v1/catalog/live-prices', latency: '12ms', auth: 'Public Edge Cache' }
-      ],
-      tradeoffsEvaluated: [
-        { option: 'Supabase Postgres', pros: 'Open source, pgvector, built-in RLS', cons: 'Complex stored procs', status: 'Chosen' },
-        { option: 'AWS RDS Postgres', pros: 'Infinitely scalable', cons: '$150/mo baseline, heavy setup', status: 'Rejected' },
-        { option: 'Google Firestore', pros: 'Fast prototypes', cons: 'No joins, proprietary API', status: 'Rejected' }
       ]
     },
     codeOrTokens: `-- Supabase RLS Migration
@@ -393,51 +394,14 @@ FOR ALL USING (auth.uid() = user_id);`,
     author: 'Devon Miles (Backend Lead)',
     createdAt: '2026-02-25',
     updatedAt: '2026-03-01'
-  },
-  {
-    id: 'res_b02',
-    title: 'Spike: Stripe Connect Custom Accounts for 60-Second Instant Debit Payouts',
-    discipline: 'backend',
-    type: 'spike',
-    status: 'validated',
-    tags: ['Stripe', 'Fintech', 'Payouts', 'Webhooks', 'Idempotency'],
-    summary: 'Evaluated Stripe Connect Custom Accounts vs Express to facilitate instant debit card cashouts for card buylist sellers.',
-    problemStatement: 'Sellers demand instant cashouts (<60s) to their debit cards instead of waiting 2-3 business days for ACH bank transfers.',
-    keyFindings: [
-      'Stripe Instant Payouts push funds to debit cards in ~45 seconds via Visa Direct / Mastercard Send.',
-      'Webhook processing requires Redis distributed locks with idempotency keys to prevent double-spending.'
-    ],
-    backendMeta: {
-      architectureTopology: 'Stripe Webhooks ➔ HMAC Validation ➔ Upstash Redis Idempotency Lock ➔ PostgreSQL Transaction',
-      apiEndpoints: [
-        { method: 'POST', path: '/api/payouts/instant-debit', latency: '45s arrival', auth: 'Stripe Secret Key' },
-        { method: 'POST', path: '/webhooks/stripe', latency: '18ms', auth: 'Stripe-Signature' }
-      ],
-      tradeoffsEvaluated: [
-        { option: 'Stripe Instant Payouts', pros: '45s arrival, 100% debit coverage', cons: '1% fee ($0.50 min)', status: 'Chosen' },
-        { option: 'Standard ACH Transfer', pros: 'Zero fee', cons: '3-5 business days delay', status: 'Rejected' }
-      ]
-    },
-    codeOrTokens: `// Idempotent Stripe Instant Payout
-const payout = await stripe.payouts.create({
-  amount: 25000, // $250.00
-  currency: 'usd',
-  method: 'instant',
-  destination: cardId,
-}, {
-  idempotencyKey: \`payout_\${orderId}\`
-});`,
-    author: 'Devon Miles (Backend Lead)',
-    createdAt: '2026-03-04',
-    updatedAt: '2026-03-05'
   }
 ];
 
-// ── 4 BLUEPRINT TEMPLATES CATALOG ──────────────────────────────────────────
+// ── 5 BLUEPRINT TEMPLATES CATALOG ──────────────────────────────────────────
 
 export interface TemplateBlueprint {
   id: string;
-  discipline: 'design' | 'content' | 'frontend' | 'backend';
+  discipline: 'design' | 'content' | 'frontend' | 'backend' | 'market';
   title: string;
   subtitle: string;
   badge: string;
@@ -451,6 +415,20 @@ export interface TemplateBlueprint {
 }
 
 const TEMPLATES_CATALOG: TemplateBlueprint[] = [
+  {
+    id: 'template_market',
+    discipline: 'market',
+    title: 'Market Discovery & ICP Readiness Blueprint',
+    subtitle: 'Stripe & Reforge Market Opportunity Standard',
+    badge: 'MARKET STRATEGY',
+    icon: Target,
+    accentColor: 'border-emerald-500/50 text-emerald-400 bg-emerald-950/20',
+    description: 'Executive framework to size market opportunity, map Reforge 4-tier customer maturity stages, calculate Stripe take-rate arbitrage tipping points, and establish Amazon disqualification filters.',
+    keyFields: ['4-Tier Maturity Lifecycle (Reforge)', 'Take-Rate Arbitrage Calculator (Stripe)', 'Hair-on-Fire Pain Triggers (Amazon)', 'Cost of Inaction (McKinsey COI)', 'Disqualification Filters'],
+    sampleTitle: 'Market Discovery: [Niche] Maturity Stages & Website Tipping Point',
+    sampleSummary: 'Market opportunity analysis mapping customer operational tiers, platform take-rate bleed, and exact unit economic break-even triggers.',
+    initialTags: 'Market-Discovery, ICP, Tipping-Point, Unit-Economics, Strategy'
+  },
   {
     id: 'template_design',
     discipline: 'design',
@@ -538,8 +516,8 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
   }, [entries]);
 
   // Form State
-  const [formDiscipline, setFormDiscipline] = useState<'design' | 'content' | 'frontend' | 'backend'>('frontend');
-  const [formType, setFormType] = useState<ResearchType>('adr');
+  const [formDiscipline, setFormDiscipline] = useState<'design' | 'content' | 'frontend' | 'backend' | 'market'>('market');
+  const [formType, setFormType] = useState<ResearchType>('teardown');
   const [formStatus, setFormStatus] = useState<ResearchStatus>('validated');
   const [formTitle, setFormTitle] = useState('');
   const [formTags, setFormTags] = useState('');
@@ -548,13 +526,13 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
   const [formFindings, setFormFindings] = useState('');
   const [formCode, setFormCode] = useState('');
 
-  // Design-specific Form Fields
+  // 1. Design Form Fields
   const [formDesignColors, setFormDesignColors] = useState('#090d16 (Obsidian Void), #0f172a (Frosted Glass), #06b6d4 (Neon Cyan)');
   const [formSpringStiffness, setFormSpringStiffness] = useState(400);
   const [formSpringDamping, setFormSpringDamping] = useState(28);
   const [formWcagRatio, setFormWcagRatio] = useState('8.4 : 1 (AAA Pass)');
 
-  // Content-specific Form Fields
+  // 2. Content Form Fields
   const [formPersona, setFormPersona] = useState('');
   const [formPasProblem, setFormPasProblem] = useState('');
   const [formPasAgitate, setFormPasAgitate] = useState('');
@@ -562,19 +540,29 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
   const [formHeadline, setFormHeadline] = useState('');
   const [formCta, setFormCta] = useState('');
 
-  // Frontend-specific Form Fields
+  // 3. Frontend Form Fields
   const [formFcp, setFormFcp] = useState('0.65s');
   const [formLcp, setFormLcp] = useState('1.10s');
   const [formBundleSize, setFormBundleSize] = useState('48 KB');
 
-  // Backend-specific Form Fields
+  // 4. Backend Form Fields
   const [formTopology, setFormTopology] = useState('Edge CDN ➔ Vercel Server Actions ➔ Supabase PgBouncer ➔ PostgreSQL 16');
   const [formRlsPolicy, setFormRlsPolicy] = useState('ALTER TABLE client_data ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "user_isolation" ON client_data FOR ALL USING (auth.uid() = user_id);');
+
+  // 5. Market Strategy Form Fields (Stripe / Reforge Model)
+  const [formMarketNiche, setFormMarketNiche] = useState('Trading Card Game (TCG) & Collectibles Retail');
+  const [formMonthlyGmv, setFormMonthlyGmv] = useState(100000);
+  const [formMarketTakeRate, setFormMarketTakeRate] = useState(13.5);
+  const [formAgencyFee, setFormAgencyFee] = useState(25000);
+  const [formTriggers, setFormTriggers] = useState('Friday Night Buylist Congestion > 30 mins\nInventory desync between in-store showcase and online\nDelayed ACH bank payout delays hurting cash flow');
+  const [formDisqualification, setFormDisqualification] = useState('Monthly gross revenue < $15k/mo\nSealed products only (no singles inventory)\nSolo operator without daily packing/shipping staff');
+  const [formCoiHook, setFormCoiHook] = useState('"Last year you paid TCGPlayer ~$145,000 in fees. An Aeethod headless buylist costs $25k one-time, saving you $120k+ in Year 1 alone."');
 
   // Interactive UI State
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isCasting, setIsCasting] = useState(false);
   const [springTestActive, setSpringTestActive] = useState(false);
+  const [simulatorMonthlyGmv, setSimulatorMonthlyGmv] = useState(90000);
   const [knowledgePoints, setKnowledgePoints] = useState(() => {
     return agencyManager?.state.resources.knowledge || 1450;
   });
@@ -628,12 +616,27 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
 
   const handleApplyBlueprint = (blueprint: TemplateBlueprint) => {
     setFormDiscipline(blueprint.discipline);
-    setFormType(blueprint.discipline === 'design' ? 'teardown' : blueprint.discipline === 'content' ? 'template' : 'adr');
+    setFormType(blueprint.discipline === 'market' ? 'teardown' : blueprint.discipline === 'design' ? 'teardown' : blueprint.discipline === 'content' ? 'template' : 'adr');
     setFormTitle(blueprint.sampleTitle);
     setFormSummary(blueprint.sampleSummary);
     setFormTags(blueprint.initialTags);
 
-    if (blueprint.discipline === 'design') {
+    if (blueprint.discipline === 'market') {
+      setFormProblem('Merchants trapped in 13%+ marketplace commission bleed without knowing their custom website tipping point.');
+      setFormFindings('At $100k/mo sales, marketplace take-rate burns $162,000/yr in fees\nA $25,000 Aeethod custom build achieves full payback in 56 days\nStores under $15k/mo are strictly disqualified to protect agency win rates');
+      setFormMarketNiche('Trading Card Games (TCG) & High-Ticket Collectibles');
+      setFormMonthlyGmv(100000);
+      setFormMarketTakeRate(13.5);
+      setFormAgencyFee(25000);
+      setFormTriggers('Buylist wait times exceed 20 mins on Friday nights\nInventory desync between showcase and online\nDelayed ACH cash flow');
+      setFormDisqualification('Under $15k/mo GMV\nNo singles buylist\nNo fulfillment staff');
+      setFormCoiHook('"Last year you paid TCGPlayer ~$145,000 in fees. An Aeethod headless buylist pays for itself in under 60 days."');
+      setFormCode(`// Stripe Take-Rate Arbitrage Math
+const monthlyGMV = 100000;
+const annualFees = monthlyGMV * 0.135 * 12; // $162,000
+const buildCost = 25000;
+const netYear1Savings = annualFees - buildCost; // $137,000 net profit`);
+    } else if (blueprint.discipline === 'design') {
       setFormProblem('UI density causing cognitive overload; lack of standardized spring tactile response.');
       setFormFindings('Reduces cognitive scan time by 34%\nSpring curve stiffness: 400 with damping: 28\nWCAG AAA compliance verified');
       setFormDesignColors('#090d16 (Obsidian Void), #0f172a (Frosted Glass), #06b6d4 (Neon Cyan), #d4af37 (Gold)');
@@ -676,6 +679,10 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
       return;
     }
 
+    const annualFeeBleed = Math.round(formMonthlyGmv * (formMarketTakeRate / 100) * 12);
+    const paybackMonths = Number(((formAgencyFee / (annualFeeBleed / 12))).toFixed(1));
+    const netYear1 = annualFeeBleed - formAgencyFee;
+
     const newEntry: ResearchEntry = {
       id: 'res_' + Date.now().toString(36),
       title: formTitle.trim(),
@@ -692,6 +699,60 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
       updatedAt: new Date().toISOString().split('T')[0],
 
       // Attach discipline-specific metadata
+      ...(formDiscipline === 'market' && {
+        marketMeta: {
+          niche: formMarketNiche,
+          economicFormula: {
+            monthlyGmv: formMonthlyGmv,
+            marketplaceTakeRatePercent: formMarketTakeRate,
+            annualFeeBleed: annualFeeBleed,
+            agencyBuildCost: formAgencyFee,
+            paybackMonths: paybackMonths,
+            yearOneRoiMultiple: `${(annualFeeBleed / formAgencyFee).toFixed(1)}x Net ROI ($${netYear1.toLocaleString()} saved)`
+          },
+          operationalTriggers: formTriggers.split('\n').filter(Boolean),
+          disqualificationFilters: formDisqualification.split('\n').filter(Boolean),
+          costOfInactionSalesHook: formCoiHook,
+          maturityTiers: [
+            {
+              tier: 'Tier 1: DIY Hobbyist',
+              name: 'Early Binder Shop',
+              gmvRange: '< $15,000 / mo',
+              inventoryProfile: '< 2,000 singles',
+              verdict: 'Disqualified',
+              verdictColor: 'text-rose-400 bg-rose-950/60 border-rose-800',
+              symptoms: 'Uses pen & paper or basic Square POS. Cannot support shipping logistics or $25k build cost.'
+            },
+            {
+              tier: 'Tier 2: Standard SaaS',
+              name: 'Marketplace Dependent',
+              gmvRange: '$15k – $50k / mo',
+              inventoryProfile: '5k – 15k singles',
+              verdict: 'SaaS Off-The-Shelf',
+              verdictColor: 'text-amber-400 bg-amber-950/60 border-amber-800',
+              symptoms: 'Standard Shopify or TCGPlayer Pro is adequate. Fee bleed is annoying but sustainable.'
+            },
+            {
+              tier: 'Tier 3: The Tipping Point',
+              name: 'Singles Powerhouse (Prime ICP)',
+              gmvRange: '$50k – $250k / mo',
+              inventoryProfile: '50,000+ singles',
+              verdict: 'Ideal Agency ICP',
+              verdictColor: 'text-emerald-400 bg-emerald-950/60 border-emerald-800',
+              symptoms: 'Bleeding $8k-$33k/mo to fees. Buylist queue backed up. Urgent need for Aeethod Headless Platform.'
+            },
+            {
+              tier: 'Tier 4: Enterprise Scale',
+              name: 'National Distributor',
+              gmvRange: '$250k+ / mo',
+              inventoryProfile: '250,000+ cards',
+              verdict: 'Enterprise Custom',
+              verdictColor: 'text-purple-400 bg-purple-950/60 border-purple-800',
+              symptoms: 'Requires custom ERP, warehouse robotics, and AI camera grading pipelines.'
+            }
+          ]
+        }
+      }),
       ...(formDiscipline === 'design' && {
         designMeta: {
           colorPalette: formDesignColors.split(',').map(c => {
@@ -737,7 +798,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
       agencyManager.save();
     }
 
-    triggerToast('🎉 New Custom Research Entry logged! (+100 KP)');
+    triggerToast('🎉 New Market & Strategy Dossier logged! (+100 KP)');
   };
 
   const handleDeleteEntry = (id: string) => {
@@ -763,6 +824,19 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
 
   const selectedEntry = entries.find(e => e.id === selectedEntryId) || filteredEntries[0] || null;
 
+  // Real-time Market Simulator Calculations
+  const simMarketplaceFeeBleedAnnual = Math.round(simulatorMonthlyGmv * 0.135 * 12);
+  const simMonthsToPayback = Number(((25000 / (simMarketplaceFeeBleedAnnual / 12))).toFixed(1));
+  const simYearOneSavings = simMarketplaceFeeBleedAnnual - 25000;
+  const simTier =
+    simulatorMonthlyGmv < 15000
+      ? { label: 'Tier 1: Disqualified', color: 'text-rose-400 bg-rose-950/60 border-rose-800' }
+      : simulatorMonthlyGmv < 50000
+      ? { label: 'Tier 2: Generic SaaS Only', color: 'text-amber-400 bg-amber-950/60 border-amber-800' }
+      : simulatorMonthlyGmv <= 250000
+      ? { label: 'Tier 3: ★ PRIME AEETHOD ICP', color: 'text-emerald-400 bg-emerald-950/60 border-emerald-500 animate-pulse' }
+      : { label: 'Tier 4: Enterprise Scale', color: 'text-purple-400 bg-purple-950/60 border-purple-800' };
+
   // Cloud Calculator
   const vercelCost = monthlyUsers < 50000 ? 20 : Math.round(20 + ((monthlyUsers - 50000) / 10000) * 4);
   const supabaseCost = monthlyUsers < 100000 ? 25 : Math.round(25 + ((monthlyUsers - 100000) / 25000) * 10);
@@ -779,7 +853,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
         {/* ── HEADER BAR ────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-800 bg-slate-900/70">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 border border-cyan-500/40 text-cyan-400 shadow-inner">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/40 text-emerald-400 shadow-inner">
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
@@ -787,8 +861,8 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                 <h2 className="text-sm font-bold tracking-wide text-white uppercase flex items-center gap-2">
                   Aeethod Research & Intelligence System
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800">
-                  BIG TECH RESEARCH TAXONOMY
+                <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">
+                  5 BIG TECH DISCIPLINES
                 </span>
                 {isCasting && (
                   <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-950 text-amber-300 border border-amber-600 animate-pulse">
@@ -797,7 +871,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                 )}
               </div>
               <p className="text-[11px] text-slate-400">
-                Plan & Meeting Room Terminal • Design, Content, Frontend & Backend Standards
+                Plan & Meeting Room Terminal • Market ICP, Design, Content, Frontend & Backend Standards
               </p>
             </div>
           </div>
@@ -863,11 +937,11 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
               onClick={() => setActiveTab('templates_hub')}
               className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
                 activeTab === 'templates_hub'
-                  ? 'border-indigo-400 text-indigo-300 font-bold bg-indigo-950/20'
+                  ? 'border-emerald-400 text-emerald-300 font-bold bg-emerald-950/20'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Layers className="w-4 h-4 text-indigo-400" />
+              <Layers className="w-4 h-4 text-emerald-400" />
               Big Tech Templates Hub ({TEMPLATES_CATALOG.length})
             </button>
 
@@ -875,11 +949,11 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
               onClick={() => setActiveTab('new_entry')}
               className={`flex items-center gap-2 py-3 px-4 border-b-2 transition-all ${
                 activeTab === 'new_entry'
-                  ? 'border-emerald-400 text-emerald-300 font-bold bg-emerald-950/20'
+                  ? 'border-indigo-400 text-indigo-300 font-bold bg-indigo-950/20'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Plus className="w-4 h-4 text-emerald-400" />
+              <Plus className="w-4 h-4 text-indigo-400" />
               + Create Research Entry
             </button>
 
@@ -926,7 +1000,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       type="text"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search ADRs, spikes, tags, tech..."
+                      placeholder="Search ADRs, spikes, market ICP, tags..."
                       className="w-full pl-9 pr-4 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
                     />
                     <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
@@ -937,7 +1011,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                     )}
                   </div>
 
-                  {/* 4 Core Disciplines Pill Filter */}
+                  {/* 5 Core Disciplines Pill Filter */}
                   <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-medium">
                     <button
                       onClick={() => setSelectedDiscipline('all')}
@@ -948,6 +1022,17 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       }`}
                     >
                       All ({entries.length})
+                    </button>
+                    <button
+                      onClick={() => setSelectedDiscipline('market')}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors shrink-0 ${
+                        selectedDiscipline === 'market'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800'
+                      }`}
+                    >
+                      <Target className="w-3 h-3 text-emerald-400" />
+                      Market & ICP
                     </button>
                     <button
                       onClick={() => setSelectedDiscipline('design')}
@@ -1001,7 +1086,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       <Filter className="w-3 h-3 text-slate-500" /> Type:
                     </span>
                     <div className="flex gap-1">
-                      {['all', 'adr', 'spike', 'teardown', 'benchmark', 'template'].map(t => (
+                      {['all', 'teardown', 'adr', 'spike', 'benchmark', 'template'].map(t => (
                         <button
                           key={t}
                           onClick={() => setSelectedType(t)}
@@ -1028,6 +1113,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                     filteredEntries.map(entry => {
                       const isSelected = selectedEntry?.id === entry.id;
                       const discColor =
+                        entry.discipline === 'market' ? 'text-emerald-400' :
                         entry.discipline === 'design' ? 'text-pink-400' :
                         entry.discipline === 'content' ? 'text-amber-400' :
                         entry.discipline === 'frontend' ? 'text-cyan-400' : 'text-purple-400';
@@ -1090,6 +1176,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                            selectedEntry.discipline === 'market' ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700' :
                             selectedEntry.discipline === 'design' ? 'bg-pink-950/60 text-pink-300 border-pink-800' :
                             selectedEntry.discipline === 'content' ? 'bg-amber-950/60 text-amber-300 border-amber-800' :
                             selectedEntry.discipline === 'frontend' ? 'bg-cyan-950/60 text-cyan-300 border-cyan-800' :
@@ -1142,6 +1229,157 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                         {selectedEntry.summary}
                       </p>
                     </div>
+
+                    {/* ── DISCIPLINE SPECIALIZATION 5: MARKET DISCOVERY & ICP WIDGETS ── */}
+                    {selectedEntry.discipline === 'market' && selectedEntry.marketMeta && (
+                      <div className="space-y-5 p-5 rounded-2xl bg-emerald-950/15 border border-emerald-800/40">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <Target className="w-4 h-4" /> Reforge Customer Maturity Lifecycle
+                          </h3>
+                          <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+                            ICP TIPPING POINT FRAMEWORK
+                          </span>
+                        </div>
+
+                        {/* Interactive TCG Store Tipping Point Simulator */}
+                        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                                <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Interactive Store Tipping Point Simulator
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                Slide store monthly GMV to calculate marketplace take-rate bleed vs Aeethod build ROI
+                              </div>
+                            </div>
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${simTier.color}`}>
+                              {simTier.label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 pt-1">
+                            <input
+                              type="range"
+                              min={10000}
+                              max={300000}
+                              step={5000}
+                              value={simulatorMonthlyGmv}
+                              onChange={e => setSimulatorMonthlyGmv(Number(e.target.value))}
+                              className="w-full accent-emerald-400"
+                            />
+                            <span className="text-xs font-mono font-bold text-cyan-300 shrink-0 w-24 text-right">
+                              ${simulatorMonthlyGmv.toLocaleString()}/mo
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2.5 pt-2">
+                            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center">
+                              <div className="text-[10px] text-rose-400 uppercase font-bold">Annual Fee Bleed (13.5%)</div>
+                              <div className="text-base font-black text-rose-400 font-mono mt-0.5">
+                                ${simMarketplaceFeeBleedAnnual.toLocaleString()}
+                              </div>
+                              <div className="text-[9px] text-slate-500">Paid to TCGPlayer/eBay</div>
+                            </div>
+
+                            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center">
+                              <div className="text-[10px] text-cyan-400 uppercase font-bold">Aeethod Build Cost</div>
+                              <div className="text-base font-black text-white font-mono mt-0.5">$25,000</div>
+                              <div className="text-[9px] text-slate-500">One-time fixed capital</div>
+                            </div>
+
+                            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center">
+                              <div className="text-[10px] text-emerald-400 uppercase font-bold">Months to Payback</div>
+                              <div className="text-base font-black text-emerald-400 font-mono mt-0.5">
+                                {simMonthsToPayback > 12 ? '> 12 mos' : `${simMonthsToPayback} mos`}
+                              </div>
+                              <div className="text-[9px] text-slate-500">
+                                {simYearOneSavings > 0 ? `+$${simYearOneSavings.toLocaleString()} Year 1 Net` : 'Not profitable'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Reforge 4-Tier Maturity Stages Matrix */}
+                        {selectedEntry.marketMeta.maturityTiers && (
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-bold text-slate-300 uppercase">Customer Readiness Tiers</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              {selectedEntry.marketMeta.maturityTiers.map((tier, tIdx) => (
+                                <div key={tIdx} className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">{tier.tier}</span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${tier.verdictColor}`}>
+                                      {tier.verdict}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs font-bold text-white">{tier.name}</div>
+                                  <div className="text-[11px] text-cyan-300 font-mono">Volume: {tier.gmvRange} • {tier.inventoryProfile}</div>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed pt-0.5">{tier.symptoms}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Amazon Operational Triggers & Disqualification Filters */}
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          {/* Hair-on-fire Triggers */}
+                          {selectedEntry.marketMeta.operationalTriggers && (
+                            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                              <div className="text-xs font-bold text-amber-400 uppercase flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5" /> Hair-On-Fire Pain Symptoms
+                              </div>
+                              <div className="space-y-1.5">
+                                {selectedEntry.marketMeta.operationalTriggers.map((trig, i) => (
+                                  <div key={i} className="text-[11px] text-slate-300 flex items-start gap-1.5 leading-relaxed">
+                                    <span className="text-amber-400 mt-0.5">•</span>
+                                    <span>{trig}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Disqualification Filters */}
+                          {selectedEntry.marketMeta.disqualificationFilters && (
+                            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                              <div className="text-xs font-bold text-rose-400 uppercase flex items-center gap-1.5">
+                                <Ban className="w-3.5 h-3.5" /> Amazon Disqualification Criteria
+                              </div>
+                              <div className="space-y-1.5">
+                                {selectedEntry.marketMeta.disqualificationFilters.map((filt, i) => (
+                                  <div key={i} className="text-[11px] text-slate-300 flex items-start gap-1.5 leading-relaxed">
+                                    <span className="text-rose-400 mt-0.5">✕</span>
+                                    <span>{filt}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* McKinsey Cost of Inaction (COI) Sales Pitch Box */}
+                        {selectedEntry.marketMeta.costOfInactionSalesHook && (
+                          <div className="p-3.5 rounded-xl bg-slate-950 border border-emerald-900/50 flex items-center justify-between gap-4">
+                            <div>
+                              <div className="text-[10px] uppercase font-bold text-emerald-400">
+                                McKinsey Cost of Inaction (COI) Outreach Hook
+                              </div>
+                              <p className="text-xs font-medium text-white mt-1 italic leading-relaxed">
+                                {selectedEntry.marketMeta.costOfInactionSalesHook}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleCopy(selectedEntry.marketMeta?.costOfInactionSalesHook!, 'COI sales hook copied!')}
+                              className="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> Copy Hook
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* ── DISCIPLINE SPECIALIZATION 1: DESIGN SPEC WIDGETS ── */}
                     {selectedEntry.discipline === 'design' && selectedEntry.designMeta && (
@@ -1238,54 +1476,6 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                             </div>
                           </div>
                         )}
-
-                        {/* SEO Keyword Cluster Table */}
-                        {selectedEntry.contentMeta.seoKeywords && (
-                          <div className="space-y-1.5">
-                            <div className="text-[11px] font-bold text-slate-300 uppercase">Target Commercial Keyword Cluster</div>
-                            <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
-                              <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-900 text-[10px] uppercase text-slate-400 border-b border-slate-800">
-                                  <tr>
-                                    <th className="p-2">Target Keyword</th>
-                                    <th className="p-2">Monthly Vol</th>
-                                    <th className="p-2">Difficulty</th>
-                                    <th className="p-2">Search Intent</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                                  {selectedEntry.contentMeta.seoKeywords.map((kw, kIdx) => (
-                                    <tr key={kIdx} className="hover:bg-slate-900/40">
-                                      <td className="p-2 font-mono text-cyan-300">{kw.keyword}</td>
-                                      <td className="p-2 font-semibold text-white">{kw.volume}</td>
-                                      <td className="p-2 text-emerald-400">{kw.kd}</td>
-                                      <td className="p-2">
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300">
-                                          {kw.intent}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedEntry.contentMeta.headlineSnippet && (
-                          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-                            <div>
-                              <div className="text-[10px] uppercase font-bold text-amber-400">Winning Copy Hook</div>
-                              <div className="text-xs font-semibold text-white mt-0.5">{selectedEntry.contentMeta.headlineSnippet}</div>
-                            </div>
-                            <button
-                              onClick={() => handleCopy(selectedEntry.contentMeta?.headlineSnippet!, 'Headline copied!')}
-                              className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                            >
-                              <Copy className="w-3.5 h-3.5" /> Copy
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -1320,23 +1510,6 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                             </div>
                           </div>
                         )}
-
-                        {selectedEntry.frontendMeta.bundleSize && (
-                          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-                            <div>
-                              <div className="text-xs font-bold text-white">Initial JavaScript Bundle Payload</div>
-                              <div className="text-[11px] text-slate-400">Optimized client-side footprint</div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-sm font-black text-cyan-400">{selectedEntry.frontendMeta.bundleSize.size}</span>
-                              {selectedEntry.frontendMeta.bundleSize.savingsPercent && (
-                                <span className="ml-2 text-xs font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/50">
-                                  {selectedEntry.frontendMeta.bundleSize.savingsPercent}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -1353,25 +1526,6 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                             <div className="p-2 rounded bg-slate-900/80 font-mono text-cyan-300 text-[11px]">
                               {selectedEntry.backendMeta.architectureTopology}
                             </div>
-                          </div>
-                        )}
-
-                        {selectedEntry.backendMeta.rlsSecurityPolicy && (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                                <ShieldCheck className="w-4 h-4 text-emerald-400" /> PostgreSQL Row-Level Security (RLS)
-                              </span>
-                              <button
-                                onClick={() => handleCopy(selectedEntry.backendMeta?.rlsSecurityPolicy!, 'SQL policy copied!')}
-                                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
-                              >
-                                <Copy className="w-3.5 h-3.5" /> Copy Policy
-                              </button>
-                            </div>
-                            <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-300 overflow-x-auto leading-relaxed">
-                              {selectedEntry.backendMeta.rlsSecurityPolicy}
-                            </pre>
                           </div>
                         )}
                       </div>
@@ -1411,10 +1565,10 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <Code2 className="w-4 h-4 text-cyan-400" /> Code / CSS Tokens / SQL Migration
+                            <Code2 className="w-4 h-4 text-cyan-400" /> Code / Token / Formula Snippet
                           </h3>
                           <button
-                            onClick={() => handleCopy(selectedEntry.codeOrTokens!, 'Code snippet copied!')}
+                            onClick={() => handleCopy(selectedEntry.codeOrTokens!, 'Snippet copied!')}
                             className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
                           >
                             <Copy className="w-3.5 h-3.5" /> Copy Code
@@ -1455,29 +1609,29 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
               <div className="max-w-5xl mx-auto space-y-6">
                 
                 {/* Header */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 border border-indigo-900/50 flex items-center justify-between">
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-emerald-950/30 to-slate-900 border border-emerald-900/50 flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-black text-white tracking-wide uppercase">
-                        Big Tech Research Blueprints
+                        5 Big Tech Research Blueprints
                       </h3>
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-950 text-indigo-300 border border-indigo-700">
-                        PRODUCTION TESTED
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
+                        STRIPE • AMAZON • REFORGE • APPLE
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-                      Each discipline utilizes a fundamentally distinct architecture schema. Select any blueprint to populate the creation studio with discipline-tailored inputs.
+                      Each engineering and strategic discipline uses a fundamentally distinct methodology. Select any blueprint to pre-populate the studio with specialized inputs.
                     </p>
                   </div>
 
                   <div className="text-right">
-                    <span className="text-xs font-semibold text-slate-400">4 Core Disciplines</span>
+                    <span className="text-xs font-semibold text-slate-400">5 Specialized Hubs</span>
                     <div className="text-xs text-emerald-400 font-mono font-bold">+100 KP / entry</div>
                   </div>
                 </div>
 
-                {/* 4 Specialized Blueprints Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 5 Specialized Blueprints Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {TEMPLATES_CATALOG.map(bp => {
                     const IconComponent = bp.icon;
 
@@ -1491,27 +1645,27 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                             <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-slate-950 border border-slate-800">
                               {bp.badge}
                             </span>
-                            <span className="text-[11px] text-slate-400 font-mono">{bp.subtitle}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{bp.subtitle.split(' ')[0]}</span>
                           </div>
 
                           <div className="flex items-center gap-2.5">
                             <div className="p-2 rounded-xl bg-slate-950 border border-slate-800">
                               <IconComponent className="w-5 h-5" />
                             </div>
-                            <h4 className="text-sm font-bold text-white">{bp.title}</h4>
+                            <h4 className="text-xs font-bold text-white">{bp.title}</h4>
                           </div>
 
-                          <p className="text-xs text-slate-300 leading-relaxed">
+                          <p className="text-[11px] text-slate-300 leading-relaxed line-clamp-3">
                             {bp.description}
                           </p>
 
                           {/* Key Fields Checklist */}
                           <div className="space-y-1 pt-1">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                              Specialized Fields:
+                              Specialized Schema:
                             </span>
-                            <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-300">
-                              {bp.keyFields.map((f, fIdx) => (
+                            <div className="space-y-0.5 text-[10px] text-slate-300">
+                              {bp.keyFields.slice(0, 3).map((f, fIdx) => (
                                 <div key={fIdx} className="flex items-center gap-1 text-slate-400">
                                   <ChevronRight className="w-3 h-3 text-cyan-400 shrink-0" />
                                   <span className="truncate">{f}</span>
@@ -1521,13 +1675,13 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                           </div>
                         </div>
 
-                        <div className="pt-5 mt-4 border-t border-slate-800/80 flex items-center justify-between">
-                          <span className="text-[10px] font-mono text-slate-400">Tags: #{bp.initialTags.split(',')[0]}</span>
+                        <div className="pt-4 mt-3 border-t border-slate-800/80 flex items-center justify-between">
+                          <span className="text-[9px] font-mono text-slate-400">#{bp.initialTags.split(',')[0]}</span>
                           <button
                             onClick={() => handleApplyBlueprint(bp)}
-                            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-slate-950 shadow-md transition-transform active:scale-95"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-md transition-transform active:scale-95"
                           >
-                            Use This Blueprint <ArrowRight className="w-3.5 h-3.5" />
+                            Use Blueprint <ArrowRight className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
@@ -1552,7 +1706,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                         <Plus className="w-4 h-4 text-emerald-400" /> Log Big Tech Research Document
                       </h3>
                       <p className="text-xs text-slate-400">
-                        Input fields dynamically calibrate to match the selected engineering discipline.
+                        Choose your discipline to dynamically calibrate inputs.
                       </p>
                     </div>
 
@@ -1561,62 +1715,76 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                     </span>
                   </div>
 
-                  {/* Discipline Tab Buttons */}
-                  <div className="grid grid-cols-4 gap-2 pt-1">
+                  {/* 5 Discipline Tab Buttons */}
+                  <div className="grid grid-cols-5 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setFormDiscipline('market')}
+                      className={`p-2 rounded-lg border text-left transition-all ${
+                        formDiscipline === 'market'
+                          ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 font-bold'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Target className="w-3.5 h-3.5 mb-1 text-emerald-400" />
+                      <div className="text-[11px] font-bold">1. Market ICP</div>
+                      <div className="text-[9px] text-slate-500">Tipping Point Sizing</div>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setFormDiscipline('design')}
-                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                      className={`p-2 rounded-lg border text-left transition-all ${
                         formDiscipline === 'design'
                           ? 'bg-pink-950/40 border-pink-500 text-pink-300 font-bold'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <Palette className="w-4 h-4 mb-1 text-pink-400" />
-                      <div className="text-xs font-bold">1. Design Spec</div>
-                      <div className="text-[10px] text-slate-500">UI & Spring Tokens</div>
+                      <Palette className="w-3.5 h-3.5 mb-1 text-pink-400" />
+                      <div className="text-[11px] font-bold">2. Design Spec</div>
+                      <div className="text-[9px] text-slate-500">UI & Spring Tokens</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setFormDiscipline('content')}
-                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                      className={`p-2 rounded-lg border text-left transition-all ${
                         formDiscipline === 'content'
                           ? 'bg-amber-950/40 border-amber-500 text-amber-300 font-bold'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <FileText className="w-4 h-4 mb-1 text-amber-400" />
-                      <div className="text-xs font-bold">2. Content Deck</div>
-                      <div className="text-[10px] text-slate-500">PAS & SEO Strategy</div>
+                      <FileText className="w-3.5 h-3.5 mb-1 text-amber-400" />
+                      <div className="text-[11px] font-bold">3. Content Deck</div>
+                      <div className="text-[9px] text-slate-500">PAS & SEO Strategy</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setFormDiscipline('frontend')}
-                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                      className={`p-2 rounded-lg border text-left transition-all ${
                         formDiscipline === 'frontend'
                           ? 'bg-cyan-950/40 border-cyan-500 text-cyan-300 font-bold'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <Code2 className="w-4 h-4 mb-1 text-cyan-400" />
-                      <div className="text-xs font-bold">3. Frontend RFC</div>
-                      <div className="text-[10px] text-slate-500">Web Vitals & Bundle</div>
+                      <Code2 className="w-3.5 h-3.5 mb-1 text-cyan-400" />
+                      <div className="text-[11px] font-bold">4. Frontend RFC</div>
+                      <div className="text-[9px] text-slate-500">Web Vitals & Bundle</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setFormDiscipline('backend')}
-                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                      className={`p-2 rounded-lg border text-left transition-all ${
                         formDiscipline === 'backend'
                           ? 'bg-purple-950/40 border-purple-500 text-purple-300 font-bold'
                           : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <Database className="w-4 h-4 mb-1 text-purple-400" />
-                      <div className="text-xs font-bold">4. Backend ADR</div>
-                      <div className="text-[10px] text-slate-500">RLS & Data Pipeline</div>
+                      <Database className="w-3.5 h-3.5 mb-1 text-purple-400" />
+                      <div className="text-[11px] font-bold">5. Backend ADR</div>
+                      <div className="text-[9px] text-slate-500">RLS & Data Pipeline</div>
                     </button>
                   </div>
                 </div>
@@ -1633,7 +1801,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       type="text"
                       value={formTitle}
                       onChange={e => setFormTitle(e.target.value)}
-                      placeholder="e.g. Design Spec: Bento Grid with 16px Spring Blur"
+                      placeholder="e.g. Market Discovery: TCG Store Maturity Lifecycle & Buylist Tipping Point"
                       className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
                     />
                   </div>
@@ -1647,10 +1815,10 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                         onChange={e => setFormType(e.target.value as any)}
                         className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
                       >
+                        <option value="teardown">Teardown / Market Discovery</option>
                         <option value="adr">ADR (Architecture Record)</option>
                         <option value="spike">Spike / Benchmark</option>
-                        <option value="teardown">Teardown / Analysis</option>
-                        <option value="template">Reusable Template</option>
+                        <option value="template">Reusable Blueprint</option>
                       </select>
                     </div>
 
@@ -1673,7 +1841,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                         type="text"
                         value={formTags}
                         onChange={e => setFormTags(e.target.value)}
-                        placeholder="e.g. Tokens, Motion, WCAG"
+                        placeholder="e.g. Market, ICP, TCG, Tipping-Point"
                         className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 font-mono"
                       />
                     </div>
@@ -1688,14 +1856,107 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       rows={2}
                       value={formSummary}
                       onChange={e => setFormSummary(e.target.value)}
-                      placeholder="High-level engineering takeaway and measurable business impact."
+                      placeholder="High-level commercial takeaway and the strategic tipping point."
                       className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
                     />
                   </div>
 
                   {/* ════════ DYNAMIC DISCIPLINE FIELDS ════════ */}
 
-                  {/* DESIGN-SPECIFIC FIELDS */}
+                  {/* 5. MARKET STRATEGY FIELDS (Stripe / Reforge Model) */}
+                  {formDiscipline === 'market' && (
+                    <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/40 space-y-3">
+                      <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Target className="w-4 h-4" /> Stripe Take-Rate Arbitrage & Reforge Maturity Model
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Industry Niche & Segment
+                        </label>
+                        <input
+                          type="text"
+                          value={formMarketNiche}
+                          onChange={e => setFormMarketNiche(e.target.value)}
+                          placeholder="e.g. Trading Card Game Retailers ($50k-$200k/mo sales)"
+                          className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Store Monthly GMV ($)</label>
+                          <input
+                            type="number"
+                            value={formMonthlyGmv}
+                            onChange={e => setFormMonthlyGmv(Number(e.target.value))}
+                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Marketplace Take-Rate (%)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={formMarketTakeRate}
+                            onChange={e => setFormMarketTakeRate(Number(e.target.value))}
+                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Aeethod Build Fee ($)</label>
+                          <input
+                            type="number"
+                            value={formAgencyFee}
+                            onChange={e => setFormAgencyFee(Number(e.target.value))}
+                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-amber-400 mb-1">
+                            Hair-On-Fire Pain Triggers (1 per line)
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={formTriggers}
+                            onChange={e => setFormTriggers(e.target.value)}
+                            placeholder="e.g. Buylist wait times > 30 mins&#10;Inventory desync&#10;Delayed ACH bank payouts"
+                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-rose-400 mb-1">
+                            Disqualification Criteria (1 per line)
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={formDisqualification}
+                            onChange={e => setFormDisqualification(e.target.value)}
+                            placeholder="e.g. Under $15k/mo GMV&#10;Sealed product only&#10;No daily shipping team"
+                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-emerald-400 mb-1">
+                          McKinsey Cost of Inaction (COI) Sales Hook
+                        </label>
+                        <input
+                          type="text"
+                          value={formCoiHook}
+                          onChange={e => setFormCoiHook(e.target.value)}
+                          placeholder='"Last year you paid TCGPlayer ~$145,000 in fees. An Aeethod build saves you $120k in Year 1 alone."'
+                          className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1. DESIGN FIELDS */}
                   {formDiscipline === 'design' && (
                     <div className="p-4 rounded-xl bg-pink-950/20 border border-pink-800/40 space-y-3">
                       <div className="text-xs font-bold text-pink-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1748,7 +2009,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                     </div>
                   )}
 
-                  {/* CONTENT-SPECIFIC FIELDS */}
+                  {/* 2. CONTENT FIELDS */}
                   {formDiscipline === 'content' && (
                     <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/40 space-y-3">
                       <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1789,33 +2050,10 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                           className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-emerald-300"
                         />
                       </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Winning Headline Hook</label>
-                          <input
-                            type="text"
-                            value={formHeadline}
-                            onChange={e => setFormHeadline(e.target.value)}
-                            placeholder='"Stop leaking 38% of orders to slow checkouts."'
-                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Primary Call to Action</label>
-                          <input
-                            type="text"
-                            value={formCta}
-                            onChange={e => setFormCta(e.target.value)}
-                            placeholder="Book 30-Min Architecture Discovery Audit"
-                            className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white"
-                          />
-                        </div>
-                      </div>
                     </div>
                   )}
 
-                  {/* FRONTEND-SPECIFIC FIELDS */}
+                  {/* 3. FRONTEND FIELDS */}
                   {formDiscipline === 'frontend' && (
                     <div className="p-4 rounded-xl bg-cyan-950/20 border border-cyan-800/40 space-y-3">
                       <div className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1824,7 +2062,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
 
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Target FCP (First Contentful)</label>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Target FCP</label>
                           <input
                             type="text"
                             value={formFcp}
@@ -1834,7 +2072,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Target LCP (Largest Paint)</label>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Target LCP</label>
                           <input
                             type="text"
                             value={formLcp}
@@ -1857,7 +2095,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                     </div>
                   )}
 
-                  {/* BACKEND-SPECIFIC FIELDS */}
+                  {/* 4. BACKEND FIELDS */}
                   {formDiscipline === 'backend' && (
                     <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-800/40 space-y-3">
                       <div className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1874,17 +2112,6 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                           className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white font-mono"
                         />
                       </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">PostgreSQL RLS Policy (SQL)</label>
-                        <textarea
-                          rows={2}
-                          value={formRlsPolicy}
-                          onChange={e => setFormRlsPolicy(e.target.value)}
-                          placeholder="CREATE POLICY user_isolation ON ..."
-                          className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-emerald-300 font-mono"
-                        />
-                      </div>
                     </div>
                   )}
 
@@ -1897,7 +2124,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       rows={2}
                       value={formProblem}
                       onChange={e => setFormProblem(e.target.value)}
-                      placeholder="What technical bottleneck or business obstacle forced this research?"
+                      placeholder="What market barrier or operational obstacle forced this research?"
                       className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
                     />
                   </div>
@@ -1911,7 +2138,7 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                       rows={3}
                       value={formFindings}
                       onChange={e => setFormFindings(e.target.value)}
-                      placeholder="e.g. Cuts initial JS bundle by 65%&#10;Sub-second FCP on mobile Safari&#10;Zero vendor lock-in"
+                      placeholder="e.g. Break-even achieved in 56 days&#10;Disqualification threshold is $15k/mo&#10;Friday night buylist line bottleneck"
                       className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500"
                     />
                   </div>
@@ -1919,13 +2146,13 @@ export default function ResearchModal({ isOpen, onClose, agencyManager }: Resear
                   {/* Common: Code Snippet / Tokens */}
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
-                      Starter Code / CSS Tokens / SQL Schema (Optional)
+                      Starter Code / Token / Formula Snippet (Optional)
                     </label>
                     <textarea
                       rows={3}
                       value={formCode}
                       onChange={e => setFormCode(e.target.value)}
-                      placeholder="Paste copyable code, SQL migrations, or CSS tokens..."
+                      placeholder="Paste copyable formulas, code, or tokens..."
                       className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-cyan-300 font-mono"
                     />
                   </div>
