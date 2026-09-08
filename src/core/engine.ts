@@ -25,6 +25,7 @@ export class GameEngine {
   onOpenMember: ((memberId: string) => void) | null = null;
   onOpenBoard: ((boardType: 'leads' | 'architecture' | 'content') => void) | null = null;
   onOpenClientPC: (() => void) | null = null;
+  onOpenResearchPC: (() => void) | null = null;
   agencyManager: AgencyManager | null = null;
   remotePlayers = new Map<string, RemotePlayer>();
   onPositionChange: ((x: number, y: number, facing: 'up' | 'down' | 'left' | 'right', room: string) => void) | null = null;
@@ -62,6 +63,15 @@ export class GameEngine {
         name: `Meeting Room (${chairTitles[i]})`
       });
     }
+
+    // Meeting Room Research Station Task Chair
+    chairs.push({
+      id: 'meet_research',
+      x: T(26.3) + 13,
+      y: T(1.3) + 26,
+      angle: Math.PI,
+      name: 'Research Workstation Chair'
+    });
 
     // 2. Management Room: Executive Throne & 4 Advisory Chairs (Vertically Reversed Table)
     chairs.push({
@@ -256,6 +266,8 @@ export class GameEngine {
             this.onOpenBoard?.('content');
           } else if (interaction.type === 'vending_dev' || interaction.type === 'vending_design') {
             this.dispenseDrink(interaction.type);
+          } else if (interaction.type === 'research_pc') {
+            this.onOpenResearchPC?.();
           }
         }
       }
@@ -274,7 +286,7 @@ export class GameEngine {
     this.canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.state.camera.zoom = Math.max(0.4, Math.min(2.5, this.state.camera.zoom * (e.deltaY<0?1.08:0.92))); });
   }
 
-  getNearestInteraction(): { type: 'door' | 'mgmt_pc' | 'designer_pc' | 'client_pc' | 'dev_pc' | 'dev_pc_kitty' | 'dev_pc_spidey' | 'board_leads' | 'board_arch' | 'board_content' | 'chair' | 'chair_stand' | 'vending_dev' | 'vending_design'; text: string; x: number; y: number; id?: string; chairData?: any } | null {
+  getNearestInteraction(): { type: 'door' | 'mgmt_pc' | 'designer_pc' | 'client_pc' | 'dev_pc' | 'dev_pc_kitty' | 'dev_pc_spidey' | 'board_leads' | 'board_arch' | 'board_content' | 'chair' | 'chair_stand' | 'vending_dev' | 'vending_design' | 'research_pc'; text: string; x: number; y: number; id?: string; chairData?: any } | null {
     const px = this.state.player.x;
     const py = this.state.player.y;
 
@@ -321,6 +333,9 @@ export class GameEngine {
     check('board_leads', T(22), T(37), 50, '🛎️ [E] Open Lead Registry');
     check('board_arch', T(21.5), T(2.5), 65, '📅 [E] Meeting & Planning Room');
     check('board_content', T(39), T(28), 50, '📅 [E] View Content Calendar');
+
+    // Research & Intelligence Computer (Meeting Room)
+    check('research_pc', T(26.3) + 13, T(1.3) + 9, 52, '🔬 [E] Open Research & Intel Terminal');
 
     // Cold Drinks Vending Machines
     check('vending_dev', T(10.2) + 12, T(8.8) + 18, 48, '🥤 [E] Buy Cold Drink ($2)');
@@ -397,6 +412,9 @@ export class GameEngine {
     // Design Room (East wall)
     if (wx >= T(40.2) && wx <= T(40.2) + 24 && wy >= T(15.2) && wy <= T(15.2) + 38) return true;
 
+    // 10. Meeting Room Research Station Desk
+    if (wx >= T(26.3) && wx <= T(26.3) + 26 && wy >= T(1.3) && wy <= T(1.3) + 18) return true;
+
     return false;
   }
 
@@ -452,6 +470,7 @@ export class GameEngine {
     if (checkClick(T(22), T(37), 55, () => this.onOpenBoard?.('leads'))) return;
     if (checkClick(T(21.5), T(2), 55, () => this.onOpenBoard?.('architecture'))) return;
     if (checkClick(T(39), T(28), 55, () => this.onOpenBoard?.('content'))) return;
+    if (checkClick(T(26.3) + 13, T(1.3) + 9, 65, () => this.onOpenResearchPC?.())) return;
     if (checkClick(T(10.2) + 12, T(8.8) + 18, 55, () => this.dispenseDrink('vending_dev'))) return;
     if (checkClick(T(40.2) + 12, T(15.2) + 18, 55, () => this.dispenseDrink('vending_design'))) return;
     if (this.selectedBuilding) {
@@ -1992,7 +2011,142 @@ export class GameEngine {
       ctx.fillRect(caseX + 3 + b * 2, caseY + 40, 1.8, 9);
     }
 
+    // =========================================================================
+    // 9. HIGH-TECH RESEARCH & INTELLIGENCE WORKSTATION (North-East Corner)
+    // =========================================================================
+    this.drawResearchWorkstation(ctx, T(26.3), T(1.3), S);
+
     ctx.restore();
+  }
+
+  // --- RESEARCH & INTELLIGENCE WORKSTATION ---
+  private drawResearchWorkstation(ctx: CanvasRenderingContext2D, deskX: number, deskY: number, S: number) {
+    const deskW = 26;
+    const deskH = 18;
+
+    ctx.save();
+
+    // 1. Soft Ambient Floor Glow (Cyan Research Aura)
+    const pulse = 0.22 + Math.sin(this.state.tick * 0.08) * 0.08;
+    ctx.fillStyle = `rgba(6, 182, 212, ${pulse})`;
+    ctx.beginPath();
+    ctx.ellipse(deskX + deskW / 2, deskY + deskH / 2, 22, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Drop shadow under desk
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.beginPath();
+    ctx.roundRect(deskX + 2, deskY + 3, deskW, deskH, 3);
+    ctx.fill();
+
+    // 3. Calacatta White Marble Desktop
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(deskX, deskY, deskW, deskH, 2);
+    ctx.fill();
+
+    // Subtle marble veins
+    ctx.strokeStyle = 'rgba(226, 232, 240, 0.85)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(deskX + 4, deskY + 3);
+    ctx.lineTo(deskX + 14, deskY + 11);
+    ctx.lineTo(deskX + 22, deskY + 6);
+    ctx.stroke();
+
+    // Champagne Gold / Brushed Brass Perimeter Bevel Trim
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.roundRect(deskX, deskY, deskW, deskH, 2);
+    ctx.stroke();
+
+    // 4. Inlaid Ivory Leather Desk Blotter
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(deskX + 4, deskY + 8, 14, 8);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(deskX + 4, deskY + 8, 14, 8);
+
+    // 5. Dual Intelligence Displays
+    // Screen 1: 34" Ultrawide Curved Monitor (Horizontal, centered top)
+    const monW = 15;
+    const monH = 4.5;
+    const monX = deskX + 3.5;
+    const monY = deskY + 2.5;
+
+    // Monitor stand
+    ctx.fillStyle = '#d4af37';
+    ctx.fillRect(monX + monW / 2 - 2, monY - 1, 4, 1.5);
+
+    // Monitor bezel
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(monX, monY, monW, monH, 1);
+    ctx.fill();
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+
+    // Monitor active surface: Market Radar Telemetry (Cyan & Violet)
+    ctx.fillStyle = '#060d17';
+    ctx.fillRect(monX + 0.8, monY + 0.8, monW - 1.6, monH - 1.6);
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(monX + 1.2, monY + 1.2, 4, 2); // Radar graph
+    ctx.fillStyle = '#a855f7';
+    ctx.fillRect(monX + 6, monY + 1.2, 4.5, 2); // Audit gauge
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(monX + 11.2, monY + 1.2, 2, 2); // Status LED
+
+    // Screen 2: 27" Vertical Pivot Monitor (Right edge)
+    const mon2W = 4.5;
+    const mon2H = 12;
+    const mon2X = deskX + 20;
+    const mon2Y = deskY + 2;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(mon2X, mon2Y, mon2W, mon2H, 1);
+    ctx.fill();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+
+    // Code AST / Data stream lines
+    ctx.fillStyle = '#060d17';
+    ctx.fillRect(mon2X + 0.6, mon2Y + 0.6, mon2W - 1.2, mon2H - 1.2);
+    ctx.fillStyle = '#38bdf8';
+    for (let l = 0; l < 5; l++) {
+      ctx.fillRect(mon2X + 1, mon2Y + 1.5 + l * 2, 2.5, 0.8);
+    }
+
+    // 6. Mini White Tempered Glass Tower PC (Left edge)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(deskX + 1, deskY + 6.5, 3.5, 9);
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 0.6;
+    ctx.strokeRect(deskX + 1, deskY + 6.5, 3.5, 9);
+    // Cyan liquid cooling pipe
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(deskX + 1.8, deskY + 8, 1.2, 6);
+
+    // 7. White Magic Keyboard & Precision Mouse
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(deskX + 5.5, deskY + 10.5, 7.5, 3.5);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 0.4;
+    ctx.strokeRect(deskX + 5.5, deskY + 10.5, 7.5, 3.5);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(deskX + 6.5, deskY + 11.5, 5.5, 1.5);
+
+    // White Mouse
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(deskX + 14.5, deskY + 11, 2, 2.8);
+
+    ctx.restore();
+
+    // 8. White & Champagne Gold Swivel Task Chair (Facing North into desk)
+    this.chair(ctx, deskX + 13, deskY + 26, Math.PI, 10);
   }
 
   // --- DEVELOPMENT ROOM (Enriched Hello Kitty Themed Battlestation & Spider-Man Desk) ---
@@ -3385,10 +3539,11 @@ export class GameEngine {
     ctx.fill();
     const isChair = interaction.type === 'chair' || interaction.type === 'chair_stand';
     const isVending = interaction.type === 'vending_dev' || interaction.type === 'vending_design';
-    ctx.strokeStyle = isChair ? '#34d399' : (isVending ? '#06b6d4' : '#38bdf8');
+    const isResearch = interaction.type === 'research_pc';
+    ctx.strokeStyle = isChair ? '#34d399' : (isVending ? '#06b6d4' : (isResearch ? '#818cf8' : '#38bdf8'));
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = isChair ? '#34d399' : (isVending ? '#22d3ee' : '#38bdf8');
+    ctx.fillStyle = isChair ? '#34d399' : (isVending ? '#22d3ee' : (isResearch ? '#a5b4fc' : '#38bdf8'));
     ctx.font = 'bold 9px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(interaction.text, promptX, promptY + 4);

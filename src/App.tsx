@@ -17,6 +17,7 @@ import BackendDevModal from './components/BackendDevModal';
 import ClientModal from './components/ClientModal';
 import LoginModal from './components/LoginModal';
 import OfficeChat from './components/OfficeChat';
+import ResearchModal from './components/ResearchModal';
 
 export default function App() {
   const engineRef = useRef<GameEngine | null>(null);
@@ -26,6 +27,7 @@ export default function App() {
   const [showComputer, setShowComputer] = useState(false);
   const [showDesignerPC, setShowDesignerPC] = useState(false);
   const [showClientPC, setShowClientPC] = useState(false);
+  const [showResearchPC, setShowResearchPC] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(() => {
     return !localStorage.getItem('aeethod_logged_in');
   });
@@ -102,6 +104,10 @@ export default function App() {
         setShowClientPC(true);
       };
 
+      engine.onOpenResearchPC = () => {
+        setShowResearchPC(true);
+      };
+
       engine.onOpenMember = (memberId: string) => {
         setActiveMemberModal(memberId);
       };
@@ -129,6 +135,7 @@ export default function App() {
     showComputer ||
     showDesignerPC ||
     showClientPC ||
+    showResearchPC ||
     showLoginModal ||
     activeMemberModal !== null ||
     activeBoardModal !== null;
@@ -139,6 +146,7 @@ export default function App() {
         setShowComputer(false);
         setShowDesignerPC(false);
         setShowClientPC(false);
+        setShowResearchPC(false);
         setShowLoginModal(false);
         setActiveMemberModal(null);
         setActiveBoardModal(null);
@@ -233,6 +241,14 @@ export default function App() {
           manager={agencyManager}
           onClose={() => setShowClientPC(false)}
           onRefresh={handleRefresh}
+        />
+      )}
+
+      {showResearchPC && (
+        <ResearchModal
+          isOpen={showResearchPC}
+          onClose={() => setShowResearchPC(false)}
+          agencyManager={agencyManager}
         />
       )}
 
