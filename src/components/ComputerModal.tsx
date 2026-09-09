@@ -8,8 +8,9 @@ import TeamTab from './computer/TeamTab';
 import FinanceTab from './computer/FinanceTab';
 import QuestsTab from './computer/QuestsTab';
 import AchievementsTab from './computer/AchievementsTab';
+import AccessTab from './computer/AccessTab';
 
-type TabId = 'dashboard' | 'projects' | 'tasks' | 'team' | 'finance' | 'quests' | 'achievements';
+type TabId = 'dashboard' | 'projects' | 'tasks' | 'team' | 'finance' | 'quests' | 'achievements' | 'access';
 
 interface TabDef {
   id: TabId;
@@ -26,6 +27,7 @@ const TABS: TabDef[] = [
   { id: 'finance', label: 'Finance', icon: '💰', shortcut: '5' },
   { id: 'quests', label: 'Quests', icon: '⚔️', shortcut: '6' },
   { id: 'achievements', label: 'Trophies', icon: '🏆', shortcut: '7' },
+  { id: 'access', label: 'Access Keys', icon: '🔑', shortcut: '8' },
 ];
 
 interface ComputerModalProps {
@@ -97,6 +99,8 @@ export default function ComputerModal({ manager, onClose }: ComputerModalProps) 
         return <QuestsTab agency={agencyState} manager={manager} onRefresh={refresh} />;
       case 'achievements':
         return <AchievementsTab agency={agencyState} manager={manager} />;
+      case 'access':
+        return <AccessTab agency={agencyState} manager={manager} onRefresh={refresh} />;
     }
   };
 

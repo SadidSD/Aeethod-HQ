@@ -29,8 +29,9 @@ export default function App() {
   const [showClientPC, setShowClientPC] = useState(false);
   const [showResearchPC, setShowResearchPC] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(() => {
-    return !localStorage.getItem('aeethod_logged_in');
+    return localStorage.getItem('aeethod_logged_in') !== 'true';
   });
+  const [loginModalStep, setLoginModalStep] = useState<'code' | 'avatar'>('code');
   const [activeMemberModal, setActiveMemberModal] = useState<string | null>(null);
   const [activeBoardModal, setActiveBoardModal] = useState<'leads' | 'architecture' | 'content' | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -173,7 +174,10 @@ export default function App() {
       {gameState && (
         <HUD
           state={gameState}
-          onOpenProfile={() => setShowLoginModal(true)}
+          onOpenProfile={() => {
+            setLoginModalStep('avatar');
+            setShowLoginModal(true);
+          }}
           playerName={multiplayer.localPlayer.name}
           playerRole={multiplayer.localPlayer.role}
           playerAura={multiplayer.localPlayer.character?.auraColor || multiplayer.localPlayer.color}
@@ -195,10 +199,20 @@ export default function App() {
       {/* Character Setup & Login Modal */}
       <LoginModal
         multiplayer={multiplayer}
+        manager={agencyManager}
         isOpen={showLoginModal}
+        initialStep={loginModalStep}
         onClose={() => setShowLoginModal(false)}
         onLoginComplete={() => {
           localStorage.setItem('aeethod_logged_in', 'true');
+          if (engineRef.current) {
+            engineRef.current.localPlayerInfo = {
+              name: multiplayer.localPlayer.name,
+              role: multiplayer.localPlayer.role,
+              color: multiplayer.localPlayer.color,
+              character: multiplayer.localPlayer.character,
+            };
+          }
           handleRefresh();
         }}
       />

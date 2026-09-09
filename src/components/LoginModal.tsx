@@ -1,55 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { MultiplayerManager, PlayerRole, CharacterSetup } from '../core/multiplayer';
+import AgencyManager from '../core/agency';
 
 interface LoginModalProps {
   multiplayer: MultiplayerManager;
+  manager: AgencyManager;
   isOpen: boolean;
   onClose: () => void;
   onLoginComplete: () => void;
+  initialStep?: 'code' | 'avatar';
 }
-
-const PRESET_ROLES: { role: PlayerRole; label: string; icon: string; desc: string; defaultOutfit: CharacterSetup['outfit']; defaultAura: string }[] = [
-  {
-    role: 'Founder',
-    label: 'Founder & CEO',
-    icon: '👑',
-    desc: 'Executive command, finances & studio roadmap',
-    defaultOutfit: 'executive_suit',
-    defaultAura: '#f59e0b',
-  },
-  {
-    role: 'Developer',
-    label: 'Frontend Engineer',
-    icon: '🌸',
-    desc: 'Hello Kitty station, React components & micro-interactions',
-    defaultOutfit: 'kitty_hoodie',
-    defaultAura: '#ec4899',
-  },
-  {
-    role: 'Developer',
-    label: 'Backend Architect',
-    icon: '🕷️',
-    desc: 'Spider-Man workstation, Redis queues & Postgres architecture',
-    defaultOutfit: 'spider_jacket',
-    defaultAura: '#06b6d4',
-  },
-  {
-    role: 'Designer',
-    label: 'Lead UI/UX Designer',
-    icon: '🎨',
-    desc: 'Creative studio, design systems & Figma prototypes',
-    defaultOutfit: 'studio_turtleneck',
-    defaultAura: '#a855f7',
-  },
-  {
-    role: 'Marketer',
-    label: 'Client Success Lead',
-    icon: '🤝',
-    desc: 'Executive CRM, contracts, SLA agreements & client portal',
-    defaultOutfit: 'emerald_trench',
-    defaultAura: '#10b981',
-  },
-];
 
 const SKIN_TONES = [
   { label: 'Fair', color: '#ffdbac' },
@@ -104,14 +64,55 @@ const ACCESSORIES: { id: CharacterSetup['accessory']; label: string; icon: strin
   { id: 'vip_badge', label: 'VIP Studio Keycard', icon: '⭐' },
 ];
 
+function mapDepartmentToRole(dept?: string, roleName?: string): PlayerRole {
+  const r = (roleName || '').toLowerCase();
+  const d = (dept || '').toLowerCase();
+
+  if (d === 'management' || r.includes('founder') || r.includes('ceo')) return 'Founder';
+  if (d === 'design' || r.includes('design') || r.includes('ui') || r.includes('ux')) return 'Designer';
+  if (d === 'client' || d === 'content' || r.includes('client') || r.includes('market')) return 'Marketer';
+  return 'Developer';
+}
+
+function getDefaultOutfitForRole(role: PlayerRole): CharacterSetup['outfit'] {
+  switch (role) {
+    case 'Founder': return 'executive_suit';
+    case 'Designer': return 'studio_turtleneck';
+    case 'Marketer': return 'emerald_trench';
+    default: return 'spider_jacket';
+  }
+}
+
 export default function LoginModal({
   multiplayer,
+  manager,
   isOpen,
   onClose,
   onLoginComplete,
+  initialStep,
 }: LoginModalProps) {
-  const [name, setName] = useState(multiplayer.localPlayer.name || 'Sadid');
-  const [selectedRoleIdx, setSelectedRoleIdx] = useState(0);
+  // Step: 'code' or 'avatar'
+  const [step, setStep] = useState<'code' | 'avatar'>(() => {
+    if (initialStep) return initialStep;
+    const hasLoggedIn = localStorage.getItem('aeethod_logged_in') === 'true';
+    return hasLoggedIn ? 'avatar' : 'code';
+  });
+
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  const [verifiedRole, setVerifiedRole] = useState<{ roleName: string; department: string }>(() => {
+    try {
+      const saved = localStorage.getItem('aeethod_user_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.role) return { roleName: parsed.role, department: parsed.department || 'dev' };
+      }
+    } catch (e) {}
+    return { roleName: 'Founder & CEO', department: 'management' };
+  });
+
+  const [name, setName] = useState(() => localStorage.getItem('coop_player_name') || multiplayer.localPlayer.name || '');
   const [character, setCharacter] = useState<CharacterSetup>(
     multiplayer.localPlayer.character || {
       skinTone: '#ffdbac',
@@ -124,9 +125,14 @@ export default function LoginModal({
     }
   );
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'outfit' | 'hair' | 'aura'>('profile');
+  const [activeTab, setActiveTab] = useState<'outfit' | 'hair' | 'aura'>('outfit');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Sync step if initialStep prop changes
+  useEffect(() => {
+    if (initialStep) setStep(initialStep);
+  }, [initialStep]);
 
   // Live Canvas Character Preview
   useEffect(() => {
@@ -169,7 +175,7 @@ export default function LoginModal({
         studio_turtleneck: { primary: '#18181b', secondary: '#10b981', trim: '#71717a' },
         emerald_trench: { primary: '#064e3b', secondary: '#047857', trim: '#fbbf24' },
       };
-      const oCol = outfitColors[character.outfit];
+      const oCol = outfitColors[character.outfit] || outfitColors.executive_suit;
 
       // Jacket / Body
       ctx.fillStyle = oCol.primary;
@@ -253,30 +259,28 @@ export default function LoginModal({
         ctx.beginPath();
         ctx.arc(cx, cy - 26, 14, Math.PI, Math.PI * 2);
         ctx.fill();
-        // Glowing cyan visor
         ctx.fillStyle = '#06b6d4';
-        ctx.beginPath();
-        ctx.roundRect(cx - 12, cy - 26, 24, 7, 3);
-        ctx.fill();
+        ctx.fillRect(cx - 12, cy - 25, 24, 6);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cx - 8, cy - 24, 16, 2);
       } else if (character.hairStyle === 'executive_cap') {
-        ctx.fillStyle = '#0f172a';
         ctx.beginPath();
-        ctx.roundRect(cx - 16, cy - 35, 32, 12, 4);
-        ctx.fillRect(cx - 18, cy - 26, 36, 4);
+        ctx.arc(cx, cy - 26, 14, Math.PI, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(cx - 3, cy - 33, 6, 6);
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.roundRect(cx - 15, cy - 36, 30, 10, 3);
+        ctx.fill();
+        ctx.fillRect(cx - 18, cy - 28, 36, 4);
       }
 
-      // 7. Accessory
+      // 7. Accessories
       if (character.accessory === 'coffee') {
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(cx + 22, cy + 10, 7, 11);
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(cx + 21, cy + 8, 9, 3);
+        ctx.fillRect(cx + 18, cy + 11, 7, 11);
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(cx + 19, cy + 14, 5, 5);
       } else if (character.accessory === 'laptop') {
-        ctx.fillStyle = '#64748b';
-        ctx.fillRect(cx - 26, cy + 12, 14, 10);
         ctx.fillStyle = '#38bdf8';
         ctx.fillRect(cx - 24, cy + 14, 10, 6);
       } else if (character.accessory === 'hologram') {
@@ -306,346 +310,412 @@ export default function LoginModal({
     return () => cancelAnimationFrame(animId);
   }, [character]);
 
-  const handleSelectRole = (index: number) => {
-    setSelectedRoleIdx(index);
-    const chosen = PRESET_ROLES[index];
+  // Code Validation Handler
+  const handleVerifyCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCodeError(null);
+
+    const result = manager.validateAccessCode(accessCodeInput);
+    if (!result.valid) {
+      setCodeError(result.error || 'Invalid access code.');
+      return;
+    }
+
+    const assignedRole = result.roleName || 'Team Specialist';
+    const dept = result.department || 'dev';
+    setVerifiedRole({ roleName: assignedRole, department: dept });
+
+    const mappedRole = mapDepartmentToRole(dept, assignedRole);
+    const suggestedOutfit = getDefaultOutfitForRole(mappedRole);
+
     setCharacter(prev => ({
       ...prev,
-      outfit: chosen.defaultOutfit,
-      auraColor: chosen.defaultAura,
-      title: chosen.label,
+      title: assignedRole,
+      outfit: prev.outfit === 'executive_suit' ? suggestedOutfit : prev.outfit,
     }));
+
+    setStep('avatar');
   };
 
+  // Complete Setup & Save Handler
   const handleSaveAndSpawn = async () => {
+    const finalName = name.trim() || verifiedRole.roleName.split(' ')[0] || 'Agent';
     setIsSubmitting(true);
-    const chosenRole = PRESET_ROLES[selectedRoleIdx].role;
-    const finalName = name.trim() || 'Founder';
 
-    multiplayer.updateLocalProfile(finalName, chosenRole, character.auraColor, character);
-    
-    // Auto-connect to shared studio room
+    const mappedRole = mapDepartmentToRole(verifiedRole.department, verifiedRole.roleName);
+    const updatedChar = { ...character, title: verifiedRole.roleName };
+
+    // 1. Claim code usage in agency manager
+    if (accessCodeInput) {
+      manager.claimAccessCode(accessCodeInput, finalName);
+    }
+
+    // 2. Update local player multiplayer profile
+    multiplayer.updateLocalProfile(finalName, mappedRole, updatedChar.auraColor, updatedChar);
+
+    // 3. Save to localStorage cache for persistent auto-login
+    localStorage.setItem('aeethod_logged_in', 'true');
+    localStorage.setItem('aeethod_user_code', accessCodeInput || 'FOUNDER-HQ');
+    localStorage.setItem(
+      'aeethod_user_session',
+      JSON.stringify({
+        name: finalName,
+        role: verifiedRole.roleName,
+        department: verifiedRole.department,
+        code: accessCodeInput,
+        character: updatedChar,
+      })
+    );
+    localStorage.setItem('coop_player_name', finalName);
+    localStorage.setItem('coop_player_role', mappedRole);
+    localStorage.setItem('coop_player_color', updatedChar.auraColor);
+    localStorage.setItem('aeethod_character_setup', JSON.stringify(updatedChar));
+
+    // 4. Connect to shared HQ room
     await multiplayer.joinRoom('AEETHOD-HQ');
-    
+
     setIsSubmitting(false);
     onLoginComplete();
     onClose();
+  };
+
+  const handleLogoutSwitchAccount = () => {
+    localStorage.removeItem('aeethod_logged_in');
+    localStorage.removeItem('aeethod_user_code');
+    localStorage.removeItem('aeethod_user_session');
+    setAccessCodeInput('');
+    setCodeError(null);
+    setStep('code');
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-3 sm:p-6 animate-in fade-in select-none">
-      <div className="relative w-full max-w-4xl bg-[#080d14] border border-emerald-500/40 rounded-3xl shadow-[0_0_90px_rgba(16,185,129,0.3)] flex flex-col md:flex-row overflow-hidden text-slate-200 font-sans">
-
-        {/* ════════════════════════════════════════════════════════════════════
-            LEFT: LIVE 3D/2D CHARACTER PREVIEW & BADGE
-            ════════════════════════════════════════════════════════════════════ */}
-        <div className="w-full md:w-5/12 bg-[#04070b] border-b md:border-b-0 md:border-r border-slate-800/80 p-6 flex flex-col items-center justify-between shrink-0">
-          <div className="w-full text-center">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[11px] font-mono text-emerald-300 font-bold mb-2">
+      
+      {/* ════════════════════════════════════════════════════════════════════
+          STEP 1: CODE GATEWAY (Enter Access Key)
+          ════════════════════════════════════════════════════════════════════ */}
+      {step === 'code' ? (
+        <div className="relative w-full max-w-md bg-[#080d14] border border-cyan-500/40 rounded-3xl shadow-[0_0_90px_rgba(6,182,212,0.25)] p-6 sm:p-8 text-slate-200 font-sans animate-in zoom-in-95">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-[11px] font-mono text-cyan-300 font-bold mb-3">
               <span>⚡</span> AEETHOD DIGITAL STUDIO
             </div>
-            <h2 className="text-lg font-black text-slate-100 font-mono tracking-wider">
-              {name || 'Agent'}
-            </h2>
-            <p className="text-xs text-amber-400 font-mono font-bold mt-0.5">
-              {PRESET_ROLES[selectedRoleIdx].icon} {character.title}
+            <h1 className="text-2xl font-black text-slate-100 font-mono tracking-wider">
+              ACCESS GATEWAY
+            </h1>
+            <p className="text-xs text-slate-400 mt-1 font-mono">
+              Enter your studio role access key to authenticate and enter HQ.
             </p>
           </div>
 
-          {/* Interactive Character Avatar Canvas */}
-          <div className="relative my-4 flex items-center justify-center">
-            <div className="w-44 h-48 rounded-2xl bg-[#090f18] border border-slate-800/90 flex items-center justify-center relative overflow-hidden shadow-inner">
-              <canvas
-                ref={canvasRef}
-                width={176}
-                height={192}
-                className="w-full h-full object-contain"
+          <form onSubmit={handleVerifyCode} className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono font-bold text-slate-300 mb-2 text-center uppercase tracking-wider">
+                Enter Role Access Code:
+              </label>
+              <input
+                type="text"
+                autoFocus
+                required
+                value={accessCodeInput}
+                onChange={e => {
+                  setAccessCodeInput(e.target.value.toUpperCase());
+                  setCodeError(null);
+                }}
+                placeholder="e.g. AETH-DEV-1234 or FOUNDER-HQ"
+                className="w-full bg-[#04070b] border-2 border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-center font-mono font-black text-base tracking-widest text-cyan-300 placeholder-slate-600 outline-none transition shadow-inner"
               />
-              <span className="absolute bottom-2 right-2 text-[9px] font-mono bg-black/60 px-1.5 py-0.5 rounded text-slate-400 border border-slate-800">
-                LIVE 60FPS
-              </span>
-            </div>
-          </div>
-
-          {/* Character Quick Stat Chips */}
-          <div className="w-full grid grid-cols-2 gap-2 text-center text-[10px] font-mono text-slate-400">
-            <div className="p-2 rounded-xl bg-[#0c131e] border border-slate-800/70">
-              <span className="text-slate-500 block">ACCESS LEVEL</span>
-              <strong className="text-emerald-400 text-xs">TIER 1 ARCHITECT</strong>
-            </div>
-            <div className="p-2 rounded-xl bg-[#0c131e] border border-slate-800/70">
-              <span className="text-slate-500 block">STUDIO LOCATION</span>
-              <strong className="text-cyan-300 text-xs">AEETHOD HQ FLOOR</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* ════════════════════════════════════════════════════════════════════
-            RIGHT: CUSTOMIZATION SUITE
-            ════════════════════════════════════════════════════════════════════ */}
-        <div className="w-full md:w-7/12 p-6 flex flex-col justify-between overflow-y-auto max-h-[85vh] md:max-h-[620px]">
-          
-          <div>
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
-              <div>
-                <h3 className="text-sm font-black text-slate-100 font-mono tracking-wider uppercase flex items-center gap-2">
-                  <span>🧑‍💻</span> CHARACTER SETUP & LOGIN
-                </h3>
-                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                  Configure your in-game persona, role, and custom visual gear.
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs"
-              >
-                ✕
-              </button>
             </div>
 
-            {/* Customization Navigation Tabs */}
-            <div className="flex items-center gap-1.5 p-1 bg-[#05080c] rounded-xl border border-slate-800/90 mb-4 text-xs font-mono">
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
-                  activeTab === 'profile' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>👑</span> Role
-              </button>
-              <button
-                onClick={() => setActiveTab('outfit')}
-                className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
-                  activeTab === 'outfit' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>👔</span> Outfit
-              </button>
-              <button
-                onClick={() => setActiveTab('hair')}
-                className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
-                  activeTab === 'hair' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>✂️</span> Hair & Skin
-              </button>
-              <button
-                onClick={() => setActiveTab('aura')}
-                className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
-                  activeTab === 'aura' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>✨</span> Aura & Gear
-              </button>
-            </div>
-
-            {/* ──────────────── TAB 1: PROFILE & ROLE ──────────────── */}
-            {activeTab === 'profile' && (
-              <div className="space-y-4 text-xs font-mono animate-in fade-in">
-                <div>
-                  <label className="block text-slate-400 mb-1.5 font-bold">Player Name / Handle:</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="Enter your character name..."
-                    className="w-full bg-[#04070b] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-slate-100 font-bold outline-none focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-2 font-bold">Select Agency Role & Department:</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {PRESET_ROLES.map((r, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleSelectRole(i)}
-                        className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
-                          selectedRoleIdx === i
-                            ? 'bg-[#0f2119] border-emerald-500/80 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                            : 'bg-[#0b1017] border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-lg">{r.icon}</span>
-                          <div>
-                            <strong className="text-slate-100 text-xs block">{r.label}</strong>
-                            <span className="text-[10px] text-slate-500">{r.desc}</span>
-                          </div>
-                        </div>
-                        {selectedRoleIdx === i && (
-                          <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold text-[10px] border border-emerald-700/50">
-                            SELECTED
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            {codeError && (
+              <div className="p-3 bg-rose-950/80 border border-rose-500/60 rounded-xl text-rose-300 text-xs font-mono text-center flex items-center justify-center gap-2 animate-in fade-in">
+                <span>⚠️</span> {codeError}
               </div>
             )}
 
-            {/* ──────────────── TAB 2: OUTFIT ──────────────── */}
-            {activeTab === 'outfit' && (
-              <div className="space-y-3 text-xs font-mono animate-in fade-in">
-                <label className="block text-slate-400 font-bold mb-1">Wardrobe & Department Uniform:</label>
-                <div className="grid grid-cols-1 gap-2">
+            <button
+              type="submit"
+              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-mono font-bold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>🔓</span> Verify Key & Create Avatar
+            </button>
+          </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-800 text-center font-mono text-[11px] text-slate-500 space-y-1">
+            <div>👑 Studio Founder Key: <code className="text-amber-400 font-bold">FOUNDER-HQ</code></div>
+            <div>Need an invite code? Ask your manager in the Management Computer.</div>
+          </div>
+        </div>
+      ) : (
+
+        /* ════════════════════════════════════════════════════════════════════
+            STEP 2: AVATAR CUSTOMIZATION & PROFILE (One-Time Setup)
+            ════════════════════════════════════════════════════════════════════ */
+        <div className="relative w-full max-w-4xl bg-[#080d14] border border-emerald-500/40 rounded-3xl shadow-[0_0_90px_rgba(16,185,129,0.3)] flex flex-col md:flex-row overflow-hidden text-slate-200 font-sans animate-in zoom-in-95">
+
+          {/* LEFT: LIVE CHARACTER CANVAS PREVIEW */}
+          <div className="w-full md:w-5/12 bg-[#04070b] border-b md:border-b-0 md:border-r border-slate-800/80 p-6 flex flex-col items-center justify-between shrink-0">
+            <div className="w-full text-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[11px] font-mono text-emerald-300 font-bold mb-2">
+                <span>✓</span> ACCESS GRANTED
+              </div>
+              <h2 className="text-lg font-black text-slate-100 font-mono tracking-wider">
+                {name || 'Agent'}
+              </h2>
+              <p className="text-xs text-amber-400 font-mono font-bold mt-0.5">
+                👑 {verifiedRole.roleName}
+              </p>
+            </div>
+
+            {/* Character Canvas */}
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="w-44 h-48 rounded-2xl bg-[#090f18] border border-slate-800/90 flex items-center justify-center relative overflow-hidden shadow-inner">
+                <canvas
+                  ref={canvasRef}
+                  width={176}
+                  height={192}
+                  className="w-full h-full object-contain"
+                />
+                <span className="absolute bottom-2 right-2 text-[9px] font-mono bg-black/60 px-1.5 py-0.5 rounded text-slate-400 border border-slate-800">
+                  LIVE 60FPS
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Stat Chips */}
+            <div className="w-full grid grid-cols-2 gap-2 text-center text-[10px] font-mono text-slate-400">
+              <div className="p-2 rounded-xl bg-[#0c131e] border border-slate-800/70">
+                <span className="text-slate-500 block">ROLE CODE</span>
+                <strong className="text-emerald-400 text-xs truncate block">{accessCodeInput || 'AUTHENTICATED'}</strong>
+              </div>
+              <div className="p-2 rounded-xl bg-[#0c131e] border border-slate-800/70">
+                <span className="text-slate-500 block">HQ LOCATION</span>
+                <strong className="text-cyan-300 text-xs">AEETHOD HQ FLOOR</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: AVATAR CUSTOMIZATION CONTROLS */}
+          <div className="w-full md:w-7/12 p-6 flex flex-col justify-between overflow-y-auto max-h-[85vh] md:max-h-[620px]">
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-100 font-mono tracking-wider uppercase flex items-center gap-2">
+                    <span>🎨</span> AVATAR SETUP STUDIO
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                    Customize your character. This avatar will be cached permanently for your account!
+                  </p>
+                </div>
+                {localStorage.getItem('aeethod_logged_in') && (
+                  <button
+                    onClick={onClose}
+                    className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Player Name Field */}
+              <div className="mb-4 font-mono text-xs">
+                <label className="block text-slate-300 mb-1.5 font-bold">Your Display Name / Handle:</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Sadid, Sarah, Alex..."
+                  className="w-full bg-[#04070b] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-slate-100 font-bold outline-none focus:border-emerald-500 transition text-xs"
+                />
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex items-center gap-1.5 p-1 bg-[#05080c] rounded-xl border border-slate-800/90 mb-4 text-xs font-mono">
+                <button
+                  onClick={() => setActiveTab('outfit')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
+                    activeTab === 'outfit' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>👔</span> Outfit
+                </button>
+                <button
+                  onClick={() => setActiveTab('hair')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
+                    activeTab === 'hair' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>✂️</span> Hair & Skin
+                </button>
+                <button
+                  onClick={() => setActiveTab('aura')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
+                    activeTab === 'aura' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>✨</span> Aura & Gear
+                </button>
+              </div>
+
+              {/* TAB 1: OUTFIT */}
+              {activeTab === 'outfit' && (
+                <div className="space-y-2.5 font-mono text-xs animate-in fade-in">
                   {OUTFITS.map(o => (
                     <button
                       key={o.id}
-                      onClick={() => setCharacter({ ...character, outfit: o.id })}
-                      className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+                      onClick={() => setCharacter(prev => ({ ...prev, outfit: o.id }))}
+                      className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
                         character.outfit === o.id
-                          ? 'bg-[#0f2119] border-emerald-500/80 text-emerald-200'
-                          : 'bg-[#0b1017] border-slate-800 text-slate-400 hover:border-slate-700'
+                          ? 'bg-emerald-950/50 border-emerald-500 text-emerald-200'
+                          : 'bg-[#090f18] border-slate-800 text-slate-300 hover:border-slate-700'
                       }`}
                     >
                       <div>
-                        <strong className="text-slate-100 text-xs block">{o.label}</strong>
-                        <span className="text-[10px] text-slate-500">{o.desc}</span>
+                        <span className="font-bold block text-slate-100">{o.label}</span>
+                        <span className="text-[11px] text-slate-400 block mt-0.5">{o.desc}</span>
                       </div>
-                      {character.outfit === o.id && (
-                        <span className="text-emerald-400 font-bold text-xs">✓</span>
-                      )}
+                      {character.outfit === o.id && <span className="text-emerald-400 font-bold">✓ Selected</span>}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ──────────────── TAB 3: HAIR & SKIN ──────────────── */}
-            {activeTab === 'hair' && (
-              <div className="space-y-4 text-xs font-mono animate-in fade-in">
-                <div>
-                  <label className="block text-slate-400 font-bold mb-2">Skin Tone:</label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {SKIN_TONES.map(s => (
-                      <button
-                        key={s.color}
-                        onClick={() => setCharacter({ ...character, skinTone: s.color })}
-                        className={`h-10 rounded-xl border flex items-center justify-center transition ${
-                          character.skinTone === s.color
-                            ? 'border-white scale-105 shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                            : 'border-slate-800 hover:scale-100'
-                        }`}
-                        style={{ backgroundColor: s.color }}
-                        title={s.label}
-                      />
-                    ))}
+              {/* TAB 2: HAIR & SKIN */}
+              {activeTab === 'hair' && (
+                <div className="space-y-4 font-mono text-xs animate-in fade-in">
+                  <div>
+                    <label className="block text-slate-400 mb-2 font-bold">Skin Tone:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {SKIN_TONES.map(s => (
+                        <button
+                          key={s.label}
+                          onClick={() => setCharacter(prev => ({ ...prev, skinTone: s.color }))}
+                          className={`p-2 rounded-lg border flex items-center gap-2 transition cursor-pointer ${
+                            character.skinTone === s.color
+                              ? 'border-emerald-400 bg-emerald-950/40 text-emerald-200'
+                              : 'border-slate-800 bg-[#090f18] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="w-4 h-4 rounded-full border border-black/40" style={{ backgroundColor: s.color }} />
+                          <span className="text-[11px] font-bold">{s.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-2 font-bold">Hair Style:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {HAIR_STYLES.map(h => (
+                        <button
+                          key={h.id}
+                          onClick={() => setCharacter(prev => ({ ...prev, hairStyle: h.id }))}
+                          className={`p-2 rounded-lg border text-left font-bold text-xs transition cursor-pointer ${
+                            character.hairStyle === h.id
+                              ? 'border-emerald-400 bg-emerald-950/40 text-emerald-200'
+                              : 'border-slate-800 bg-[#090f18] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          {h.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-2 font-bold">Hair Color:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {HAIR_COLORS.map(c => (
+                        <button
+                          key={c.label}
+                          onClick={() => setCharacter(prev => ({ ...prev, hairColor: c.color }))}
+                          className={`p-2 rounded-lg border flex items-center gap-2 transition cursor-pointer ${
+                            character.hairColor === c.color
+                              ? 'border-emerald-400 bg-emerald-950/40 text-emerald-200'
+                              : 'border-slate-800 bg-[#090f18] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="w-4 h-4 rounded-full border border-black/40" style={{ backgroundColor: c.color }} />
+                          <span className="text-[11px] font-bold">{c.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-slate-400 font-bold mb-2">Hairstyle / Headgear:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {HAIR_STYLES.map(h => (
-                      <button
-                        key={h.id}
-                        onClick={() => setCharacter({ ...character, hairStyle: h.id })}
-                        className={`p-2.5 rounded-xl border text-center font-bold text-[11px] transition ${
-                          character.hairStyle === h.id
-                            ? 'bg-[#0f2119] border-emerald-500 text-emerald-300'
-                            : 'bg-[#0b1017] border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
-                      >
-                        {h.label}
-                      </button>
-                    ))}
+              {/* TAB 3: AURA & ACCESSORIES */}
+              {activeTab === 'aura' && (
+                <div className="space-y-4 font-mono text-xs animate-in fade-in">
+                  <div>
+                    <label className="block text-slate-400 mb-2 font-bold">Floor Aura Energy:</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {AURAS.map(a => (
+                        <button
+                          key={a.label}
+                          onClick={() => setCharacter(prev => ({ ...prev, auraColor: a.color }))}
+                          className={`p-2 rounded-lg border flex items-center gap-2 transition cursor-pointer ${
+                            character.auraColor === a.color
+                              ? 'border-emerald-400 bg-emerald-950/40 text-emerald-200'
+                              : 'border-slate-800 bg-[#090f18] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="w-4 h-4 rounded-full" style={{ backgroundColor: a.color }} />
+                          <span className="text-[11px] font-bold">{a.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-2 font-bold">Studio Gear / Accessory:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ACCESSORIES.map(acc => (
+                        <button
+                          key={acc.id}
+                          onClick={() => setCharacter(prev => ({ ...prev, accessory: acc.id }))}
+                          className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition cursor-pointer ${
+                            character.accessory === acc.id
+                              ? 'border-emerald-400 bg-emerald-950/40 text-emerald-200'
+                              : 'border-slate-800 bg-[#090f18] text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className="text-base">{acc.icon}</span>
+                          <span className="text-xs font-bold">{acc.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+              )}
+            </div>
 
-                <div>
-                  <label className="block text-slate-400 font-bold mb-2">Hair Color:</label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {HAIR_COLORS.map(c => (
-                      <button
-                        key={c.color}
-                        onClick={() => setCharacter({ ...character, hairColor: c.color })}
-                        className={`h-9 rounded-xl border flex items-center justify-center transition ${
-                          character.hairColor === c.color
-                            ? 'border-white scale-105 shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                            : 'border-slate-800'
-                        }`}
-                        style={{ backgroundColor: c.color }}
-                        title={c.label}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Bottom Actions */}
+            <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleLogoutSwitchAccount}
+                className="text-xs font-mono text-slate-500 hover:text-rose-400 transition underline cursor-pointer"
+              >
+                Switch Key / Log Out
+              </button>
 
-            {/* ──────────────── TAB 4: AURA & ACCESSORY ──────────────── */}
-            {activeTab === 'aura' && (
-              <div className="space-y-4 text-xs font-mono animate-in fade-in">
-                <div>
-                  <label className="block text-slate-400 font-bold mb-2">Floor Energy Aura:</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {AURAS.map(a => (
-                      <button
-                        key={a.color}
-                        onClick={() => setCharacter({ ...character, auraColor: a.color })}
-                        className={`p-2.5 rounded-xl border flex items-center gap-2 font-bold text-[11px] transition ${
-                          character.auraColor === a.color
-                            ? 'bg-[#0f2119] border-emerald-500 text-emerald-300'
-                            : 'bg-[#0b1017] border-slate-800 text-slate-400'
-                        }`}
-                      >
-                        <span
-                          className="w-3.5 h-3.5 rounded-full border border-white/50"
-                          style={{ backgroundColor: a.color }}
-                        />
-                        <span>{a.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 font-bold mb-2">Held Accessory / Badge:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ACCESSORIES.map(acc => (
-                      <button
-                        key={acc.id}
-                        onClick={() => setCharacter({ ...character, accessory: acc.id })}
-                        className={`p-2.5 rounded-xl border flex items-center gap-2 text-[11px] transition ${
-                          character.accessory === acc.id
-                            ? 'bg-[#0f2119] border-emerald-500 text-emerald-300 font-bold'
-                            : 'bg-[#0b1017] border-slate-800 text-slate-400'
-                        }`}
-                      >
-                        <span className="text-base">{acc.icon}</span>
-                        <span>{acc.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* Bottom Action Footer */}
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-3 mt-4">
-            <span className="text-[11px] font-mono text-slate-500">
-              Auto-syncs profile with Supabase Studio Lobby
-            </span>
-            <button
-              onClick={handleSaveAndSpawn}
-              disabled={isSubmitting}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold font-mono text-xs transition flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.4)] disabled:opacity-50"
-            >
-              <span>🚀</span>
-              <span>{isSubmitting ? 'CONNECTING...' : 'ENTER AEETHOD HQ'}</span>
-            </button>
+              <button
+                onClick={handleSaveAndSpawn}
+                disabled={isSubmitting}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-mono font-bold text-xs shadow-[0_0_25px_rgba(16,185,129,0.35)] transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <span>🚀</span> Save & Enter Office HQ
+              </button>
+            </div>
           </div>
 
         </div>
+      )}
 
-      </div>
     </div>
   );
 }

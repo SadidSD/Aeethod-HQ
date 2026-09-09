@@ -10,7 +10,9 @@ import {
   CognitiveLoad,
   HealthStatus,
   AchievementCategory,
-  DepartmentAlert
+  DepartmentAlert,
+  RoleAccessCode,
+  RoomId
 } from './agencyTypes';
 import { supabase } from '../lib/supabaseClient';
 import {
@@ -284,6 +286,10 @@ export class AgencyManager {
           return true;
         }
         this.state = loaded;
+        if (!this.state.roleAccessCodes || this.state.roleAccessCodes.length === 0) {
+          this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
+          this.save();
+        }
         return true;
       } catch (e) {
         return false;
@@ -788,8 +794,139 @@ export class AgencyManager {
         totalProjectsShipped: 0,
         totalRevenue: 0,
         hoursLogged: 0
-      }
+      },
+      roleAccessCodes: this.getDefaultRoleAccessCodes()
     };
+  }
+
+  getDefaultRoleAccessCodes(): RoleAccessCode[] {
+    return [
+      {
+        id: 'code_founder',
+        roleName: 'Founder & CEO',
+        code: 'FOUNDER-HQ',
+        department: 'management',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      },
+      {
+        id: 'code_dev_1',
+        roleName: 'Frontend Engineer',
+        code: 'AETH-FRONT-2026',
+        department: 'dev',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      },
+      {
+        id: 'code_dev_2',
+        roleName: 'Backend Architect',
+        code: 'AETH-BACK-2026',
+        department: 'dev',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      },
+      {
+        id: 'code_des_1',
+        roleName: 'Lead UI/UX Designer',
+        code: 'AETH-DES-2026',
+        department: 'design',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      },
+      {
+        id: 'code_crm_1',
+        roleName: 'Client Success Lead',
+        code: 'AETH-CLIENT-2026',
+        department: 'client',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      },
+    ];
+  }
+
+  getRoleAccessCodes(): RoleAccessCode[] {
+    if (!this.state.roleAccessCodes || this.state.roleAccessCodes.length === 0) {
+      this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
+    }
+    return this.state.roleAccessCodes;
+  }
+
+  createRoleAccessCode(roleName: string, department: RoomId = 'dev'): RoleAccessCode {
+    if (!this.state.roleAccessCodes) {
+      this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
+    }
+    const prefix = department === 'management' ? 'EXEC' : department === 'dev' ? 'DEV' : department === 'design' ? 'DES' : department === 'content' ? 'CONT' : 'CRM';
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    const code = `AETH-${prefix}-${randNum}`;
+
+    const newCode: RoleAccessCode = {
+      id: `role_code_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      roleName: roleName.trim() || 'Team Specialist',
+      code,
+      department,
+      createdAt: new Date().toISOString(),
+      claimedBy: [],
+    };
+
+    this.state.roleAccessCodes.unshift(newCode);
+    this.save();
+    this.saveToCloud();
+    return newCode;
+  }
+
+  deleteRoleAccessCode(id: string): void {
+    if (!this.state.roleAccessCodes) return;
+    this.state.roleAccessCodes = this.state.roleAccessCodes.filter(c => c.id !== id);
+    this.save();
+    this.saveToCloud();
+  }
+
+  validateAccessCode(inputCode: string): { valid: boolean; roleName?: string; department?: RoomId; error?: string } {
+    const clean = inputCode.trim().toUpperCase();
+    if (!clean) {
+      return { valid: false, error: 'Please enter an access code.' };
+    }
+
+    // Founder Master Code
+    if (clean === 'FOUNDER-HQ' || clean === 'AETH-FOUNDER') {
+      return { valid: true, roleName: 'Founder & CEO', department: 'management' };
+    }
+
+    const codes = this.getRoleAccessCodes();
+    const matched = codes.find(c => c.code.toUpperCase() === clean);
+
+    if (matched) {
+      return { valid: true, roleName: matched.roleName, department: matched.department };
+    }
+
+    // Default seed fallback
+    const defaultSeeds: Record<string, { roleName: string; department: RoomId }> = {
+      'AETH-FRONT-2026': { roleName: 'Frontend Engineer', department: 'dev' },
+      'AETH-BACK-2026': { roleName: 'Backend Architect', department: 'dev' },
+      'AETH-DES-2026': { roleName: 'Lead UI/UX Designer', department: 'design' },
+      'AETH-CLIENT-2026': { roleName: 'Client Success Lead', department: 'client' },
+      'AETH-CONTENT-2026': { roleName: 'Content Strategist', department: 'content' },
+    };
+
+    if (defaultSeeds[clean]) {
+      return { valid: true, roleName: defaultSeeds[clean].roleName, department: defaultSeeds[clean].department };
+    }
+
+    return { valid: false, error: 'Invalid or unrecognized access code. Please request a code from the studio manager.' };
+  }
+
+  claimAccessCode(inputCode: string, playerName: string): void {
+    const clean = inputCode.trim().toUpperCase();
+    const codes = this.getRoleAccessCodes();
+    const matched = codes.find(c => c.code.toUpperCase() === clean);
+    if (matched) {
+      if (!matched.claimedBy) matched.claimedBy = [];
+      if (!matched.claimedBy.includes(playerName)) {
+        matched.claimedBy.push(playerName);
+        this.save();
+        this.saveToCloud();
+      }
+    }
   }
 }
 

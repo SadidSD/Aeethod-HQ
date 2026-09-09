@@ -172,6 +172,18 @@ export interface DepartmentAlert {
   blockedProjectName: string;
 }
 
+// --- Role Access Codes ---
+
+export interface RoleAccessCode {
+  id: string;
+  roleName: string;
+  code: string;
+  department: RoomId;
+  createdAt: string;
+  claimedBy?: string[];
+  maxUses?: number;
+}
+
 // --- Full Agency State ---
 
 export interface AgencyState {
@@ -185,5 +197,6 @@ export interface AgencyState {
   quests: Quest[];
   streaks: StreakData;
   stats: AgencyStats;
+  roleAccessCodes?: RoleAccessCode[];
   savedAt: string;
 }
