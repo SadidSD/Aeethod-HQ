@@ -109,10 +109,10 @@ export default function LoginModal({
         if (parsed.role) return { roleName: parsed.role, department: parsed.department || 'dev' };
       }
     } catch (e) {}
-    return { roleName: 'Founder & CEO', department: 'management' };
+    return { roleName: 'Founder', department: 'management' };
   });
 
-  const [name, setName] = useState(() => localStorage.getItem('coop_player_name') || multiplayer.localPlayer.name || '');
+  const [name, setName] = useState(() => localStorage.getItem('coop_player_name') || '');
   const [character, setCharacter] = useState<CharacterSetup>(
     multiplayer.localPlayer.character || {
       skinTone: '#ffdbac',
@@ -413,19 +413,20 @@ export default function LoginModal({
           <form onSubmit={handleVerifyCode} className="space-y-4">
             <div>
               <label className="block text-xs font-mono font-bold text-slate-300 mb-2 text-center uppercase tracking-wider">
-                Enter Role Access Code:
+                Enter 5-Letter Role Access Code:
               </label>
               <input
                 type="text"
                 autoFocus
                 required
+                maxLength={5}
                 value={accessCodeInput}
                 onChange={e => {
                   setAccessCodeInput(e.target.value.toUpperCase());
                   setCodeError(null);
                 }}
-                placeholder="e.g. AETH-DEV-1234 or FOUNDER-HQ"
-                className="w-full bg-[#04070b] border-2 border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-center font-mono font-black text-base tracking-widest text-cyan-300 placeholder-slate-600 outline-none transition shadow-inner"
+                placeholder="5-LETTER CODE"
+                className="w-full bg-[#04070b] border-2 border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-3.5 text-center font-mono font-black text-xl tracking-[0.35em] text-cyan-300 placeholder-slate-600 outline-none transition shadow-inner uppercase"
               />
             </div>
 
@@ -443,10 +444,28 @@ export default function LoginModal({
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-slate-800 text-center font-mono text-[11px] text-slate-500 space-y-1">
-            <div>👑 Studio Founder Key: <code className="text-amber-400 font-bold">FOUNDER-HQ</code></div>
-            <div>Need an invite code? Ask your manager in the Management Computer.</div>
-          </div>
+          {(() => {
+            const founderCode = manager.getRoleAccessCodes().find(c => c.roleName.toLowerCase().includes('founder'))?.code || 
+              (typeof window !== 'undefined' ? localStorage.getItem('aeethod_founder_code') : '') || '';
+            if (!founderCode) return null;
+            return (
+              <div className="mt-5 p-3.5 bg-[#0c1420] border border-amber-500/40 rounded-2xl text-center font-mono text-xs">
+                <span className="text-slate-400 block text-[11px] mb-1.5 font-bold">FOUNDER ROLE ACCESS CODE:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccessCodeInput(founderCode);
+                    setCodeError(null);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-950/70 border border-amber-500/60 rounded-xl text-amber-300 font-mono font-black text-lg tracking-widest hover:bg-amber-900 hover:text-amber-100 transition cursor-pointer shadow-lg"
+                >
+                  <span>👑</span>
+                  <span>{founderCode}</span>
+                  <span className="text-[10px] text-amber-400/80 font-normal underline ml-1">(Click to enter)</span>
+                </button>
+              </div>
+            );
+          })()}
         </div>
       ) : (
 
@@ -527,7 +546,7 @@ export default function LoginModal({
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Sadid, Sarah, Alex..."
+                  placeholder="Type your name..."
                   className="w-full bg-[#04070b] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-slate-100 font-bold outline-none focus:border-emerald-500 transition text-xs"
                 />
               </div>

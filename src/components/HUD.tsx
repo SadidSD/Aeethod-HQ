@@ -13,7 +13,7 @@ interface Props {
 export default function HUD({
   state,
   onOpenProfile,
-  playerName = 'Sadid',
+  playerName = 'Founder',
   playerRole = 'Founder',
   playerAura = '#f59e0b',
   onlineCount = 1,

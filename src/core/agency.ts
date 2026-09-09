@@ -25,25 +25,25 @@ import {
 } from '../services/dbService';
 
 // Clean slate storage migration check
-const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v3';
+const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v6';
 if (typeof window !== 'undefined') {
   try {
     if (localStorage.getItem('aeethod_clean_version') !== STORAGE_CLEAN_VERSION) {
-      localStorage.removeItem('aeethod_agency');
-      localStorage.removeItem('aeethod_meeting_board_v3');
-      localStorage.removeItem('aeethod_meeting_agenda');
-      localStorage.removeItem('factory_content_posts');
-      localStorage.removeItem('factory_content_engagement');
-      localStorage.removeItem('aeethod_research_entries');
-      localStorage.removeItem('aeethod_crm_clients_v2');
-      localStorage.removeItem('aeethod_crm_invoices_v2');
-      localStorage.removeItem('aeethod_crm_deadlines_v2');
-      localStorage.removeItem('aeethod_crm_comm_v2');
+      localStorage.clear();
       localStorage.setItem('aeethod_clean_version', STORAGE_CLEAN_VERSION);
     }
   } catch (e) {
     console.warn('Storage reset check failed:', e);
   }
+}
+
+export function generate5LetterCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let result = '';
+  for (let i = 0; i < 5; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 export class AgencyManager {
@@ -275,7 +275,7 @@ export class AgencyManager {
     if (data) {
       try {
         const loaded = JSON.parse(data);
-        if (!loaded || !loaded.team || !Array.isArray(loaded.team) || !loaded.team.find((m: any) => m.id === 'backend')) {
+        if (!loaded || !loaded.team || !Array.isArray(loaded.team) || loaded.team.length === 0) {
           this.state = this.createSeedState();
           this.save();
           return true;
@@ -770,10 +770,7 @@ export class AgencyManager {
         knowledge: 0
       },
       team: [
-        { id: 'founder', name: 'Founder (CEO)', role: 'Project Architect & Executive Lead', room: 'management', xp: 0, level: 1, status: 'idle', skills: ['Architecture', 'Strategy', 'Client Relations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
-        { id: 'designer', name: 'Designer (Creative Lead)', role: 'UI/UX & Visual Design', room: 'design', xp: 0, level: 1, status: 'idle', skills: ['UI/UX', 'Branding', 'Figma', 'Design Systems'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
-        { id: 'frontend', name: 'Frontend Dev (Hello Kitty)', role: 'Frontend & UI/UX Engineer', room: 'dev', xp: 0, level: 1, status: 'idle', skills: ['React', 'Next.js', 'TypeScript', 'Tailwind', 'Animations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
-        { id: 'backend', name: 'Backend Dev (Spider-Man)', role: 'Backend & Systems Architect', room: 'dev', xp: 0, level: 1, status: 'idle', skills: ['Node.js', 'PostgreSQL', 'Redis', 'GraphQL', 'APIs'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 }
+        { id: 'founder', name: 'Founder', role: 'Founder & CEO', room: 'management', xp: 0, level: 1, status: 'idle', skills: ['Architecture', 'Strategy', 'Client Relations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 }
       ],
       projects: [],
       tasks: [],
@@ -782,7 +779,7 @@ export class AgencyManager {
       quests: [
         { id: 'epic_1', title: 'Launch First Client Project', description: 'Close, build, and deliver your first client system.', type: 'epic', target: 1, progress: 0, xpReward: 500, completed: false, deadline: new Date(Date.now() + 30 * 86400000).toISOString(), completedAt: null },
         { id: 'epic_2', title: 'Reach $10k Agency Milestone', description: 'Grow total agency revenue to $10,000.', type: 'epic', target: 10000, progress: 0, xpReward: 1000, completed: false, deadline: new Date(Date.now() + 90 * 86400000).toISOString(), completedAt: null },
-        { id: 'epic_3', title: 'Expand Core Team', description: 'Scale the agency workforce with a new specialist.', type: 'epic', target: 5, progress: 4, xpReward: 600, completed: false, deadline: new Date(Date.now() + 60 * 86400000).toISOString(), completedAt: null }
+        { id: 'epic_3', title: 'Expand Core Team', description: 'Scale the agency workforce with a new specialist.', type: 'epic', target: 5, progress: 1, xpReward: 600, completed: false, deadline: new Date(Date.now() + 60 * 86400000).toISOString(), completedAt: null }
       ],
       streaks: {
         current: 1,
@@ -800,47 +797,26 @@ export class AgencyManager {
   }
 
   getDefaultRoleAccessCodes(): RoleAccessCode[] {
+    let founderCode = '';
+    if (typeof window !== 'undefined') {
+      founderCode = localStorage.getItem('aeethod_founder_code') || '';
+    }
+    if (!founderCode || founderCode.length !== 5) {
+      founderCode = generate5LetterCode();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('aeethod_founder_code', founderCode);
+      }
+    }
+
     return [
       {
         id: 'code_founder',
-        roleName: 'Founder & CEO',
-        code: 'FOUNDER-HQ',
+        roleName: 'Founder',
+        code: founderCode,
         department: 'management',
         createdAt: new Date().toISOString(),
         claimedBy: [],
-      },
-      {
-        id: 'code_dev_1',
-        roleName: 'Frontend Engineer',
-        code: 'AETH-FRONT-2026',
-        department: 'dev',
-        createdAt: new Date().toISOString(),
-        claimedBy: [],
-      },
-      {
-        id: 'code_dev_2',
-        roleName: 'Backend Architect',
-        code: 'AETH-BACK-2026',
-        department: 'dev',
-        createdAt: new Date().toISOString(),
-        claimedBy: [],
-      },
-      {
-        id: 'code_des_1',
-        roleName: 'Lead UI/UX Designer',
-        code: 'AETH-DES-2026',
-        department: 'design',
-        createdAt: new Date().toISOString(),
-        claimedBy: [],
-      },
-      {
-        id: 'code_crm_1',
-        roleName: 'Client Success Lead',
-        code: 'AETH-CLIENT-2026',
-        department: 'client',
-        createdAt: new Date().toISOString(),
-        claimedBy: [],
-      },
+      }
     ];
   }
 
@@ -855,9 +831,13 @@ export class AgencyManager {
     if (!this.state.roleAccessCodes) {
       this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
     }
-    const prefix = department === 'management' ? 'EXEC' : department === 'dev' ? 'DEV' : department === 'design' ? 'DES' : department === 'content' ? 'CONT' : 'CRM';
-    const randNum = Math.floor(1000 + Math.random() * 9000);
-    const code = `AETH-${prefix}-${randNum}`;
+    
+    // Generate unique 5-letter capital code
+    const existing = this.state.roleAccessCodes.map(c => c.code);
+    let code = generate5LetterCode();
+    while (existing.includes(code)) {
+      code = generate5LetterCode();
+    }
 
     const newCode: RoleAccessCode = {
       id: `role_code_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -884,12 +864,7 @@ export class AgencyManager {
   validateAccessCode(inputCode: string): { valid: boolean; roleName?: string; department?: RoomId; error?: string } {
     const clean = inputCode.trim().toUpperCase();
     if (!clean) {
-      return { valid: false, error: 'Please enter an access code.' };
-    }
-
-    // Founder Master Code
-    if (clean === 'FOUNDER-HQ' || clean === 'AETH-FOUNDER') {
-      return { valid: true, roleName: 'Founder & CEO', department: 'management' };
+      return { valid: false, error: 'Please enter a 5-letter access code.' };
     }
 
     const codes = this.getRoleAccessCodes();
@@ -899,20 +874,14 @@ export class AgencyManager {
       return { valid: true, roleName: matched.roleName, department: matched.department };
     }
 
-    // Default seed fallback
-    const defaultSeeds: Record<string, { roleName: string; department: RoomId }> = {
-      'AETH-FRONT-2026': { roleName: 'Frontend Engineer', department: 'dev' },
-      'AETH-BACK-2026': { roleName: 'Backend Architect', department: 'dev' },
-      'AETH-DES-2026': { roleName: 'Lead UI/UX Designer', department: 'design' },
-      'AETH-CLIENT-2026': { roleName: 'Client Success Lead', department: 'client' },
-      'AETH-CONTENT-2026': { roleName: 'Content Strategist', department: 'content' },
-    };
-
-    if (defaultSeeds[clean]) {
-      return { valid: true, roleName: defaultSeeds[clean].roleName, department: defaultSeeds[clean].department };
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('aeethod_founder_code');
+      if (cached && clean === cached.toUpperCase()) {
+        return { valid: true, roleName: 'Founder', department: 'management' };
+      }
     }
 
-    return { valid: false, error: 'Invalid or unrecognized access code. Please request a code from the studio manager.' };
+    return { valid: false, error: 'Invalid 5-letter access code. Please check your key.' };
   }
 
   claimAccessCode(inputCode: string, playerName: string): void {

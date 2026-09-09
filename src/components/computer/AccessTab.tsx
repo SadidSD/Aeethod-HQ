@@ -215,7 +215,7 @@ export default function AccessTab({ agency, manager, onRefresh }: AccessTabProps
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400">
-            👑 <strong>Founder Master Key:</strong> <code className="text-amber-400 font-bold">FOUNDER-HQ</code> (Always active for studio founders).
+            👑 <strong>Founder 5-Letter Key:</strong> <code className="text-amber-400 font-bold">{manager.getRoleAccessCodes().find(c => c.roleName.toLowerCase().includes('founder'))?.code || 'Active'}</code>
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export default function AccessTab({ agency, manager, onRefresh }: AccessTabProps
                     </button>
 
                     {/* Delete / Revoke Button */}
-                    {item.code !== 'FOUNDER-HQ' && (
+                    {!item.roleName.toLowerCase().includes('founder') && (
                       <button
                         onClick={() => handleDelete(item.id, item.code)}
                         className="px-2.5 py-1.5 bg-slate-800 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700/60 rounded-lg transition text-[11px] cursor-pointer"

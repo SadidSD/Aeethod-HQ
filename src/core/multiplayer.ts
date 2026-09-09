@@ -68,7 +68,7 @@ export class MultiplayerManager {
   public onConnectionChange: ((connected: boolean, roomId: string | null) => void) | null = null;
 
   constructor() {
-    const savedName = localStorage.getItem('coop_player_name') || 'Sadid';
+    const savedName = localStorage.getItem('coop_player_name') || '';
     const savedRole = (localStorage.getItem('coop_player_role') as PlayerRole) || 'Founder';
     const savedColor = localStorage.getItem('coop_player_color') || '#f59e0b';
     
