@@ -444,28 +444,10 @@ export default function LoginModal({
             </button>
           </form>
 
-          {(() => {
-            const founderCode = manager.getRoleAccessCodes().find(c => c.roleName.toLowerCase().includes('founder'))?.code || 
-              (typeof window !== 'undefined' ? localStorage.getItem('aeethod_founder_code') : '') || '';
-            if (!founderCode) return null;
-            return (
-              <div className="mt-5 p-3.5 bg-[#0c1420] border border-amber-500/40 rounded-2xl text-center font-mono text-xs">
-                <span className="text-slate-400 block text-[11px] mb-1.5 font-bold">FOUNDER ROLE ACCESS CODE:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAccessCodeInput(founderCode);
-                    setCodeError(null);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-950/70 border border-amber-500/60 rounded-xl text-amber-300 font-mono font-black text-lg tracking-widest hover:bg-amber-900 hover:text-amber-100 transition cursor-pointer shadow-lg"
-                >
-                  <span>👑</span>
-                  <span>{founderCode}</span>
-                  <span className="text-[10px] text-amber-400/80 font-normal underline ml-1">(Click to enter)</span>
-                </button>
-              </div>
-            );
-          })()}
+          <div className="mt-6 pt-4 border-t border-slate-800 text-center font-mono text-[11px] text-slate-500 space-y-1">
+            <div>🔒 Studio Access is restricted to authorized team members.</div>
+            <div>Enter your 5-letter role access key to authenticate.</div>
+          </div>
         </div>
       ) : (
 

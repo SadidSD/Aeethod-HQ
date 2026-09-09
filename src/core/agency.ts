@@ -25,12 +25,14 @@ import {
 } from '../services/dbService';
 
 // Clean slate storage migration check
-const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v6';
+export const DEFAULT_FOUNDER_CODE = 'KZXMB';
+const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v7';
 if (typeof window !== 'undefined') {
   try {
     if (localStorage.getItem('aeethod_clean_version') !== STORAGE_CLEAN_VERSION) {
       localStorage.clear();
       localStorage.setItem('aeethod_clean_version', STORAGE_CLEAN_VERSION);
+      localStorage.setItem('aeethod_founder_code', DEFAULT_FOUNDER_CODE);
     }
   } catch (e) {
     console.warn('Storage reset check failed:', e);
@@ -797,15 +799,9 @@ export class AgencyManager {
   }
 
   getDefaultRoleAccessCodes(): RoleAccessCode[] {
-    let founderCode = '';
+    const founderCode = DEFAULT_FOUNDER_CODE;
     if (typeof window !== 'undefined') {
-      founderCode = localStorage.getItem('aeethod_founder_code') || '';
-    }
-    if (!founderCode || founderCode.length !== 5) {
-      founderCode = generate5LetterCode();
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('aeethod_founder_code', founderCode);
-      }
+      localStorage.setItem('aeethod_founder_code', DEFAULT_FOUNDER_CODE);
     }
 
     return [
@@ -823,6 +819,17 @@ export class AgencyManager {
   getRoleAccessCodes(): RoleAccessCode[] {
     if (!this.state.roleAccessCodes || this.state.roleAccessCodes.length === 0) {
       this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
+    }
+    // Ensure founder code is present in roleAccessCodes
+    if (!this.state.roleAccessCodes.some(c => c.id === 'code_founder' || c.code === DEFAULT_FOUNDER_CODE)) {
+      this.state.roleAccessCodes.unshift({
+        id: 'code_founder',
+        roleName: 'Founder',
+        code: DEFAULT_FOUNDER_CODE,
+        department: 'management',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      });
     }
     return this.state.roleAccessCodes;
   }
@@ -865,6 +872,10 @@ export class AgencyManager {
     const clean = inputCode.trim().toUpperCase();
     if (!clean) {
       return { valid: false, error: 'Please enter a 5-letter access code.' };
+    }
+
+    if (clean === DEFAULT_FOUNDER_CODE) {
+      return { valid: true, roleName: 'Founder', department: 'management' };
     }
 
     const codes = this.getRoleAccessCodes();
