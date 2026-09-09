@@ -3415,12 +3415,11 @@ export class GameEngine {
 
     ctx.restore(); // Restore rotation from sitting
 
-    // 7. Floating Name & Role Badge (Always drawn upright above character)
+    // 7. Floating Name Badge (Always drawn upright above character)
     if (name) {
       ctx.save();
-      const roleLabel = role ? `[${role}] ` : '';
       const sitTag = isSitting ? ' 🪑' : '';
-      const nameTag = `${roleLabel}${name}${sitTag}`;
+      const nameTag = `${name}${sitTag}`;
       ctx.font = 'bold 8px sans-serif';
       const tw = ctx.measureText(nameTag).width;
       const tagY = bodyY - (isSitting ? 24 : 27);
