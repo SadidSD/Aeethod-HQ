@@ -22,6 +22,10 @@ export default function AccessTab({ agency, manager, onRefresh }: AccessTabProps
     setTimeout(() => setNotification(null), 3500);
   };
 
+  React.useEffect(() => {
+    manager.loadRoleAccessCodesFromCloud().then(() => onRefresh());
+  }, [manager, onRefresh]);
+
   const roleCodes: RoleAccessCode[] = manager.getRoleAccessCodes();
 
   const handleCreateRole = (e: React.FormEvent) => {

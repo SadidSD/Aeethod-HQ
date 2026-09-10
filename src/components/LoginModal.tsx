@@ -127,12 +127,20 @@ export default function LoginModal({
 
   const [activeTab, setActiveTab] = useState<'outfit' | 'hair' | 'aura'>('outfit');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Sync step if initialStep prop changes
   useEffect(() => {
     if (initialStep) setStep(initialStep);
   }, [initialStep]);
+
+  // Pre-load cloud role codes whenever modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      manager.loadRoleAccessCodesFromCloud();
+    }
+  }, [isOpen, manager]);
 
   // Live Canvas Character Preview
   useEffect(() => {
@@ -311,30 +319,38 @@ export default function LoginModal({
   }, [character]);
 
   // Code Validation Handler
-  const handleVerifyCode = (e: React.FormEvent) => {
+  const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setCodeError(null);
+    setIsVerifying(true);
 
-    const result = manager.validateAccessCode(accessCodeInput);
-    if (!result.valid) {
-      setCodeError(result.error || 'Invalid access code.');
-      return;
+    try {
+      const result = await manager.validateAccessCodeAsync(accessCodeInput);
+      if (!result.valid) {
+        setCodeError(result.error || 'Invalid access code.');
+        setIsVerifying(false);
+        return;
+      }
+
+      const assignedRole = result.roleName || 'Team Specialist';
+      const dept = result.department || 'dev';
+      setVerifiedRole({ roleName: assignedRole, department: dept });
+
+      const mappedRole = mapDepartmentToRole(dept, assignedRole);
+      const suggestedOutfit = getDefaultOutfitForRole(mappedRole);
+
+      setCharacter(prev => ({
+        ...prev,
+        title: assignedRole,
+        outfit: prev.outfit === 'executive_suit' ? suggestedOutfit : prev.outfit,
+      }));
+
+      setStep('avatar');
+    } catch (err) {
+      setCodeError('Error connecting to verification server. Please retry.');
+    } finally {
+      setIsVerifying(false);
     }
-
-    const assignedRole = result.roleName || 'Team Specialist';
-    const dept = result.department || 'dev';
-    setVerifiedRole({ roleName: assignedRole, department: dept });
-
-    const mappedRole = mapDepartmentToRole(dept, assignedRole);
-    const suggestedOutfit = getDefaultOutfitForRole(mappedRole);
-
-    setCharacter(prev => ({
-      ...prev,
-      title: assignedRole,
-      outfit: prev.outfit === 'executive_suit' ? suggestedOutfit : prev.outfit,
-    }));
-
-    setStep('avatar');
   };
 
   // Complete Setup & Save Handler
@@ -438,9 +454,18 @@ export default function LoginModal({
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-mono font-bold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] transition flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isVerifying}
+              className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl font-mono font-bold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
             >
-              <span>🔓</span> Verify Key & Create Avatar
+              {isVerifying ? (
+                <>
+                  <span className="animate-spin">⏳</span> Verifying Key with HQ...
+                </>
+              ) : (
+                <>
+                  <span>🔓</span> Verify Key & Create Avatar
+                </>
+              )}
             </button>
           </form>
 

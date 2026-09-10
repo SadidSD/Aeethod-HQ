@@ -73,7 +73,10 @@ export class AgencyManager {
 
   private async initCloudSync() {
     try {
-      await this.loadFromCloud();
+      await Promise.allSettled([
+        this.loadFromCloud(),
+        this.loadRoleAccessCodesFromCloud()
+      ]);
       this.subscribeToRealtimeSync();
     } catch (e) {
       console.warn('Supabase offline or initial load skipped:', e);
@@ -230,6 +233,15 @@ export class AgencyManager {
           if (payload.payload && payload.payload.savedAt !== this.state.savedAt) {
             this.state = payload.payload;
             localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+            this.onCloudUpdate?.();
+          }
+        })
+        .on('broadcast', { event: 'role_codes_sync' }, (payload) => {
+          if (Array.isArray(payload.payload)) {
+            this.state.roleAccessCodes = payload.payload;
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+            }
             this.onCloudUpdate?.();
           }
         })
@@ -834,6 +846,90 @@ export class AgencyManager {
     return this.state.roleAccessCodes;
   }
 
+  async loadRoleAccessCodesFromCloud(): Promise<RoleAccessCode[]> {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .select('avatar_config')
+        .eq('username', 'aeethod_system')
+        .maybeSingle();
+
+      if (!error && data && data.avatar_config) {
+        const config: any = data.avatar_config;
+        const remoteCodes = config.roleAccessCodes;
+        if (Array.isArray(remoteCodes) && remoteCodes.length > 0) {
+          const current = this.state.roleAccessCodes || [];
+          const codeMap = new Map<string, RoleAccessCode>();
+
+          codeMap.set(DEFAULT_FOUNDER_CODE, {
+            id: 'code_founder',
+            roleName: 'Founder',
+            code: DEFAULT_FOUNDER_CODE,
+            department: 'management',
+            createdAt: new Date().toISOString(),
+            claimedBy: [],
+          });
+
+          for (const c of remoteCodes) {
+            if (c && c.code) {
+              codeMap.set(c.code.toUpperCase(), c);
+            }
+          }
+
+          for (const c of current) {
+            if (c && c.code && !codeMap.has(c.code.toUpperCase())) {
+              codeMap.set(c.code.toUpperCase(), c);
+            }
+          }
+
+          this.state.roleAccessCodes = Array.from(codeMap.values());
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+          }
+          this.onCloudUpdate?.();
+          return this.state.roleAccessCodes;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load role codes from cloud:', err);
+    }
+    return this.getRoleAccessCodes();
+  }
+
+  async syncRoleAccessCodesToCloud(): Promise<boolean> {
+    try {
+      const codes = this.getRoleAccessCodes();
+      const { error } = await (supabase as any)
+        .from('profiles')
+        .update({
+          avatar_config: {
+            roleAccessCodes: codes,
+            updatedAt: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('username', 'aeethod_system');
+
+      if (error) {
+        console.warn('Sync role codes error:', error.message);
+        return false;
+      }
+
+      try {
+        (supabase as any).channel('aeethod-agency-sync').send({
+          type: 'broadcast',
+          event: 'role_codes_sync',
+          payload: codes,
+        });
+      } catch (e) {}
+
+      return true;
+    } catch (err) {
+      console.warn('Failed to sync role codes to cloud:', err);
+      return false;
+    }
+  }
+
   createRoleAccessCode(roleName: string, department: RoomId = 'dev'): RoleAccessCode {
     if (!this.state.roleAccessCodes) {
       this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
@@ -858,6 +954,7 @@ export class AgencyManager {
     this.state.roleAccessCodes.unshift(newCode);
     this.save();
     this.saveToCloud();
+    this.syncRoleAccessCodesToCloud();
     return newCode;
   }
 
@@ -866,6 +963,7 @@ export class AgencyManager {
     this.state.roleAccessCodes = this.state.roleAccessCodes.filter(c => c.id !== id);
     this.save();
     this.saveToCloud();
+    this.syncRoleAccessCodesToCloud();
   }
 
   validateAccessCode(inputCode: string): { valid: boolean; roleName?: string; department?: RoomId; error?: string } {
@@ -895,6 +993,32 @@ export class AgencyManager {
     return { valid: false, error: 'Invalid 5-letter access code. Please check your key.' };
   }
 
+  async validateAccessCodeAsync(inputCode: string): Promise<{ valid: boolean; roleName?: string; department?: RoomId; error?: string }> {
+    const clean = inputCode.trim().toUpperCase();
+    if (!clean) {
+      return { valid: false, error: 'Please enter a 5-letter access code.' };
+    }
+
+    // 1. Fast path: check local memory / founder code
+    const local = this.validateAccessCode(clean);
+    if (local.valid) {
+      return local;
+    }
+
+    // 2. Slow path: refresh from cloud
+    try {
+      await this.loadRoleAccessCodesFromCloud();
+      const freshCheck = this.validateAccessCode(clean);
+      if (freshCheck.valid) {
+        return freshCheck;
+      }
+    } catch (e) {
+      console.warn('Cloud validation fallback error:', e);
+    }
+
+    return { valid: false, error: 'Invalid 5-letter access code. Please check your key.' };
+  }
+
   claimAccessCode(inputCode: string, playerName: string): void {
     const clean = inputCode.trim().toUpperCase();
     const codes = this.getRoleAccessCodes();
@@ -905,6 +1029,7 @@ export class AgencyManager {
         matched.claimedBy.push(playerName);
         this.save();
         this.saveToCloud();
+        this.syncRoleAccessCodesToCloud();
       }
     }
   }
