@@ -2,12 +2,11 @@ import React from 'react';
 
 interface Props {
   onBuild: () => void;
-  onCraft: () => void;
   selectedBuilding: string | null;
   selectedDirection: string;
 }
 
-export default function ActionBar({ onBuild, onCraft, selectedBuilding, selectedDirection }: Props) {
+export default function ActionBar({ onBuild, selectedBuilding, selectedDirection }: Props) {
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
       {selectedBuilding && (
@@ -31,14 +30,6 @@ export default function ActionBar({ onBuild, onCraft, selectedBuilding, selected
         >
           <span>🏗️</span>
           <span>BUILD (B)</span>
-        </button>
-
-        <button
-          onClick={onCraft}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 hover:border-emerald-400 transition-all font-orbitron text-xs font-bold text-emerald-300"
-        >
-          <span>📦</span>
-          <span>CRAFT (I)</span>
         </button>
 
         <div className="w-px h-6 bg-slate-700 mx-1" />

@@ -6,7 +6,6 @@ import { getMultiplayerManager } from './core/multiplayer';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
 import BuildMenu from './components/BuildMenu';
-import InventoryMenu from './components/InventoryMenu';
 import ActionBar from './components/ActionBar';
 import ComputerModal from './components/ComputerModal';
 import MemberModal from './components/MemberModal';
@@ -23,7 +22,6 @@ export default function App() {
   const engineRef = useRef<GameEngine | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showBuild, setShowBuild] = useState(false);
-  const [showInventory, setShowInventory] = useState(false);
   const [showComputer, setShowComputer] = useState(false);
   const [showDesignerPC, setShowDesignerPC] = useState(false);
   const [showClientPC, setShowClientPC] = useState(false);
@@ -152,16 +150,14 @@ export default function App() {
         setActiveMemberModal(null);
         setActiveBoardModal(null);
         setShowBuild(false);
-        setShowInventory(false);
         if (engineRef.current) engineRef.current.selectedBuilding = null;
         return;
       }
 
-      // Don't intercept other keys (b, i) when any modal is open
+      // Don't intercept other keys (b) when any modal is open
       if (isAnyModalOpen) return;
 
       if (e.key.toLowerCase() === 'b') setShowBuild((prev) => !prev);
-      if (e.key.toLowerCase() === 'i') setShowInventory((prev) => !prev);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -188,7 +184,6 @@ export default function App() {
 
       <ActionBar
         onBuild={() => setShowBuild(true)}
-        onCraft={() => setShowInventory(true)}
         selectedBuilding={engineRef.current?.selectedBuilding || null}
         selectedDirection={engineRef.current?.selectedDirection || 'up'}
       />
@@ -222,14 +217,6 @@ export default function App() {
           engine={engineRef.current}
           state={gameState}
           onClose={() => setShowBuild(false)}
-        />
-      )}
-
-      {showInventory && engineRef.current && gameState && (
-        <InventoryMenu
-          engine={engineRef.current}
-          state={gameState}
-          onClose={() => setShowInventory(false)}
         />
       )}
 
