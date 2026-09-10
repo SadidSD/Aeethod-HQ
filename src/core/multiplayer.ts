@@ -36,6 +36,7 @@ export interface RemotePlayer {
   activeWorkstation?: string | null;
   lastMessage?: { text: string; timestamp: number };
   lastSeen?: number;
+  isTabActive?: boolean;
 }
 
 export interface ChatMessage {
@@ -56,6 +57,17 @@ export class MultiplayerManager {
   public currentRoomId: string | null = null;
   public isConnected = false;
   private pruneInterval: any = null;
+  private heartbeatInterval: any = null;
+
+  // Track local player's latest known coordinates & tab visibility
+  public lastKnownPosition = {
+    x: 672,
+    y: 1280,
+    facing: 'down' as 'up' | 'down' | 'left' | 'right',
+    currentRoom: 'Reception',
+    activeWorkstation: null as string | null,
+    isTabActive: true,
+  };
 
   // Throttling for position updates
   private lastPositionSent = 0;
@@ -107,17 +119,33 @@ export class MultiplayerManager {
       window.addEventListener('beforeunload', () => {
         this.leaveRoom();
       });
-      window.addEventListener('pagehide', () => {
-        this.leaveRoom();
+
+      // Handle tab visibility change so player stays visible when on another tab
+      document.addEventListener('visibilitychange', () => {
+        const isActive = !document.hidden;
+        this.lastKnownPosition.isTabActive = isActive;
+        if (this.channel && this.isConnected) {
+          this.sendHeartbeat(isActive);
+          if (isActive) {
+            this.refreshPresence();
+          }
+        }
       });
     }
 
-    // Auto-prune stale/ghost remote players
+    // Auto-prune truly disconnected players without dropping players who are tabbed out
     this.pruneInterval = setInterval(() => {
       const now = Date.now();
       let changed = false;
+      const presenceState = this.channel ? this.channel.presenceState() : {};
+      const activePresenceKeys = new Set(Object.keys(presenceState));
+
       for (const [id, rp] of Array.from(this.remotePlayers.entries())) {
-        if (rp.lastSeen && now - rp.lastSeen > 8000) {
+        // If player is still actively reported in Supabase presence, keep them!
+        if (activePresenceKeys.has(id)) continue;
+
+        // If not in Supabase presence AND hasn't sent any heartbeat for > 45s, prune
+        if (rp.lastSeen && now - rp.lastSeen > 45000) {
           this.remotePlayers.delete(id);
           changed = true;
         }
@@ -125,7 +153,7 @@ export class MultiplayerManager {
       if (changed) {
         this.onPlayersUpdate?.(new Map(this.remotePlayers));
       }
-    }, 2500);
+    }, 4000);
   }
 
   public updateLocalProfile(name: string, role: PlayerRole, color: string, character?: CharacterSetup) {
@@ -147,6 +175,12 @@ export class MultiplayerManager {
         role: this.localPlayer.role,
         color: this.localPlayer.color,
         character: this.localPlayer.character,
+        x: this.lastKnownPosition.x,
+        y: this.lastKnownPosition.y,
+        facing: this.lastKnownPosition.facing,
+        currentRoom: this.lastKnownPosition.currentRoom,
+        activeWorkstation: this.lastKnownPosition.activeWorkstation,
+        isTabActive: typeof document !== 'undefined' ? !document.hidden : true,
         lastActive: Date.now(),
       });
     }
@@ -191,9 +225,11 @@ export class MultiplayerManager {
                   y: data.y || 1280,
                   targetX: data.x || 672,
                   targetY: data.y || 1280,
-                  facing: 'down',
-                  currentRoom: 'Reception',
+                  facing: data.facing || 'down',
+                  currentRoom: data.currentRoom || 'Reception',
+                  activeWorkstation: data.activeWorkstation,
                   lastSeen: now,
+                  isTabActive: data.isTabActive !== false,
                 });
               } else {
                 const existing = this.remotePlayers.get(data.id)!;
@@ -201,15 +237,20 @@ export class MultiplayerManager {
                 existing.role = data.role || existing.role;
                 existing.color = data.color || existing.color;
                 if (data.character) existing.character = data.character;
+                if (data.isTabActive !== undefined) existing.isTabActive = data.isTabActive;
+                if (data.x !== undefined && data.y !== undefined) {
+                  existing.targetX = data.x;
+                  existing.targetY = data.y;
+                }
                 existing.lastSeen = now;
               }
             }
           }
         });
 
-        // Remove disconnected players
-        for (const id of Array.from(this.remotePlayers.keys())) {
-          if (!activeIds.has(id)) {
+        // Remove truly disconnected players (not present in presence AND unseen for > 30s)
+        for (const [id, player] of Array.from(this.remotePlayers.entries())) {
+          if (!activeIds.has(id) && (!player.lastSeen || now - player.lastSeen > 30000)) {
             this.remotePlayers.delete(id);
           }
         }
@@ -227,7 +268,7 @@ export class MultiplayerManager {
 
       // Handle Broadcast: Player Movement
       this.channel.on('broadcast', { event: 'player_move' }, ({ payload }) => {
-        const { id, x, y, facing, currentRoom, activeWorkstation, character, name, role, color } = payload;
+        const { id, x, y, facing, currentRoom, activeWorkstation, character, name, role, color, isTabActive } = payload;
         if (!id || id === this.localPlayer.id) return;
         const now = Date.now();
 
@@ -238,19 +279,22 @@ export class MultiplayerManager {
             role: role || payload.role || 'Guest',
             color: color || payload.color || '#38bdf8',
             character,
-            x,
-            y,
-            targetX: x,
-            targetY: y,
+            x: x ?? 672,
+            y: y ?? 1280,
+            targetX: x ?? 672,
+            targetY: y ?? 1280,
             facing: facing || 'down',
             currentRoom: currentRoom || 'Reception',
             activeWorkstation,
             lastSeen: now,
+            isTabActive: isTabActive !== false,
           });
         } else {
           const player = this.remotePlayers.get(id)!;
-          player.targetX = x;
-          player.targetY = y;
+          if (x !== undefined && y !== undefined) {
+            player.targetX = x;
+            player.targetY = y;
+          }
           player.facing = facing || player.facing;
           player.currentRoom = currentRoom || player.currentRoom;
           player.activeWorkstation = activeWorkstation;
@@ -258,6 +302,50 @@ export class MultiplayerManager {
           if (name) player.name = name;
           if (role) player.role = role;
           if (color) player.color = color;
+          player.isTabActive = isTabActive !== false;
+          player.lastSeen = now;
+        }
+
+        this.onPlayersUpdate?.(new Map(this.remotePlayers));
+      });
+
+      // Handle Broadcast: Player Heartbeat (keeps player visible while AFK or on another browser tab)
+      this.channel.on('broadcast', { event: 'player_heartbeat' }, ({ payload }) => {
+        const { id, x, y, facing, currentRoom, activeWorkstation, character, name, role, color, isTabActive } = payload;
+        if (!id || id === this.localPlayer.id) return;
+        const now = Date.now();
+
+        if (!this.remotePlayers.has(id)) {
+          this.remotePlayers.set(id, {
+            id,
+            name: name || 'Teammate',
+            role: role || 'Guest',
+            color: color || '#38bdf8',
+            character,
+            x: x ?? 672,
+            y: y ?? 1280,
+            targetX: x ?? 672,
+            targetY: y ?? 1280,
+            facing: facing || 'down',
+            currentRoom: currentRoom || 'Reception',
+            activeWorkstation,
+            lastSeen: now,
+            isTabActive: isTabActive !== false,
+          });
+        } else {
+          const player = this.remotePlayers.get(id)!;
+          if (x !== undefined && y !== undefined) {
+            player.targetX = x;
+            player.targetY = y;
+          }
+          if (facing) player.facing = facing;
+          if (currentRoom) player.currentRoom = currentRoom;
+          if (activeWorkstation !== undefined) player.activeWorkstation = activeWorkstation;
+          if (character) player.character = character;
+          if (name) player.name = name;
+          if (role) player.role = role;
+          if (color) player.color = color;
+          player.isTabActive = isTabActive !== false;
           player.lastSeen = now;
         }
 
@@ -285,15 +373,29 @@ export class MultiplayerManager {
           this.isConnected = true;
           this.onConnectionChange?.(true, cleanRoomId);
 
-          // Track presence
+          // Track presence with coordinates and tab state
           await this.channel!.track({
             id: this.localPlayer.id,
             name: this.localPlayer.name,
             role: this.localPlayer.role,
             color: this.localPlayer.color,
             character: this.localPlayer.character,
+            x: this.lastKnownPosition.x,
+            y: this.lastKnownPosition.y,
+            facing: this.lastKnownPosition.facing,
+            currentRoom: this.lastKnownPosition.currentRoom,
+            activeWorkstation: this.lastKnownPosition.activeWorkstation,
+            isTabActive: typeof document !== 'undefined' ? !document.hidden : true,
             lastActive: Date.now(),
           });
+
+          // Start continuous background heartbeat (every 3 seconds)
+          if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+          this.heartbeatInterval = setInterval(() => {
+            if (this.isConnected && this.channel) {
+              this.sendHeartbeat();
+            }
+          }, 3000);
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           this.isConnected = false;
           this.onConnectionChange?.(false, null);
@@ -310,6 +412,10 @@ export class MultiplayerManager {
   }
 
   public async leaveRoom() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
     if (this.channel) {
       await this.channel.unsubscribe();
       this.channel = null;
@@ -321,6 +427,55 @@ export class MultiplayerManager {
     this.onPlayersUpdate?.(new Map());
   }
 
+  // Send lightweight heartbeat to keep player visible while AFK or tabbed out
+  public sendHeartbeat(isTabActive = typeof document !== 'undefined' ? !document.hidden : true) {
+    if (!this.channel || !this.isConnected) return;
+    this.lastKnownPosition.isTabActive = isTabActive;
+
+    this.channel.send({
+      type: 'broadcast',
+      event: 'player_heartbeat',
+      payload: {
+        id: this.localPlayer.id,
+        name: this.localPlayer.name,
+        role: this.localPlayer.role,
+        color: this.localPlayer.color,
+        character: this.localPlayer.character,
+        x: this.lastKnownPosition.x,
+        y: this.lastKnownPosition.y,
+        facing: this.lastKnownPosition.facing,
+        currentRoom: this.lastKnownPosition.currentRoom,
+        activeWorkstation: this.lastKnownPosition.activeWorkstation,
+        isTabActive,
+        timestamp: Date.now(),
+      },
+    });
+  }
+
+  // Refresh presence status on tab focus
+  public async refreshPresence() {
+    if (this.channel && this.isConnected) {
+      try {
+        await this.channel.track({
+          id: this.localPlayer.id,
+          name: this.localPlayer.name,
+          role: this.localPlayer.role,
+          color: this.localPlayer.color,
+          character: this.localPlayer.character,
+          x: this.lastKnownPosition.x,
+          y: this.lastKnownPosition.y,
+          facing: this.lastKnownPosition.facing,
+          currentRoom: this.lastKnownPosition.currentRoom,
+          activeWorkstation: this.lastKnownPosition.activeWorkstation,
+          isTabActive: typeof document !== 'undefined' ? !document.hidden : true,
+          lastActive: Date.now(),
+        });
+      } catch (e) {
+        console.warn('Failed to refresh presence:', e);
+      }
+    }
+  }
+
   // Throttle movement sends to ~16 updates per second
   public broadcastPosition(
     x: number,
@@ -329,6 +484,16 @@ export class MultiplayerManager {
     currentRoom: string,
     activeWorkstation?: string | null
   ) {
+    // Record current position for heartbeats
+    this.lastKnownPosition.x = Math.round(x);
+    this.lastKnownPosition.y = Math.round(y);
+    this.lastKnownPosition.facing = facing;
+    this.lastKnownPosition.currentRoom = currentRoom;
+    if (activeWorkstation !== undefined) {
+      this.lastKnownPosition.activeWorkstation = activeWorkstation;
+    }
+    this.lastKnownPosition.isTabActive = typeof document !== 'undefined' ? !document.hidden : true;
+
     if (!this.channel || !this.isConnected) return;
 
     const now = Date.now();
@@ -343,11 +508,13 @@ export class MultiplayerManager {
         name: this.localPlayer.name,
         role: this.localPlayer.role,
         color: this.localPlayer.color,
-        x: Math.round(x),
-        y: Math.round(y),
+        character: this.localPlayer.character,
+        x: this.lastKnownPosition.x,
+        y: this.lastKnownPosition.y,
         facing,
         currentRoom,
-        activeWorkstation,
+        activeWorkstation: this.lastKnownPosition.activeWorkstation,
+        isTabActive: this.lastKnownPosition.isTabActive,
       },
     });
   }

@@ -3464,12 +3464,14 @@ export class GameEngine {
       const ry = rp.y;
       const nearChair = chairSpots.find(ch => Math.hypot(rx - ch.x, ry - ch.y) < 7);
 
+      const displayName = rp.name + (rp.isTabActive === false ? ' 💤' : '');
+
       this.drawCustomCharacter(
         ctx,
         rx,
         ry,
         rp.character,
-        rp.name,
+        displayName,
         rp.role,
         rp.color,
         !!nearChair,

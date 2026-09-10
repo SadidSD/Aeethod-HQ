@@ -66,6 +66,10 @@ export default function App() {
       setGameState({ ...engine.state });
 
       // Link multiplayer to engine
+      multiplayer.lastKnownPosition.x = engine.state.player.x;
+      multiplayer.lastKnownPosition.y = engine.state.player.y;
+      multiplayer.lastKnownPosition.currentRoom = engine.state.activeRoom || 'Reception';
+
       engine.onPositionChange = (x, y, facing, room) => {
         multiplayer.broadcastPosition(x, y, facing, room);
       };

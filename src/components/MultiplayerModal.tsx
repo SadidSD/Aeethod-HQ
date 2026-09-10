@@ -307,7 +307,14 @@ export default function MultiplayerModal({
                           className="h-3 w-3 rounded-full"
                           style={{ backgroundColor: rp.color }}
                         />
-                        <span className="font-medium text-slate-300">{rp.name}</span>
+                        <span className="font-medium text-slate-300 flex items-center gap-1.5">
+                          {rp.name}
+                          {rp.isTabActive === false && (
+                            <span className="text-[9px] text-amber-400 font-mono bg-amber-950/60 px-1 py-0.2 rounded border border-amber-800/40">
+                              Away 💤
+                            </span>
+                          )}
+                        </span>
                         <span className="text-[10px] text-slate-500">[{rp.role}]</span>
                       </div>
                       <span className="text-[10px] text-cyan-400 font-mono">
