@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { fetchContentPostsCloud, upsertContentPostCloud } from '../services/dbService';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { fetchContentPostsCloud, upsertContentPostCloud, deleteContentPostCloud } from '../services/dbService';
 import {
   Lightbulb,
   FileEdit,
@@ -76,6 +76,7 @@ interface ContentManagementRoomProps {
 
 // ── Default Seed Posts ────────────────────────────────────────────────────────
 
+const LEGACY_MOCK_POST_IDS = new Set(['post-1', 'post-2', 'post-3', 'post-4', 'post-5']);
 const DEFAULT_POSTS: ContentPost[] = [];
 
 // ── 90-Day Plan Topics ────────────────────────────────────────────────────────
@@ -138,7 +139,7 @@ export default function ContentManagementRoom({
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter(p => !p.id.startsWith('post-'));
+          return parsed.filter(p => p && p.id && !LEGACY_MOCK_POST_IDS.has(p.id));
         }
       } catch (e) {
         // fallback
@@ -146,6 +147,15 @@ export default function ContentManagementRoom({
     }
     return DEFAULT_POSTS;
   });
+
+  // Notification Toast
+  const [notification, setNotification] = useState<{ message: string; icon: string } | null>(null);
+  const showToast = (message: string, icon = '✨') => {
+    setNotification({ message, icon });
+    setTimeout(() => setNotification(null), 3500);
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const [engagement, setEngagement] = useState<{
     engagedTcg: boolean;
@@ -190,7 +200,7 @@ export default function ContentManagementRoom({
           const map = new Map<string, ContentPost>();
           prev.forEach((p) => map.set(p.id, p));
           cloudPosts.forEach((cp: any) => {
-            if (cp.id && cp.id.startsWith('post-')) return; // Ignore legacy mock posts
+            if (cp.id && LEGACY_MOCK_POST_IDS.has(cp.id)) return;
             if (cp.visual_brief) {
               try {
                 const full = JSON.parse(cp.visual_brief);
@@ -206,21 +216,30 @@ export default function ContentManagementRoom({
               title: cp.title,
               caption: cp.copy || '',
               format: (cp.format as any) || 'reel',
-              pillar: 'platform_pain',
+              pillar: (cp.pillar as any) || 'platform_pain',
               status: (cp.phase as any) || 'idea',
               hasValue: true,
               hasVulnerability: true,
               hasAuthority: true,
+              scheduledDate: cp.scheduled_date || undefined,
             });
           });
-          return Array.from(map.values());
+          const merged = Array.from(map.values());
+          localStorage.setItem('factory_content_posts', JSON.stringify(merged));
+          return merged;
         });
       }
     });
   }, []);
 
+  const isFirstRender = useRef(true);
+
   // Save changes locally, sync to Supabase cloud, and broadcast to connected office players
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     localStorage.setItem('factory_content_posts', JSON.stringify(posts));
     multiplayer.broadcastBoardUpdate('post_sync', posts);
     posts.forEach((p) => {
@@ -236,6 +255,28 @@ export default function ContentManagementRoom({
       });
     });
   }, [posts, multiplayer]);
+
+  const saveAllPlans = () => {
+    setIsSaving(true);
+    localStorage.setItem('factory_content_posts', JSON.stringify(posts));
+    multiplayer.broadcastBoardUpdate('post_sync', posts);
+    posts.forEach((p) => {
+      upsertContentPostCloud({
+        id: p.id,
+        title: p.title,
+        platform: 'linkedin',
+        format: p.format,
+        phase: p.status,
+        scheduledDate: p.scheduledDate,
+        copy: p.caption || p.fullScript || '',
+        visualBrief: JSON.stringify(p),
+      });
+    });
+    setTimeout(() => {
+      setIsSaving(false);
+      showToast(`💾 Saved ${posts.length} content plans & schedule!`, '✅');
+    }, 350);
+  };
 
   useEffect(() => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -326,7 +367,7 @@ export default function ContentManagementRoom({
 
     const targetStatus = statusOverride || formStatus;
     const postData: ContentPost = {
-      id: editingPost ? editingPost.id : `post-${Date.now()}`,
+      id: editingPost ? editingPost.id : `content_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       title: formTitle.trim(),
       pillar: formPillar,
       format: formFormat,
@@ -344,27 +385,63 @@ export default function ContentManagementRoom({
       scheduledDate: formDate || undefined,
     };
 
+    let updatedPosts: ContentPost[];
     if (editingPost) {
-      setPosts((prev) => prev.map((p) => (p.id === editingPost.id ? postData : p)));
+      updatedPosts = posts.map((p) => (p.id === editingPost.id ? postData : p));
+      setPosts(updatedPosts);
+      showToast(`💾 Updated post: "${postData.title}"!`, '✨');
     } else {
-      setPosts((prev) => [postData, ...prev]);
-      manager.addXP(25); // Gamified XP reward for creating a post in the agency!
+      updatedPosts = [postData, ...posts];
+      setPosts(updatedPosts);
+      manager.addXP(25);
+      showToast(`💾 Saved plan: "${postData.title}"!`, '🎉');
       onRefresh();
     }
+
+    // Immediately persist to local storage and sync to cloud
+    localStorage.setItem('factory_content_posts', JSON.stringify(updatedPosts));
+    upsertContentPostCloud({
+      id: postData.id,
+      title: postData.title,
+      platform: 'linkedin',
+      format: postData.format,
+      phase: postData.status,
+      scheduledDate: postData.scheduledDate,
+      copy: postData.caption || postData.fullScript || '',
+      visualBrief: JSON.stringify(postData),
+    });
 
     setIsEditorOpen(false);
   };
 
   const advancePostStatus = (postId: string, nextStatus: PostStatus) => {
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, status: nextStatus } : p))
-    );
+    const updated = posts.map((p) => (p.id === postId ? { ...p, status: nextStatus } : p));
+    setPosts(updated);
+    localStorage.setItem('factory_content_posts', JSON.stringify(updated));
+    const target = updated.find((p) => p.id === postId);
+    if (target) {
+      upsertContentPostCloud({
+        id: target.id,
+        title: target.title,
+        platform: 'linkedin',
+        format: target.format,
+        phase: target.status,
+        scheduledDate: target.scheduledDate,
+        copy: target.caption || target.fullScript || '',
+        visualBrief: JSON.stringify(target),
+      });
+    }
     manager.addXP(15);
+    showToast(`⚡ Advanced post status to "${nextStatus.toUpperCase()}"!`, '🚀');
     onRefresh();
   };
 
   const deletePost = (postId: string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    const updated = posts.filter((p) => p.id !== postId);
+    setPosts(updated);
+    localStorage.setItem('factory_content_posts', JSON.stringify(updated));
+    deleteContentPostCloud(postId);
+    showToast('🗑️ Deleted post', '🗑️');
   };
 
   // ── 90-Day Plan Auto-Populate ────────────────────────────────────────────────
@@ -383,7 +460,7 @@ export default function ContentManagementRoom({
       postDate.setDate(startDate.getDate() + weekIndex * 7 + dayOffset);
 
       return {
-        id: `ninety-${i}-${Date.now()}`,
+        id: `plan_90_${i}_${Date.now()}`,
         title: topic.title,
         pillar: topic.pillar,
         funnel: topic.funnel,
@@ -397,8 +474,23 @@ export default function ContentManagementRoom({
       };
     });
 
-    setPosts((prev) => [...newPosts, ...prev]);
+    const combined = [...newPosts, ...posts];
+    setPosts(combined);
+    localStorage.setItem('factory_content_posts', JSON.stringify(combined));
+    combined.forEach((p) => {
+      upsertContentPostCloud({
+        id: p.id,
+        title: p.title,
+        platform: 'linkedin',
+        format: p.format,
+        phase: p.status,
+        scheduledDate: p.scheduledDate,
+        copy: p.caption || p.fullScript || '',
+        visualBrief: JSON.stringify(p),
+      });
+    });
     manager.addXP(150);
+    showToast(`⚡ Generated and saved 90-Day Content Plan (${newPosts.length} posts)!`, '🚀');
     onRefresh();
   };
 
@@ -482,6 +574,14 @@ export default function ContentManagementRoom({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 animate-in fade-in">
       <div className="relative w-full max-w-6xl bg-[#0c1219] border border-cyan-500/40 rounded-xl shadow-[0_0_60px_rgba(6,182,212,0.25)] flex flex-col max-h-[92vh] overflow-hidden text-slate-200">
         
+        {/* Dynamic Notification Toast */}
+        {notification && (
+          <div className="fixed top-6 right-8 z-[80] px-4 py-2.5 bg-cyan-950/95 border border-cyan-500 rounded-xl shadow-[0_0_30px_rgba(6,182,212,0.4)] text-cyan-200 text-xs font-bold font-mono animate-in fade-in slide-in-from-top-2 flex items-center gap-2.5">
+            <span className="text-base">{notification.icon}</span>
+            <span>{notification.message}</span>
+          </div>
+        )}
+
         {/* ───────────────────────────────────────────────────────────────────
             Header Top Bar: Section 1
         ─────────────────────────────────────────────────────────────────── */}
@@ -503,22 +603,31 @@ export default function ContentManagementRoom({
 
             <div className="flex items-center gap-2">
               <button
+                onClick={saveAllPlans}
+                disabled={isSaving}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded text-xs font-bold font-mono transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer"
+                title="Save all content plans and sync to cloud"
+              >
+                <span>💾</span>
+                <span>{isSaving ? 'Saving...' : 'Save Plans'}</span>
+              </button>
+              <button
                 onClick={() => populateNinetyDayPlan()}
-                className="px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900 border border-purple-500/40 text-purple-200 rounded text-xs font-bold font-mono transition flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-purple-950/60 hover:bg-purple-900 border border-purple-500/40 text-purple-200 rounded text-xs font-bold font-mono transition flex items-center gap-1.5 cursor-pointer"
               >
                 <CalendarDays className="h-3.5 w-3.5 text-purple-400" />
                 ⚡ 90-Day Plan
               </button>
               <button
                 onClick={() => openCreateDialog()}
-                className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 New Idea
               </button>
               <button
                 onClick={onClose}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-200 rounded text-xs font-mono transition ml-1"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-200 rounded text-xs font-mono transition ml-1 cursor-pointer"
               >
                 ESC
               </button>

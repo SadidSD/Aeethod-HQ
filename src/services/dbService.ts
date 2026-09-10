@@ -279,6 +279,15 @@ export async function upsertContentPostCloud(post: any, agencyId = DEFAULT_AGENC
   }
 }
 
+export async function deleteContentPostCloud(postId: string) {
+  try {
+    const { error } = await client.from('content_posts').delete().eq('id', postId);
+    if (error) console.warn('Supabase deleteContentPost error:', error.message);
+  } catch (e) {
+    console.warn('Failed to delete content post from Supabase:', e);
+  }
+}
+
 /**
  * 8. Realtime Postgres CDC Subscription Helper
  */
