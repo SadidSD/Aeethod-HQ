@@ -76,6 +76,18 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
     xpReward: 90,
   });
 
+  // Non-Project Task Modal
+  const [showNonProjectTaskModal, setShowNonProjectTaskModal] = useState(false);
+  const [nonProjectTaskInput, setNonProjectTaskInput] = useState({
+    title: '',
+    description: '',
+    phase: 'design',
+    priority: 'high',
+    assignedTo: 'designer',
+    estimatedHours: 5,
+    xpReward: 90,
+  });
+
   // Selected Shipped Project for Archive Detail View
   const [selectedShippedProjectId, setSelectedShippedProjectId] = useState<string | null>(null);
 
@@ -85,6 +97,8 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
       if (e.key === 'Escape') {
         if (showNewTaskModal) {
           setShowNewTaskModal(false);
+        } else if (showNonProjectTaskModal) {
+          setShowNonProjectTaskModal(false);
         } else if (selectedProjectId) {
           setSelectedProjectId(null); // Back to projects list
         } else if (selectedShippedProjectId) {
@@ -106,7 +120,7 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showNewTaskModal, selectedProjectId]);
+  }, [onClose, showNewTaskModal, showNonProjectTaskModal, selectedProjectId, selectedShippedProjectId]);
 
   const handleCompleteTask = (taskId: string, title: string, xp: number) => {
     manager.completeTask(taskId);
@@ -166,6 +180,35 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
     showToast(`🎨 Added Design Task to ${selectedProject.name}!`, '✨');
     setShowNewTaskModal(false);
     setNewTaskInput({
+      title: '',
+      description: '',
+      phase: 'design',
+      priority: 'high',
+      assignedTo: 'designer',
+      estimatedHours: 5,
+      xpReward: 90,
+    });
+    onRefresh();
+  };
+
+  const handleCreateNonProjectTask = () => {
+    if (!nonProjectTaskInput.title.trim()) return;
+    manager.addTask({
+      title: nonProjectTaskInput.title.trim(),
+      description: nonProjectTaskInput.description.trim() || 'Internal creative/design task (non-project).',
+      projectId: null,
+      assignedTo: nonProjectTaskInput.assignedTo,
+      phase: nonProjectTaskInput.phase as any,
+      status: 'active',
+      priority: nonProjectTaskInput.priority as any,
+      cognitiveLoad: 'deep',
+      estimatedHours: Number(nonProjectTaskInput.estimatedHours) || 5,
+      xpReward: Number(nonProjectTaskInput.xpReward) || 90,
+      deadline: new Date(Date.now() + 5 * 86400000).toISOString(),
+    });
+    showToast(`🎨 Created Non-Project Task: "${nonProjectTaskInput.title.trim()}"!`, '✨');
+    setShowNonProjectTaskModal(false);
+    setNonProjectTaskInput({
       title: '',
       description: '',
       phase: 'design',
@@ -615,7 +658,7 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
 
             {/* ════════════ TAB 2: MY ASSIGNED TASKS (WITH SORTING & FILTERING) ════════════ */}
             {activeTab === 'tasks' && (() => {
-              const myTasks = agency.tasks.filter(t => t.assignedTo === 'designer');
+              const myTasks = agency.tasks.filter(t => t.assignedTo === 'designer' || t.assignedTo?.toLowerCase().includes('designer'));
 
               // Filtered list
               const filtered = myTasks.filter(task => {
@@ -630,7 +673,7 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                 const matchesSearch =
                   !taskSearchQuery.trim() ||
                   task.title.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
-                  (proj && proj.name.toLowerCase().includes(taskSearchQuery.toLowerCase()));
+                  (proj ? proj.name.toLowerCase().includes(taskSearchQuery.toLowerCase()) : 'non-project'.includes(taskSearchQuery.toLowerCase()));
 
                 return matchesStatus && matchesSearch;
               });
@@ -654,8 +697,8 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                   return (b.estimatedHours || 0) - (a.estimatedHours || 0);
                 }
                 if (taskSortBy === 'project') {
-                  const pA = agency.projects.find(p => p.id === a.projectId)?.name || '';
-                  const pB = agency.projects.find(p => p.id === b.projectId)?.name || '';
+                  const pA = agency.projects.find(p => p.id === a.projectId)?.name || 'zzz';
+                  const pB = agency.projects.find(p => p.id === b.projectId)?.name || 'zzz';
                   return pA.localeCompare(pB);
                 }
                 if (taskSortBy === 'newest') {
@@ -719,6 +762,15 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                           </button>
                         )}
                       </div>
+
+                      {/* Create Non-Project Task Button */}
+                      <button
+                        onClick={() => setShowNonProjectTaskModal(true)}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold text-xs rounded-xl transition shadow-[0_0_15px_rgba(168,85,247,0.3)] flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        <span>➕</span>
+                        <span>New Non-Project Task</span>
+                      </button>
 
                       {/* Sorting Dropdown */}
                       <div className="flex items-center gap-2">
@@ -795,7 +847,7 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                           >
                             <div className="space-y-1.5">
                               <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
-                                {proj && (
+                                {proj ? (
                                   <span
                                     onClick={() => {
                                       setSelectedProjectId(proj.id);
@@ -805,6 +857,10 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                                     title="Click to open project"
                                   >
                                     📁 {proj.name}
+                                  </span>
+                                ) : (
+                                  <span className="text-purple-300 font-bold px-2 py-0.5 rounded bg-purple-950/80 border border-purple-800/80 flex items-center gap-1">
+                                    <span>⚡</span> Non-Project Task
                                   </span>
                                 )}
                                 <span className={`px-2 py-0.5 rounded border uppercase ${priorityColor}`}>
@@ -1239,6 +1295,141 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                     className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                   >
                     Create Design Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Non-Project Task Modal */}
+        {showNonProjectTaskModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-[#0f172a] border border-amber-500/50 rounded-2xl w-full max-w-lg p-6 shadow-[0_0_50px_rgba(245,158,11,0.3)] space-y-4 font-mono">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span className="text-amber-400">⚡</span> Create Non-Project Task
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Standalone studio task not tied to any project</p>
+                </div>
+                <button
+                  onClick={() => setShowNonProjectTaskModal(false)}
+                  className="text-slate-400 hover:text-white text-lg px-2"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Task Title: *</label>
+                  <input
+                    type="text"
+                    value={nonProjectTaskInput.title}
+                    onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, title: e.target.value })}
+                    placeholder="e.g., Design Vector Icon Pack, Create Brand Guidelines..."
+                    className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2.5 text-slate-200 outline-none focus:border-amber-400 font-medium"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Description:</label>
+                  <textarea
+                    value={nonProjectTaskInput.description}
+                    onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, description: e.target.value })}
+                    placeholder="Creative direction, moodboard references, design assets..."
+                    className="w-full h-20 bg-[#080d14] border border-slate-700 rounded-lg p-2.5 text-slate-200 outline-none focus:border-amber-400 resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Phase:</label>
+                    <select
+                      value={nonProjectTaskInput.phase}
+                      onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, phase: e.target.value })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="discovery">Discovery</option>
+                      <option value="architecture">Architecture</option>
+                      <option value="design">Design</option>
+                      <option value="development">Development</option>
+                      <option value="testing">Testing</option>
+                      <option value="launch">Launch</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Priority:</label>
+                    <select
+                      value={nonProjectTaskInput.priority}
+                      onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, priority: e.target.value })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="low">Low Priority</option>
+                      <option value="medium">Medium Priority</option>
+                      <option value="high">High Priority</option>
+                      <option value="urgent">Urgent Priority</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Assigned Role:</label>
+                    <select
+                      value={nonProjectTaskInput.assignedTo}
+                      onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, assignedTo: e.target.value })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="designer">Lead Designer</option>
+                      <option value="frontend">Frontend Dev</option>
+                      <option value="backend">Backend Dev</option>
+                      <option value="founder">Executive Founder</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Est. Hours:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={80}
+                      value={nonProjectTaskInput.estimatedHours}
+                      onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, estimatedHours: Number(e.target.value) || 1 })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">XP Reward:</label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={1000}
+                      step={10}
+                      value={nonProjectTaskInput.xpReward}
+                      onChange={e => setNonProjectTaskInput({ ...nonProjectTaskInput, xpReward: Number(e.target.value) || 10 })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                  <button
+                    onClick={() => setShowNonProjectTaskModal(false)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateNonProjectTask}
+                    disabled={!nonProjectTaskInput.title.trim()}
+                    className="px-5 py-2 bg-gradient-to-r from-purple-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    ⚡ Create Non-Project Task
                   </button>
                 </div>
               </div>
