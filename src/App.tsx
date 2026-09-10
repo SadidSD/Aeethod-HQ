@@ -5,7 +5,6 @@ import { getAgencyManager } from './core/agency';
 import { getMultiplayerManager } from './core/multiplayer';
 import GameCanvas from './components/GameCanvas';
 import HUD from './components/HUD';
-import BuildMenu from './components/BuildMenu';
 import ActionBar from './components/ActionBar';
 import ComputerModal from './components/ComputerModal';
 import MemberModal from './components/MemberModal';
@@ -21,7 +20,6 @@ import ResearchModal from './components/ResearchModal';
 export default function App() {
   const engineRef = useRef<GameEngine | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [showBuild, setShowBuild] = useState(false);
   const [showComputer, setShowComputer] = useState(false);
   const [showDesignerPC, setShowDesignerPC] = useState(false);
   const [showClientPC, setShowClientPC] = useState(false);
@@ -149,15 +147,9 @@ export default function App() {
         setShowLoginModal(false);
         setActiveMemberModal(null);
         setActiveBoardModal(null);
-        setShowBuild(false);
         if (engineRef.current) engineRef.current.selectedBuilding = null;
         return;
       }
-
-      // Don't intercept other keys (b) when any modal is open
-      if (isAnyModalOpen) return;
-
-      if (e.key.toLowerCase() === 'b') setShowBuild((prev) => !prev);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -182,11 +174,7 @@ export default function App() {
         />
       )}
 
-      <ActionBar
-        onBuild={() => setShowBuild(true)}
-        selectedBuilding={engineRef.current?.selectedBuilding || null}
-        selectedDirection={engineRef.current?.selectedDirection || 'up'}
-      />
+      <ActionBar />
 
       {/* Office Chat */}
       <OfficeChat multiplayer={multiplayer} onRefresh={handleRefresh} />
@@ -211,14 +199,6 @@ export default function App() {
           handleRefresh();
         }}
       />
-
-      {showBuild && engineRef.current && gameState && (
-        <BuildMenu
-          engine={engineRef.current}
-          state={gameState}
-          onClose={() => setShowBuild(false)}
-        />
-      )}
 
       {showComputer && (
         <ComputerModal
