@@ -77,7 +77,15 @@ export class MultiplayerManager {
   public onPlayersUpdate: ((players: Map<string, RemotePlayer>) => void) | null = null;
   public onChatMessage: ((msg: ChatMessage) => void) | null = null;
   public onBoardUpdate: ((type: string, payload: any) => void) | null = null;
+  private boardUpdateListeners = new Set<(type: string, payload: any) => void>();
   public onConnectionChange: ((connected: boolean, roomId: string | null) => void) | null = null;
+
+  public addBoardUpdateListener(fn: (type: string, payload: any) => void) {
+    this.boardUpdateListeners.add(fn);
+    return () => {
+      this.boardUpdateListeners.delete(fn);
+    };
+  }
 
   constructor() {
     const savedName = localStorage.getItem('coop_player_name') || '';
@@ -364,6 +372,13 @@ export class MultiplayerManager {
 
       // Handle Broadcast: Collaborative Board Updates
       this.channel.on('broadcast', { event: 'board_sync' }, ({ payload }) => {
+        this.boardUpdateListeners.forEach((listener) => {
+          try {
+            listener(payload.type, payload.data);
+          } catch (e) {
+            console.warn('Board update listener error:', e);
+          }
+        });
         this.onBoardUpdate?.(payload.type, payload.data);
       });
 

@@ -23,6 +23,7 @@ import {
   syncAgencyStatsCloud,
   updateTaskStatusCloud
 } from '../services/dbService';
+import { getMultiplayerManager } from './multiplayer';
 
 // Clean slate storage migration check
 export const DEFAULT_FOUNDER_CODE = 'KZXMB';
@@ -96,32 +97,101 @@ export class AgencyManager {
 
   async saveToCloud() {
     try {
-      // 1. Relational Sync via dbService
+      // 1. Primary Cloud Sync via profiles table (aeethod_system avatar_config)
+      // This immediately connects all players to the single Supabase database
+      const { data: profileRow } = await (supabase as any)
+        .from('profiles')
+        .select('avatar_config')
+        .eq('username', 'aeethod_system')
+        .maybeSingle();
+
+      const existingConfig = profileRow?.avatar_config || {};
+      const cloudTasks: AgencyTask[] = Array.isArray(existingConfig.tasks) ? existingConfig.tasks : [];
+      const cloudProjects: Project[] = Array.isArray(existingConfig.projects) ? existingConfig.projects : [];
+
+      // Merge local and cloud tasks by id to prevent wiping anyone's work
+      const taskMap = new Map<string, AgencyTask>();
+      for (const t of cloudTasks) {
+        if (t && t.id) taskMap.set(t.id, t);
+      }
+      for (const t of this.state.tasks) {
+        if (t && t.id) {
+          if (!taskMap.has(t.id)) {
+            taskMap.set(t.id, t);
+          } else {
+            const remote = taskMap.get(t.id)!;
+            // Favor the more complete/updated version
+            if (t.status === 'done' || (t.completedAt && !remote.completedAt)) {
+              taskMap.set(t.id, { ...remote, ...t });
+            } else {
+              taskMap.set(t.id, { ...remote, ...t });
+            }
+          }
+        }
+      }
+
+      // Merge local and cloud projects by id
+      const projectMap = new Map<string, Project>();
+      for (const p of cloudProjects) {
+        if (p && p.id) projectMap.set(p.id, p);
+      }
+      for (const p of this.state.projects) {
+        if (p && p.id) {
+          projectMap.set(p.id, { ...(projectMap.get(p.id) || {}), ...p });
+        }
+      }
+
+      const mergedTasks = Array.from(taskMap.values());
+      const mergedProjects = Array.from(projectMap.values());
+
+      // Adopt remote tasks locally if cloud had new items
+      let localNeedsUpdate = false;
+      if (mergedTasks.length > this.state.tasks.length) {
+        this.state.tasks = mergedTasks;
+        localNeedsUpdate = true;
+      }
+      if (mergedProjects.length > this.state.projects.length) {
+        this.state.projects = mergedProjects;
+        localNeedsUpdate = true;
+      }
+      if (localNeedsUpdate) {
+        localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+        this.onCloudUpdate?.();
+      }
+
+      const updatedConfig = {
+        ...existingConfig,
+        tasks: mergedTasks,
+        projects: mergedProjects,
+        resources: this.state.resources,
+        stats: this.state.stats,
+        roleAccessCodes: this.state.roleAccessCodes || existingConfig.roleAccessCodes || [],
+        updatedAt: new Date().toISOString(),
+      };
+
+      const { error: profileError } = await (supabase as any)
+        .from('profiles')
+        .update({
+          avatar_config: updatedConfig,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('username', 'aeethod_system');
+
+      if (!profileError) {
+        this.isCloudSynced = true;
+      }
+
+      // 2. Broadcast live update to all online teammates
+      this.broadcastTasksSync('sync');
+
+      // 3. Fallback relational sync in case tables exist
       syncAgencyResourcesCloud(this.state.resources);
       syncAgencyStatsCloud(this.state.stats, this.state.streaks.current, this.state.streaks.longest);
-      
       for (const project of this.state.projects) {
         upsertProjectCloud(project);
       }
       for (const task of this.state.tasks) {
         upsertTaskCloud(task);
-      }
-
-      // 2. Monolithic Fallback Backup (World Saves)
-      const payload = {
-        user_id: '00000000-0000-0000-0000-000000000001',
-        username: 'AEETHOD_HQ',
-        save_data: this.state,
-        buildings_count: this.state.tasks.length,
-        updated_at: new Date().toISOString()
-      };
-
-      const { error } = await (supabase as any)
-        .from('world_saves')
-        .upsert(payload, { onConflict: 'username' });
-
-      if (!error) {
-        this.isCloudSynced = true;
       }
     } catch (err) {
       console.warn('Cloud sync error:', err);
@@ -130,113 +200,131 @@ export class AgencyManager {
 
   async loadFromCloud(): Promise<boolean> {
     try {
-      // 1. Try relational tables first
-      const relData = await fetchAgencyData('aeethod-hq');
-      if (relData) {
-        if (relData.resources) {
-          this.state.resources.revenue = Number(relData.resources.revenue) || 0;
-          this.state.resources.monthlyRecurring = Number(relData.resources.monthly_recurring) || 0;
-          this.state.resources.energy = relData.resources.energy ?? 160;
-          this.state.resources.reputation = relData.resources.reputation ?? 50;
-          this.state.resources.knowledge = relData.resources.knowledge ?? 0;
-        }
-        if (relData.stats) {
-          this.state.stats.totalTasksCompleted = relData.stats.total_tasks_completed ?? 0;
-          this.state.stats.totalProjectsShipped = relData.stats.total_projects_shipped ?? 0;
-          this.state.stats.totalRevenue = Number(relData.stats.total_revenue) || 0;
-          this.state.stats.hoursLogged = Number(relData.stats.hours_logged) || 0;
-          this.state.streaks.current = relData.stats.streak_current ?? 1;
-          this.state.streaks.longest = relData.stats.streak_longest ?? 1;
-        }
-        if (Array.isArray(relData.projects)) {
-          this.state.projects = relData.projects
-            .filter((p: any) => p.id !== 'proj_cardvault' && p.id !== 'proj_saas' && p.id !== 'proj_rng' && p.id !== 'proj_perfume')
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              clientName: p.client_name,
-              industry: p.industry,
-              package: p.package,
-              value: Number(p.value),
-              phase: p.phase,
-              startDate: p.start_date,
-              deadline: p.deadline || '',
-              completedDate: p.completed_date,
-              health: p.health,
-              taskIds: (relData.tasks || []).filter((t: any) => t.project_id === p.id).map((t: any) => t.id),
-              notes: p.notes || '',
-              satisfaction: p.satisfaction || 95,
-            }));
-        }
-        if (Array.isArray(relData.tasks)) {
-          this.state.tasks = relData.tasks
-            .filter((t: any) => !t.id.startsWith('task_cv_') && !t.id.startsWith('task_saas_') && !t.id.startsWith('task_rng_') && !t.id.startsWith('task_pf_'))
-            .map((t: any) => ({
-              id: t.id,
-              title: t.title,
-              description: t.description || '',
-              projectId: t.project_id,
-              assignedTo: t.assigned_to,
-              phase: t.phase,
-              status: t.status,
-              priority: t.priority,
-              cognitiveLoad: t.cognitive_load || 'medium',
-              xpReward: t.xp_reward || 90,
-              estimatedHours: Number(t.estimated_hours) || 4,
-              actualHours: Number(t.actual_hours) || 0,
-              createdAt: t.created_at,
-              completedAt: t.completed_at,
-              deadline: t.deadline,
-            }));
+      // 1. Primary: Load shared agency workspace from profiles (aeethod_system)
+      const { data: profileRow, error: profileErr } = await (supabase as any)
+        .from('profiles')
+        .select('avatar_config')
+        .eq('username', 'aeethod_system')
+        .maybeSingle();
+
+      if (!profileErr && profileRow && profileRow.avatar_config) {
+        const config = profileRow.avatar_config;
+        let hasUpdates = false;
+
+        // Merge tasks
+        if (Array.isArray(config.tasks)) {
+          const taskMap = new Map<string, AgencyTask>();
+          for (const t of config.tasks) {
+            if (t && t.id) taskMap.set(t.id, t);
+          }
+          for (const t of this.state.tasks) {
+            if (t && t.id && !taskMap.has(t.id)) {
+              taskMap.set(t.id, t);
+            }
+          }
+          this.state.tasks = Array.from(taskMap.values());
+          hasUpdates = true;
         }
 
-        localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
-        this.isCloudSynced = true;
-        this.onCloudUpdate?.();
-        return true;
-      }
-
-      // 2. Fallback to monolithic world_saves if relational is empty
-      const { data, error } = await (supabase as any)
-        .from('world_saves')
-        .select('save_data')
-        .eq('username', 'AEETHOD_HQ')
-        .single();
-
-      if (!error && data && data.save_data) {
-        const cloudState = data.save_data as AgencyState;
-        if (cloudState.projects && cloudState.projects.some((p: any) => p.id === 'proj_cardvault')) {
-          // Monolithic save had legacy mock data, overwrite with fresh state
-          this.saveToCloud();
-          return true;
+        // Merge projects
+        if (Array.isArray(config.projects) && config.projects.length > 0) {
+          const projMap = new Map<string, Project>();
+          for (const p of config.projects) {
+            if (p && p.id) projMap.set(p.id, p);
+          }
+          for (const p of this.state.projects) {
+            if (p && p.id && !projMap.has(p.id)) {
+              projMap.set(p.id, p);
+            }
+          }
+          this.state.projects = Array.from(projMap.values());
+          hasUpdates = true;
         }
-        if (cloudState.projects && cloudState.tasks) {
-          this.state = cloudState;
-          localStorage.setItem('aeethod_agency', JSON.stringify(cloudState));
+
+        if (config.resources) {
+          this.state.resources.revenue = Math.max(this.state.resources.revenue, Number(config.resources.revenue) || 0);
+          this.state.resources.monthlyRecurring = Number(config.resources.monthlyRecurring) || this.state.resources.monthlyRecurring;
+        }
+
+        if (Array.isArray(config.roleAccessCodes) && config.roleAccessCodes.length > 0) {
+          this.state.roleAccessCodes = config.roleAccessCodes;
+        }
+
+        if (hasUpdates) {
+          localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
           this.isCloudSynced = true;
           this.onCloudUpdate?.();
-          return true;
         }
       }
+
+      // 2. Secondary relational tables fallback
+      const relData = await fetchAgencyData('aeethod-hq');
+      if (relData && Array.isArray(relData.tasks) && relData.tasks.length > 0) {
+        if (Array.isArray(relData.tasks)) {
+          const taskMap = new Map<string, AgencyTask>();
+          for (const t of this.state.tasks) taskMap.set(t.id, t);
+          relData.tasks
+            .filter((t: any) => !t.id.startsWith('task_cv_') && !t.id.startsWith('task_saas_') && !t.id.startsWith('task_rng_') && !t.id.startsWith('task_pf_'))
+            .forEach((t: any) => {
+              if (!taskMap.has(t.id)) {
+                taskMap.set(t.id, {
+                  id: t.id,
+                  title: t.title,
+                  description: t.description || '',
+                  projectId: t.project_id,
+                  assignedTo: t.assigned_to,
+                  phase: t.phase,
+                  status: t.status,
+                  priority: t.priority,
+                  cognitiveLoad: t.cognitive_load || 'medium',
+                  xpReward: t.xp_reward || 90,
+                  estimatedHours: Number(t.estimated_hours) || 4,
+                  actualHours: Number(t.actual_hours) || 0,
+                  createdAt: t.created_at,
+                  completedAt: t.completed_at,
+                  deadline: t.deadline,
+                });
+              }
+            });
+          this.state.tasks = Array.from(taskMap.values());
+          localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+          this.onCloudUpdate?.();
+        }
+      }
+      return true;
     } catch (err) {
       console.warn('Cloud load error:', err);
     }
     return false;
   }
 
+  private syncChannel: any = null;
+
   subscribeToRealtimeSync() {
     try {
-      // Broadcast channel for instantaneous cross-tab events
-      const broadcastChannel = supabase.channel('aeethod-agency-sync');
-      broadcastChannel
-        .on('broadcast', { event: 'agency_state_sync' }, (payload) => {
-          if (payload.payload && payload.payload.savedAt !== this.state.savedAt) {
-            this.state = payload.payload;
-            localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
-            this.onCloudUpdate?.();
+      if (this.syncChannel) {
+        this.syncChannel.unsubscribe();
+        this.syncChannel = null;
+      }
+
+      // Broadcast channel for instantaneous cross-player events
+      this.syncChannel = supabase.channel('aeethod-agency-sync');
+      this.syncChannel
+        .on('broadcast', { event: 'agency_state_sync' }, (payload: any) => {
+          if (payload.payload) {
+            this.handleIncomingTaskSync({
+              action: 'sync',
+              allTasks: payload.payload.tasks,
+              allProjects: payload.payload.projects,
+            });
           }
         })
-        .on('broadcast', { event: 'role_codes_sync' }, (payload) => {
+        .on('broadcast', { event: 'tasks_sync' }, (payload: any) => {
+          if (payload.payload) {
+            this.handleIncomingTaskSync(payload.payload);
+          }
+        })
+        .on('broadcast', { event: 'role_codes_sync' }, (payload: any) => {
           if (Array.isArray(payload.payload)) {
             this.state.roleAccessCodes = payload.payload;
             if (typeof window !== 'undefined') {
@@ -247,7 +335,7 @@ export class AgencyManager {
         })
         .subscribe();
 
-      // Postgres CDC changes for collaborative task & project updates
+      // Postgres CDC changes for collaborative task updates if table exists
       supabase
         .channel('aeethod-db-tasks-cdc')
         .on(
@@ -262,6 +350,27 @@ export class AgencyManager {
                 this.state.tasks[idx].completedAt = updated.completed_at;
                 localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
                 this.onCloudUpdate?.();
+              } else {
+                // Task was inserted in database by someone else
+                this.state.tasks.push({
+                  id: updated.id,
+                  title: updated.title,
+                  description: updated.description || '',
+                  projectId: updated.project_id,
+                  assignedTo: updated.assigned_to,
+                  phase: updated.phase,
+                  status: updated.status,
+                  priority: updated.priority,
+                  cognitiveLoad: updated.cognitive_load || 'medium',
+                  xpReward: updated.xp_reward || 90,
+                  estimatedHours: Number(updated.estimated_hours) || 4,
+                  actualHours: Number(updated.actual_hours) || 0,
+                  createdAt: updated.created_at || new Date().toISOString(),
+                  completedAt: updated.completed_at,
+                  deadline: updated.deadline,
+                });
+                localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+                this.onCloudUpdate?.();
               }
             }
           }
@@ -272,16 +381,105 @@ export class AgencyManager {
     }
   }
 
-  broadcastLiveState() {
+  broadcastTasksSync(action: 'add' | 'update' | 'complete' | 'delete' | 'sync', task?: AgencyTask) {
     try {
-      supabase.channel('aeethod-agency-sync').send({
-        type: 'broadcast',
-        event: 'agency_state_sync',
-        payload: this.state,
-      });
+      const payload = {
+        action,
+        task,
+        allTasks: this.state.tasks,
+        allProjects: this.state.projects,
+        senderTime: Date.now(),
+      };
+
+      if (this.syncChannel) {
+        this.syncChannel.send({
+          type: 'broadcast',
+          event: 'tasks_sync',
+          payload,
+        });
+      } else {
+        supabase.channel('aeethod-agency-sync').send({
+          type: 'broadcast',
+          event: 'tasks_sync',
+          payload,
+        });
+      }
+
+      // Also broadcast through multiplayer co-op channel
+      try {
+        const mp = getMultiplayerManager();
+        if (mp && mp.isConnected) {
+          mp.broadcastBoardUpdate('tasks_sync', payload);
+        }
+      } catch (e) {}
     } catch (e) {
-      console.warn('Realtime broadcast error:', e);
+      console.warn('Realtime task broadcast error:', e);
     }
+  }
+
+  handleIncomingTaskSync(payload: { action: string; task?: AgencyTask; allTasks?: AgencyTask[]; allProjects?: Project[] }) {
+    let changed = false;
+
+    if (payload.task && payload.task.id) {
+      const idx = this.state.tasks.findIndex(t => t.id === payload.task!.id);
+      if (idx === -1) {
+        this.state.tasks.push(payload.task);
+        changed = true;
+      } else {
+        this.state.tasks[idx] = { ...this.state.tasks[idx], ...payload.task };
+        changed = true;
+      }
+    }
+
+    if (Array.isArray(payload.allTasks) && payload.allTasks.length > 0) {
+      const taskMap = new Map<string, AgencyTask>();
+      for (const t of this.state.tasks) {
+        if (t && t.id) taskMap.set(t.id, t);
+      }
+      for (const t of payload.allTasks) {
+        if (t && t.id) {
+          if (!taskMap.has(t.id)) {
+            taskMap.set(t.id, t);
+            changed = true;
+          } else {
+            const existing = taskMap.get(t.id)!;
+            if (existing.status !== t.status || existing.completedAt !== t.completedAt) {
+              taskMap.set(t.id, { ...existing, ...t });
+              changed = true;
+            }
+          }
+        }
+      }
+      if (changed) {
+        this.state.tasks = Array.from(taskMap.values());
+      }
+    }
+
+    if (Array.isArray(payload.allProjects) && payload.allProjects.length > 0) {
+      const projMap = new Map<string, Project>();
+      for (const p of this.state.projects) {
+        if (p && p.id) projMap.set(p.id, p);
+      }
+      for (const p of payload.allProjects) {
+        if (p && p.id && !projMap.has(p.id)) {
+          projMap.set(p.id, p);
+          changed = true;
+        }
+      }
+      if (changed) {
+        this.state.projects = Array.from(projMap.values());
+      }
+    }
+
+    if (changed) {
+      this.state.savedAt = new Date().toISOString();
+      localStorage.setItem('aeethod_agency', JSON.stringify(this.state));
+      this.onCloudUpdate?.();
+    }
+  }
+
+  broadcastLiveState() {
+    this.broadcastTasksSync('sync');
   }
 
   load(): boolean {
@@ -363,12 +561,13 @@ export class AgencyManager {
   addTask(task: Omit<AgencyTask, 'id' | 'createdAt' | 'completedAt' | 'actualHours'>): AgencyTask {
     const newTask: AgencyTask = {
       ...task,
-      id: `task_${Date.now()}`,
+      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       createdAt: new Date().toISOString(),
       actualHours: 0
     } as AgencyTask;
     this.state.tasks.push(newTask);
     this.save();
+    this.broadcastTasksSync('add', newTask);
     upsertTaskCloud(newTask);
     return newTask;
   }
@@ -378,6 +577,7 @@ export class AgencyManager {
     if (index !== -1) {
       this.state.tasks[index] = { ...this.state.tasks[index], ...updates };
       this.save();
+      this.broadcastTasksSync('update', this.state.tasks[index]);
       if (updates.status) {
         updateTaskStatusCloud(id, updates.status, updates.completedAt || null);
       }
@@ -401,6 +601,7 @@ export class AgencyManager {
       this.checkQuestCompletion();
       this.checkAchievements();
       this.save();
+      this.broadcastTasksSync('complete', task);
       updateTaskStatusCloud(id, 'done', task.completedAt);
     }
   }
@@ -408,6 +609,7 @@ export class AgencyManager {
   deleteTask(id: string) {
     this.state.tasks = this.state.tasks.filter(t => t.id !== id);
     this.save();
+    this.broadcastTasksSync('delete', { id } as any);
   }
 
   getTasksByProject(projectId: string): AgencyTask[] {
@@ -429,12 +631,14 @@ export class AgencyManager {
   addProject(project: Omit<Project, 'id' | 'completedDate' | 'taskIds'>): Project {
     const newProject: Project = {
       ...project,
-      id: `proj_${Date.now()}`,
+      id: `proj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       taskIds: [],
       completedDate: null
     } as Project;
     this.state.projects.push(newProject);
     this.save();
+    this.broadcastTasksSync('sync');
+    upsertProjectCloud(newProject);
     return newProject;
   }
 
@@ -443,6 +647,7 @@ export class AgencyManager {
     if (index !== -1) {
       this.state.projects[index] = { ...this.state.projects[index], ...updates };
       this.save();
+      this.broadcastTasksSync('sync');
     }
   }
 
@@ -462,6 +667,7 @@ export class AgencyManager {
       this.checkQuestCompletion();
       this.checkAchievements();
       this.save();
+      this.broadcastTasksSync('sync');
     }
   }
 
@@ -899,10 +1105,21 @@ export class AgencyManager {
   async syncRoleAccessCodesToCloud(): Promise<boolean> {
     try {
       const codes = this.getRoleAccessCodes();
+
+      // Fetch existing avatar_config first so tasks and projects are preserved
+      const { data: current } = await (supabase as any)
+        .from('profiles')
+        .select('avatar_config')
+        .eq('username', 'aeethod_system')
+        .maybeSingle();
+
+      const existingConfig = current?.avatar_config || {};
+
       const { error } = await (supabase as any)
         .from('profiles')
         .update({
           avatar_config: {
+            ...existingConfig,
             roleAccessCodes: codes,
             updatedAt: new Date().toISOString(),
           },

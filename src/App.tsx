@@ -42,7 +42,15 @@ export default function App() {
 
   useEffect(() => {
     agencyManager.onCloudUpdate = handleRefresh;
-  }, [agencyManager, handleRefresh]);
+    const cleanupBoard = multiplayer.addBoardUpdateListener((type, data) => {
+      if (type === 'tasks_sync') {
+        agencyManager.handleIncomingTaskSync(data);
+      }
+    });
+    return () => {
+      cleanupBoard();
+    };
+  }, [agencyManager, multiplayer, handleRefresh]);
 
   // Auto-connect to shared studio lobby room on start
   useEffect(() => {
