@@ -27,6 +27,7 @@ import { getMultiplayerManager } from './multiplayer';
 
 // Clean slate storage migration check
 export const DEFAULT_FOUNDER_CODE = 'KZXMB';
+export const DEFAULT_FRONTEND_CODE = 'KDAXK';
 const STORAGE_CLEAN_VERSION = 'aeethod_clean_slate_v7';
 if (typeof window !== 'undefined') {
   try {
@@ -54,6 +55,7 @@ export class AgencyManager {
   private cloudSyncTimer: any = null;
   public onCloudUpdate: (() => void) | null = null;
   public isCloudSynced = false;
+  public lastCloudError: string | null = null;
 
   constructor() {
     this.state = this.createSeedState();
@@ -1030,7 +1032,15 @@ export class AgencyManager {
         department: 'management',
         createdAt: new Date().toISOString(),
         claimedBy: [],
-      }
+      },
+      {
+        id: 'code_frontend_dev',
+        roleName: 'Frontend Developer',
+        code: DEFAULT_FRONTEND_CODE,
+        department: 'dev',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      },
     ];
   }
 
@@ -1049,18 +1059,36 @@ export class AgencyManager {
         claimedBy: [],
       });
     }
+    // Ensure frontend developer code is present in roleAccessCodes
+    if (!this.state.roleAccessCodes.some(c => c.id === 'code_frontend_dev' || c.code === DEFAULT_FRONTEND_CODE)) {
+      this.state.roleAccessCodes.push({
+        id: 'code_frontend_dev',
+        roleName: 'Frontend Developer',
+        code: DEFAULT_FRONTEND_CODE,
+        department: 'dev',
+        createdAt: new Date().toISOString(),
+        claimedBy: [],
+      });
+    }
     return this.state.roleAccessCodes;
   }
 
   async loadRoleAccessCodesFromCloud(): Promise<RoleAccessCode[]> {
     try {
+      this.lastCloudError = null;
       const { data, error } = await (supabase as any)
         .from('profiles')
         .select('avatar_config')
         .eq('username', 'aeethod_system')
         .maybeSingle();
 
-      if (!error && data && data.avatar_config) {
+      if (error) {
+        this.lastCloudError = error.message || 'Database connection error';
+        console.warn('Failed to load role codes from cloud:', error);
+        return this.getRoleAccessCodes();
+      }
+
+      if (data && data.avatar_config) {
         const config: any = data.avatar_config;
         const remoteCodes = config.roleAccessCodes;
         if (Array.isArray(remoteCodes) && remoteCodes.length > 0) {
@@ -1072,6 +1100,15 @@ export class AgencyManager {
             roleName: 'Founder',
             code: DEFAULT_FOUNDER_CODE,
             department: 'management',
+            createdAt: new Date().toISOString(),
+            claimedBy: [],
+          });
+
+          codeMap.set(DEFAULT_FRONTEND_CODE, {
+            id: 'code_frontend_dev',
+            roleName: 'Frontend Developer',
+            code: DEFAULT_FRONTEND_CODE,
+            department: 'dev',
             createdAt: new Date().toISOString(),
             claimedBy: [],
           });
@@ -1096,7 +1133,8 @@ export class AgencyManager {
           return this.state.roleAccessCodes;
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      this.lastCloudError = err?.message || 'Network connection failed';
       console.warn('Failed to load role codes from cloud:', err);
     }
     return this.getRoleAccessCodes();
@@ -1193,6 +1231,10 @@ export class AgencyManager {
       return { valid: true, roleName: 'Founder', department: 'management' };
     }
 
+    if (clean === DEFAULT_FRONTEND_CODE) {
+      return { valid: true, roleName: 'Frontend Developer', department: 'dev' };
+    }
+
     const codes = this.getRoleAccessCodes();
     const matched = codes.find(c => c.code.toUpperCase() === clean);
 
@@ -1216,7 +1258,7 @@ export class AgencyManager {
       return { valid: false, error: 'Please enter a 5-letter access code.' };
     }
 
-    // 1. Fast path: check local memory / founder code
+    // 1. Fast path: check local memory / founder code / default frontend code
     const local = this.validateAccessCode(clean);
     if (local.valid) {
       return local;
@@ -1229,8 +1271,15 @@ export class AgencyManager {
       if (freshCheck.valid) {
         return freshCheck;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Cloud validation fallback error:', e);
+    }
+
+    if (this.lastCloudError) {
+      return {
+        valid: false,
+        error: 'Database server unreachable (Supabase project may be paused). Please unpause it in your Supabase dashboard or use code KDAXK.'
+      };
     }
 
     return { valid: false, error: 'Invalid 5-letter access code. Please check your key.' };
