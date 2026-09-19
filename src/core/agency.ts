@@ -110,14 +110,18 @@ export class AgencyManager {
       const existingConfig = profileRow?.avatar_config || {};
       const cloudTasks: AgencyTask[] = Array.isArray(existingConfig.tasks) ? existingConfig.tasks : [];
       const cloudProjects: Project[] = Array.isArray(existingConfig.projects) ? existingConfig.projects : [];
+      const cloudDeleted: string[] = Array.isArray(existingConfig.deletedTaskIds) ? existingConfig.deletedTaskIds : [];
 
-      // Merge local and cloud tasks by id to prevent wiping anyone's work
+      const combinedDeleted = new Set([...(this.state.deletedTaskIds || []), ...cloudDeleted]);
+      this.state.deletedTaskIds = Array.from(combinedDeleted);
+
+      // Merge local and cloud tasks by id to prevent wiping anyone's work (excluding deleted)
       const taskMap = new Map<string, AgencyTask>();
       for (const t of cloudTasks) {
-        if (t && t.id) taskMap.set(t.id, t);
+        if (t && t.id && !combinedDeleted.has(t.id)) taskMap.set(t.id, t);
       }
       for (const t of this.state.tasks) {
-        if (t && t.id) {
+        if (t && t.id && !combinedDeleted.has(t.id)) {
           if (!taskMap.has(t.id)) {
             taskMap.set(t.id, t);
           } else {
@@ -148,7 +152,7 @@ export class AgencyManager {
 
       // Adopt remote tasks locally if cloud had new items
       let localNeedsUpdate = false;
-      if (mergedTasks.length > this.state.tasks.length) {
+      if (mergedTasks.length !== this.state.tasks.length) {
         this.state.tasks = mergedTasks;
         localNeedsUpdate = true;
       }
@@ -168,6 +172,7 @@ export class AgencyManager {
         resources: this.state.resources,
         stats: this.state.stats,
         roleAccessCodes: this.state.roleAccessCodes || existingConfig.roleAccessCodes || [],
+        deletedTaskIds: Array.from(combinedDeleted),
         updatedAt: new Date().toISOString(),
       };
 
@@ -213,14 +218,19 @@ export class AgencyManager {
         const config = profileRow.avatar_config;
         let hasUpdates = false;
 
-        // Merge tasks
+        // Merge deletedTaskIds
+        const cloudDeleted: string[] = Array.isArray(config.deletedTaskIds) ? config.deletedTaskIds : [];
+        const combinedDeleted = new Set([...(this.state.deletedTaskIds || []), ...cloudDeleted]);
+        this.state.deletedTaskIds = Array.from(combinedDeleted);
+
+        // Merge tasks (excluding deleted)
         if (Array.isArray(config.tasks)) {
           const taskMap = new Map<string, AgencyTask>();
           for (const t of config.tasks) {
-            if (t && t.id) taskMap.set(t.id, t);
+            if (t && t.id && !combinedDeleted.has(t.id)) taskMap.set(t.id, t);
           }
           for (const t of this.state.tasks) {
-            if (t && t.id && !taskMap.has(t.id)) {
+            if (t && t.id && !combinedDeleted.has(t.id) && !taskMap.has(t.id)) {
               taskMap.set(t.id, t);
             }
           }
@@ -422,24 +432,39 @@ export class AgencyManager {
   handleIncomingTaskSync(payload: { action: string; task?: AgencyTask; allTasks?: AgencyTask[]; allProjects?: Project[] }) {
     let changed = false;
 
-    if (payload.task && payload.task.id) {
-      const idx = this.state.tasks.findIndex(t => t.id === payload.task!.id);
-      if (idx === -1) {
-        this.state.tasks.push(payload.task);
-        changed = true;
-      } else {
-        this.state.tasks[idx] = { ...this.state.tasks[idx], ...payload.task };
-        changed = true;
+    if (payload.action === 'delete') {
+      const delId = payload.task?.id;
+      if (delId) {
+        if (!this.state.deletedTaskIds) this.state.deletedTaskIds = [];
+        if (!this.state.deletedTaskIds.includes(delId)) this.state.deletedTaskIds.push(delId);
+        const prevLen = this.state.tasks.length;
+        this.state.tasks = this.state.tasks.filter(t => t.id !== delId);
+        if (this.state.tasks.length !== prevLen) {
+          changed = true;
+        }
+      }
+    } else if (payload.task && payload.task.id) {
+      const isDeleted = this.state.deletedTaskIds && this.state.deletedTaskIds.includes(payload.task.id);
+      if (!isDeleted) {
+        const idx = this.state.tasks.findIndex(t => t.id === payload.task!.id);
+        if (idx === -1) {
+          this.state.tasks.push(payload.task);
+          changed = true;
+        } else {
+          this.state.tasks[idx] = { ...this.state.tasks[idx], ...payload.task };
+          changed = true;
+        }
       }
     }
 
     if (Array.isArray(payload.allTasks) && payload.allTasks.length > 0) {
+      const deletedSet = new Set(this.state.deletedTaskIds || []);
       const taskMap = new Map<string, AgencyTask>();
       for (const t of this.state.tasks) {
-        if (t && t.id) taskMap.set(t.id, t);
+        if (t && t.id && !deletedSet.has(t.id)) taskMap.set(t.id, t);
       }
       for (const t of payload.allTasks) {
-        if (t && t.id) {
+        if (t && t.id && !deletedSet.has(t.id)) {
           if (!taskMap.has(t.id)) {
             taskMap.set(t.id, t);
             changed = true;
@@ -609,6 +634,12 @@ export class AgencyManager {
   }
 
   deleteTask(id: string) {
+    if (!this.state.deletedTaskIds) {
+      this.state.deletedTaskIds = [];
+    }
+    if (!this.state.deletedTaskIds.includes(id)) {
+      this.state.deletedTaskIds.push(id);
+    }
     this.state.tasks = this.state.tasks.filter(t => t.id !== id);
     this.save();
     this.broadcastTasksSync('delete', { id } as any);

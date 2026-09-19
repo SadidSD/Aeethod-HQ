@@ -198,5 +198,6 @@ export interface AgencyState {
   streaks: StreakData;
   stats: AgencyStats;
   roleAccessCodes?: RoleAccessCode[];
+  deletedTaskIds?: string[];
   savedAt: string;
 }

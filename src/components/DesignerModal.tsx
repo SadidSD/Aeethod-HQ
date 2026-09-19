@@ -91,11 +91,25 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
   // Selected Shipped Project for Archive Detail View
   const [selectedShippedProjectId, setSelectedShippedProjectId] = useState<string | null>(null);
 
+  // Edit Task Modal State
+  const [editingTask, setEditingTask] = useState<AgencyTask | null>(null);
+  const [editTaskInput, setEditTaskInput] = useState({
+    title: '',
+    description: '',
+    phase: 'design',
+    priority: 'high' as 'low' | 'medium' | 'high' | 'urgent',
+    assignedTo: 'designer',
+    estimatedHours: 5,
+    xpReward: 90,
+  });
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (showNewTaskModal) {
+        if (editingTask) {
+          setEditingTask(null);
+        } else if (showNewTaskModal) {
           setShowNewTaskModal(false);
         } else if (showNonProjectTaskModal) {
           setShowNonProjectTaskModal(false);
@@ -120,7 +134,44 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, showNewTaskModal, showNonProjectTaskModal, selectedProjectId, selectedShippedProjectId]);
+  }, [onClose, showNewTaskModal, showNonProjectTaskModal, editingTask, selectedProjectId, selectedShippedProjectId]);
+
+  const handleOpenEditModal = (task: AgencyTask) => {
+    setEditingTask(task);
+    setEditTaskInput({
+      title: task.title,
+      description: task.description || '',
+      phase: task.phase || 'design',
+      priority: (task.priority as any) || 'high',
+      assignedTo: task.assignedTo || 'designer',
+      estimatedHours: task.estimatedHours || 5,
+      xpReward: task.xpReward || 90,
+    });
+  };
+
+  const handleSaveTaskEdit = () => {
+    if (!editingTask || !editTaskInput.title.trim()) return;
+    manager.updateTask(editingTask.id, {
+      title: editTaskInput.title.trim(),
+      description: editTaskInput.description.trim(),
+      phase: editTaskInput.phase as any,
+      priority: editTaskInput.priority as any,
+      assignedTo: editTaskInput.assignedTo,
+      estimatedHours: Number(editTaskInput.estimatedHours) || 5,
+      xpReward: Number(editTaskInput.xpReward) || 90,
+    });
+    showToast(`✏️ Updated Design Task: "${editTaskInput.title.trim()}"!`, '✅');
+    setEditingTask(null);
+    onRefresh();
+  };
+
+  const handleDeleteTask = (task: AgencyTask) => {
+    if (window.confirm(`Are you sure you want to delete task "${task.title}"?`)) {
+      manager.deleteTask(task.id);
+      showToast(`🗑️ Deleted Task: "${task.title}"`, '🗑️');
+      onRefresh();
+    }
+  };
 
   const handleCompleteTask = (taskId: string, title: string, xp: number) => {
     manager.completeTask(taskId);
@@ -557,7 +608,27 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                                 <span>{task.status === 'blocked' ? 'Blocked (Clear)' : 'Report Blockage'}</span>
                               </button>
 
-                              {/* 2. Status Dropdown */}
+                              {/* 2. Edit Task Button */}
+                              <button
+                                onClick={() => handleOpenEditModal(task)}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-amber-500 cursor-pointer"
+                                title="Edit task"
+                              >
+                                <span>✏️</span>
+                                <span>Edit</span>
+                              </button>
+
+                              {/* 3. Delete Task Button */}
+                              <button
+                                onClick={() => handleDeleteTask(task)}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-rose-950/40 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 hover:border-rose-500 cursor-pointer"
+                                title="Delete task"
+                              >
+                                <span>🗑️</span>
+                                <span>Delete</span>
+                              </button>
+
+                              {/* 4. Status Dropdown */}
                               <div className="relative">
                                 <select
                                   value={task.status}
@@ -626,6 +697,22 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                                 >
                                   <span>{task.status === 'blocked' ? '⚠️' : '🚨'}</span>
                                   <span>{task.status === 'blocked' ? 'Blocked (Clear)' : 'Report Blockage'}</span>
+                                </button>
+                                {/* Edit Button */}
+                                <button
+                                  onClick={() => handleOpenEditModal(task)}
+                                  className="px-2 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer"
+                                  title="Edit task"
+                                >
+                                  <span>✏️</span>
+                                </button>
+                                {/* Delete Button */}
+                                <button
+                                  onClick={() => handleDeleteTask(task)}
+                                  className="px-2 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 bg-rose-950/30 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 cursor-pointer"
+                                  title="Delete task"
+                                >
+                                  <span>🗑️</span>
                                 </button>
                                 {/* Status Dropdown */}
                                 <div className="relative">
@@ -908,7 +995,27 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                                 <span>{task.status === 'blocked' ? 'Blocked (Clear)' : 'Report Blockage'}</span>
                               </button>
 
-                              {/* 2. Status Dropdown */}
+                              {/* 2. Edit Task Button */}
+                              <button
+                                onClick={() => handleOpenEditModal(task)}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-amber-500 cursor-pointer"
+                                title="Edit task"
+                              >
+                                <span>✏️</span>
+                                <span>Edit</span>
+                              </button>
+
+                              {/* 3. Delete Task Button */}
+                              <button
+                                onClick={() => handleDeleteTask(task)}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 bg-rose-950/40 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 hover:border-rose-500 cursor-pointer"
+                                title="Delete task"
+                              >
+                                <span>🗑️</span>
+                                <span>Delete</span>
+                              </button>
+
+                              {/* 4. Status Dropdown */}
                               <div className="relative">
                                 <select
                                   value={task.status}
@@ -1430,6 +1537,139 @@ export default function DesignerModal({ agency, manager, onClose, onRefresh }: D
                     className="px-5 py-2 bg-gradient-to-r from-purple-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition"
                   >
                     ⚡ Create Non-Project Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Task Modal */}
+        {editingTask && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-[#0f172a] border border-amber-500/60 rounded-2xl w-full max-w-lg p-6 shadow-[0_0_50px_rgba(245,158,11,0.3)] space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span className="text-amber-400">✏️</span> Edit Task
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Modify design task details and deliverables</p>
+                </div>
+                <button
+                  onClick={() => setEditingTask(null)}
+                  className="text-slate-400 hover:text-white text-lg px-2 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Task Title: *</label>
+                  <input
+                    type="text"
+                    value={editTaskInput.title}
+                    onChange={e => setEditTaskInput({ ...editTaskInput, title: e.target.value })}
+                    className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2.5 text-slate-200 outline-none focus:border-amber-400 font-medium"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1 font-semibold">Description:</label>
+                  <textarea
+                    value={editTaskInput.description}
+                    onChange={e => setEditTaskInput({ ...editTaskInput, description: e.target.value })}
+                    className="w-full h-20 bg-[#080d14] border border-slate-700 rounded-lg p-2.5 text-slate-200 outline-none focus:border-amber-400 resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Phase:</label>
+                    <select
+                      value={editTaskInput.phase}
+                      onChange={e => setEditTaskInput({ ...editTaskInput, phase: e.target.value })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="discovery">Discovery</option>
+                      <option value="architecture">Architecture</option>
+                      <option value="design">Design</option>
+                      <option value="development">Development</option>
+                      <option value="testing">Testing</option>
+                      <option value="launch">Launch</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Priority:</label>
+                    <select
+                      value={editTaskInput.priority}
+                      onChange={e => setEditTaskInput({ ...editTaskInput, priority: e.target.value as any })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="low">Low Priority</option>
+                      <option value="medium">Medium Priority</option>
+                      <option value="high">High Priority</option>
+                      <option value="urgent">Urgent Priority</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Assigned Role:</label>
+                    <select
+                      value={editTaskInput.assignedTo}
+                      onChange={e => setEditTaskInput({ ...editTaskInput, assignedTo: e.target.value })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    >
+                      <option value="designer">Lead Designer</option>
+                      <option value="frontend">Frontend Dev</option>
+                      <option value="backend">Backend Dev</option>
+                      <option value="founder">Executive Founder</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Est. Hours:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={80}
+                      value={editTaskInput.estimatedHours}
+                      onChange={e => setEditTaskInput({ ...editTaskInput, estimatedHours: Number(e.target.value) || 1 })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">XP Reward:</label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={1000}
+                      step={10}
+                      value={editTaskInput.xpReward}
+                      onChange={e => setEditTaskInput({ ...editTaskInput, xpReward: Number(e.target.value) || 10 })}
+                      className="w-full bg-[#080d14] border border-slate-700 rounded-lg p-2 text-slate-200 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                  <button
+                    onClick={() => setEditingTask(null)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveTaskEdit}
+                    disabled={!editTaskInput.title.trim()}
+                    className="px-5 py-2 bg-gradient-to-r from-purple-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.4)] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </div>
