@@ -92,6 +92,18 @@ export async function updateTaskStatusCloud(taskId: string, status: string, comp
   }
 }
 
+export async function deleteTaskCloud(taskId: string) {
+  try {
+    const { error } = await client
+      .from('tasks')
+      .delete()
+      .eq('id', taskId);
+    if (error) console.warn('Supabase deleteTask error:', error.message);
+  } catch (e) {
+    console.warn('Network error deleting task from Supabase:', e);
+  }
+}
+
 /**
  * 3. Project Cloud Operations
  */

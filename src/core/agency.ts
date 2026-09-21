@@ -21,7 +21,8 @@ import {
   upsertProjectCloud,
   syncAgencyResourcesCloud,
   syncAgencyStatsCloud,
-  updateTaskStatusCloud
+  updateTaskStatusCloud,
+  deleteTaskCloud
 } from '../services/dbService';
 import { getMultiplayerManager } from './multiplayer';
 
@@ -70,6 +71,7 @@ export class AgencyManager {
         this.save();
       }
     }
+    this.ensureDefaultTeamMembers();
     // Attempt background cloud hydration & realtime subscription
     this.initCloudSync();
   }
@@ -525,6 +527,7 @@ export class AgencyManager {
           return true;
         }
         this.state = loaded;
+        this.ensureDefaultTeamMembers();
         if (!this.state.roleAccessCodes || this.state.roleAccessCodes.length === 0) {
           this.state.roleAccessCodes = this.getDefaultRoleAccessCodes();
           this.save();
@@ -605,10 +608,15 @@ export class AgencyManager {
       this.state.tasks[index] = { ...this.state.tasks[index], ...updates };
       this.save();
       this.broadcastTasksSync('update', this.state.tasks[index]);
+      upsertTaskCloud(this.state.tasks[index]);
       if (updates.status) {
         updateTaskStatusCloud(id, updates.status, updates.completedAt || null);
       }
     }
+  }
+
+  reassignTask(taskId: string, newAssignedTo: string | null) {
+    this.updateTask(taskId, { assignedTo: newAssignedTo });
   }
 
   completeTask(id: string) {
@@ -643,6 +651,7 @@ export class AgencyManager {
     this.state.tasks = this.state.tasks.filter(t => t.id !== id);
     this.save();
     this.broadcastTasksSync('delete', { id } as any);
+    deleteTaskCloud(id);
   }
 
   getTasksByProject(projectId: string): AgencyTask[] {
@@ -1022,9 +1031,7 @@ export class AgencyManager {
         reputation: 50,
         knowledge: 0
       },
-      team: [
-        { id: 'founder', name: 'Founder', role: 'Founder & CEO', room: 'management', xp: 0, level: 1, status: 'idle', skills: ['Architecture', 'Strategy', 'Client Relations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 }
-      ],
+      team: this.getDefaultTeamMembers(),
       projects: [],
       tasks: [],
       leads: [],
@@ -1047,6 +1054,31 @@ export class AgencyManager {
       },
       roleAccessCodes: this.getDefaultRoleAccessCodes()
     };
+  }
+
+  getDefaultTeamMembers(): TeamMember[] {
+    return [
+      { id: 'founder', name: 'Founder & CEO', role: 'Founder & CEO', room: 'management', xp: 0, level: 1, status: 'idle', skills: ['Architecture', 'Strategy', 'Client Relations'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+      { id: 'frontend', name: 'Alex Rivera', role: 'Frontend Developer', room: 'dev', xp: 0, level: 1, status: 'idle', skills: ['React', 'TypeScript', 'Tailwind CSS', 'UI/UX'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+      { id: 'backend', name: 'Marcus Vance', role: 'Backend Developer', room: 'dev', xp: 0, level: 1, status: 'idle', skills: ['Node.js', 'PostgreSQL', 'APIs', 'Database Architecture'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+      { id: 'designer', name: 'Elena Rostova', role: 'Lead Designer', room: 'design', xp: 0, level: 1, status: 'idle', skills: ['Figma', 'UI/UX Design', 'Design Systems', '3D Graphics'], currentTaskId: null, capacityHoursPerWeek: 40, assignedHours: 0 },
+    ];
+  }
+
+  ensureDefaultTeamMembers() {
+    if (!this.state.team || !Array.isArray(this.state.team) || this.state.team.length === 0) {
+      this.state.team = this.getDefaultTeamMembers();
+      return;
+    }
+    const defaults = this.getDefaultTeamMembers();
+    for (const def of defaults) {
+      const exists = this.state.team.some(
+        m => m.id === def.id || (m.name && m.name.toLowerCase().includes(def.id)) || (def.id !== 'founder' && m.role && m.role.toLowerCase().includes(def.id))
+      );
+      if (!exists) {
+        this.state.team.push(def);
+      }
+    }
   }
 
   getDefaultRoleAccessCodes(): RoleAccessCode[] {

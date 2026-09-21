@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AgencyState, Project, ProjectPhase, HealthStatus, AgencyTask, TaskPhase } from '../../core/agencyTypes';
 import AgencyManager from '../../core/agency';
+import { getDeskBadge } from './TasksTab';
 
 interface ProjectsTabProps {
   agency: AgencyState;
@@ -44,6 +45,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
   // Quick Task in Project Detail state
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPhase, setNewTaskPhase] = useState<TaskPhase>('development');
+  const [newTaskAssignedTo, setNewTaskAssignedTo] = useState<string>('frontend');
   const [notification, setNotification] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -127,7 +129,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
       title: `${formData.name} — Requirements Discovery & Scope`,
       description: `Initial client architecture discovery for ${formData.clientName}`,
       projectId: newProj.id,
-      assignedTo: agency.team[0]?.id || null,
+      assignedTo: 'founder',
       phase: 'discovery',
       status: 'active',
       priority: 'high',
@@ -151,7 +153,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
       title: newTaskTitle.trim(),
       description: `Task for ${selectedProject.name}`,
       projectId: selectedProject.id,
-      assignedTo: agency.team[0]?.id || null,
+      assignedTo: newTaskAssignedTo || null,
       phase: newTaskPhase,
       status: 'active',
       priority: 'medium',
@@ -162,7 +164,8 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
     });
 
     setNewTaskTitle('');
-    showToast(`📋 Added task to ${selectedProject.name}`);
+    const desk = getDeskBadge(newTaskAssignedTo, agency.team);
+    showToast(`📋 Added task assigned to ${desk.shortName}`);
     onRefresh();
   };
 
@@ -681,40 +684,82 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                   ) : (
                     agency.tasks.filter(t => t.projectId === selectedProject.id).map(task => {
                       const isDone = task.status === 'done';
-                      const assignedMember = agency.team.find(m => m.id === task.assignedTo);
+                      const desk = getDeskBadge(task.assignedTo, agency.team);
 
                       return (
                         <div 
                           key={task.id} 
-                          onClick={() => {
-                            if (!isDone) {
-                              manager.completeTask(task.id);
-                              showToast(`✅ Completed ${task.title}!`);
-                              onRefresh();
-                            }
-                          }}
-                          className={`p-2.5 rounded border flex items-center justify-between gap-3 cursor-pointer transition ${
+                          className={`p-2.5 rounded border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition ${
                             isDone ? 'bg-slate-900/40 border-slate-800 text-slate-500 line-through' : 'bg-[#0e1622] border-slate-800 hover:border-cyan-600/40 text-slate-200'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5">
+                          <div 
+                            className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
+                            onClick={() => {
+                              if (!isDone) {
+                                manager.completeTask(task.id);
+                                showToast(`✅ Completed ${task.title}!`);
+                                onRefresh();
+                              }
+                            }}
+                          >
                             <input 
                               type="checkbox" 
                               checked={isDone} 
                               readOnly 
                               className="rounded border-slate-700 text-cyan-600 cursor-pointer" 
                             />
-                            <div>
-                              <span className="text-xs font-medium block leading-tight">{task.title}</span>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-xs font-medium block leading-tight truncate">{task.title}</span>
                               <span className="text-[10px] text-slate-500 block">
-                                Phase: {task.phase} · Assigned: {assignedMember?.name || 'Unassigned'}
+                                Phase: {task.phase} · {task.estimatedHours}h
                               </span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 font-mono text-[10px]">
-                            <span className="text-amber-400 font-bold">+{task.xpReward} XP</span>
-                            <span className="text-slate-500">{task.estimatedHours}h</span>
+                          {/* Quick Desk Reassignment Selector & Actions */}
+                          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap" onClick={e => e.stopPropagation()}>
+                            <select
+                              value={task.assignedTo || ''}
+                              onChange={e => {
+                                const newAssigned = e.target.value || null;
+                                manager.updateTask(task.id, { assignedTo: newAssigned });
+                                const d = getDeskBadge(newAssigned, agency.team);
+                                showToast(`🔄 Assigned to ${d.shortName}`);
+                                onRefresh();
+                              }}
+                              className={`text-[10px] px-2 py-0.5 rounded border font-medium cursor-pointer outline-none transition ${desk.color}`}
+                              title="Click to reassign to another desk"
+                            >
+                              <option value="" className="bg-[#0b1016] text-slate-300">Unassigned</option>
+                              <option value="frontend" className="bg-[#0b1016] text-pink-300">🌸 Frontend Dev</option>
+                              <option value="backend" className="bg-[#0b1016] text-cyan-300">🕷️ Backend Dev</option>
+                              <option value="designer" className="bg-[#0b1016] text-amber-300">🎨 Lead Designer</option>
+                              <option value="founder" className="bg-[#0b1016] text-emerald-300">👑 Founder HQ</option>
+                              {agency.team.filter(m => !['frontend', 'backend', 'designer', 'founder'].includes(m.id)).map(m => (
+                                <option key={m.id} value={m.id} className="bg-[#0b1016] text-purple-300">👤 {m.name}</option>
+                              ))}
+                            </select>
+
+                            <div className="flex items-center gap-1 font-mono text-[10px]">
+                              <span className="text-amber-400 font-bold">+{task.xpReward} XP</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Delete sprint task "${task.title}"?`)) {
+                                  manager.deleteTask(task.id);
+                                  showToast(`🗑️ Deleted ${task.title}`);
+                                  onRefresh();
+                                }
+                              }}
+                              className="p-1 text-slate-500 hover:text-rose-400 rounded transition"
+                              title="Delete task"
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </div>
                       );
@@ -723,15 +768,30 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                 </div>
 
                 {/* Quick Add Task to Project Form */}
-                <form onSubmit={handleAddTaskToProject} className="mt-3 pt-3 border-t border-slate-800/80 flex gap-2">
+                <form onSubmit={handleAddTaskToProject} className="mt-3 pt-3 border-t border-slate-800/80 flex flex-wrap sm:flex-nowrap gap-2">
                   <input
                     type="text"
                     required
                     placeholder="New sprint task title..."
                     value={newTaskTitle}
                     onChange={e => setNewTaskTitle(e.target.value)}
-                    className="flex-1 bg-[#0b1016] border border-slate-800 rounded p-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                    className="flex-1 bg-[#0b1016] border border-slate-800 rounded p-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 min-w-[150px]"
                   />
+                  <select
+                    value={newTaskAssignedTo}
+                    onChange={e => setNewTaskAssignedTo(e.target.value)}
+                    className="bg-[#0b1016] border border-slate-800 rounded p-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                    title="Assign to Desk / Role"
+                  >
+                    <option value="frontend">🌸 Frontend Dev</option>
+                    <option value="backend">🕷️ Backend Dev</option>
+                    <option value="designer">🎨 Lead Designer</option>
+                    <option value="founder">👑 Founder HQ</option>
+                    {agency.team.filter(m => !['frontend', 'backend', 'designer', 'founder'].includes(m.id)).map(m => (
+                      <option key={m.id} value={m.id}>👤 {m.name}</option>
+                    ))}
+                    <option value="">Unassigned</option>
+                  </select>
                   <select
                     value={newTaskPhase}
                     onChange={e => setNewTaskPhase(e.target.value as TaskPhase)}
@@ -745,7 +805,7 @@ export default function ProjectsTab({ agency, manager, onRefresh }: ProjectsTabP
                   </select>
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition"
+                    className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition whitespace-nowrap"
                   >
                     + Add Task
                   </button>
